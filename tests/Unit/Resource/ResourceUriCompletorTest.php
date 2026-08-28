@@ -39,12 +39,16 @@ final class ResourceUriCompletorTest extends TestCase
         $labels = array_map(fn (CompletionItem $item): string => $item->label, $items);
         self::assertContains('app://self/blog/posts', $labels);
         self::assertContains('app://self/user', $labels);
+        // 別名インポート経由の間接継承も候補に出る (PLAN.md §2.17)
+        self::assertContains('app://self/indirectAlias', $labels);
         // ResourceObject を継承しないクラスは候補に出ない
         self::assertNotContains('app://self/notAResource', $labels);
         // 独自の基底クラス (MyResourceObject) を継承するクラスは候補に出ない
         self::assertNotContains('app://self/extendsCustomBase', $labels);
         // docblock に 'extends ResourceObject' と書いてあるだけのクラスは候補に出ない
         self::assertNotContains('app://self/docblockMention', $labels);
+        // 辿っても ResourceObject に行き着かないクラスは候補に出ない
+        self::assertNotContains('app://self/indirectNotResource', $labels);
     }
 
     public function testFiltersByPartialUri(): void

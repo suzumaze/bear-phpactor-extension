@@ -87,14 +87,177 @@ function toPosition(string $text, int $offset): array
 }
 
 /**
- * リソースクラスの宣言を素の正規表現で集める。
- * 拡張は構文解析で判定するので、ここで docblock 由来の誤検出が出たら
- * 「拡張が正しく無視した」側であり、差分の説明はそちらに書く。
+ * アプリの composer.json から psr-4 対応表 (autoload + autoload-dev) を読む。
+ * プレフィックスは末尾 '\' 付き、ディレクトリは末尾 '/' 無しに正規化する。
+ *
+ * @return array<string, list<string>>
+ */
+function psr4Map(string $app): array
+{
+    $json = json_decode((string) file_get_contents($app . '/composer.json'), true);
+    if (!is_array($json)) {
+        return [];
+    }
+    $map = [];
+    foreach (['autoload', 'autoload-dev'] as $section) {
+        $psr4 = $json[$section]['psr-4'] ?? null;
+        if (!is_array($psr4)) {
+            continue;
+        }
+        foreach ($psr4 as $prefix => $dirs) {
+            if (!is_string($prefix)) {
+                continue;
+            }
+            $prefix = rtrim($prefix, '\\') . '\\';
+            foreach ((array) $dirs as $dir) {
+                if (!is_string($dir)) {
+                    continue;
+                }
+                $map[$prefix][] = rtrim($dir, '/');
+            }
+        }
+    }
+
+    return $map;
+}
+
+/**
+ * ファイルパスを psr-4 対応表で完全修飾名に変換する。対応が無ければ null。
+ */
+function fqnForFile(string $file, string $app, array $psr4): ?string
+{
+    $normalized = str_replace('\\', '/', $file);
+    $best = null;
+    $bestLen = -1;
+    foreach ($psr4 as $prefix => $dirs) {
+        foreach ($dirs as $dir) {
+            $base = str_starts_with($dir, '/') ? rtrim($dir, '/') : $app . '/' . rtrim($dir, '/');
+            if ($normalized !== $base && !str_starts_with($normalized, $base . '/')) {
+                continue;
+            }
+            if (strlen($base) <= $bestLen) {
+                continue;
+            }
+            $bestLen = strlen($base);
+            $rest = trim(substr($normalized, strlen($base)), '/');
+            $rest = substr($rest, 0, -4); // 末尾の .php を除く
+            $best = $rest === '' ? $prefix : $prefix . str_replace('/', '\\', $rest);
+        }
+    }
+
+    return $best;
+}
+
+/**
+ * アプリ全体のクラス対応表 (完全修飾名 → ファイル) を psr-4 から作る。
+ * 中間の基底クラスはリソースのディレクトリの外 (src/Domain/ など) にいるため、
+ * Resource ディレクトリだけではなく phpFiles($app) 全体から作る。
+ *
+ * 同じ完全修飾名のファイルが2つあるとき (psr-4 が src/ と tests/ の両方を指す
+ * 等) は先に来たほうを残す。phpFiles() は並べ替えるので src/ が tests/ より先に
+ * 来て、本物のコードが勝つ。衝突は黙って捨てず、件数を $collisions に数える。
+ *
+ * @param int $collisions 同じ完全修飾名を2回以上見た回数 (参照で返す)
+ *
+ * @return array<string, string>
+ */
+function classMap(string $app, array $psr4, int &$collisions): array
+{
+    $map = [];
+    foreach (phpFiles($app) as $file) {
+        $fqn = fqnForFile($file, $app, $psr4);
+        if ($fqn === null) {
+            continue;
+        }
+        if (isset($map[$fqn])) {
+            $collisions++;
+            continue;
+        }
+        $map[$fqn] = $file;
+    }
+
+    return $map;
+}
+
+/**
+ * ノードツリーから最初のクラス宣言を探す (文書順)。
+ */
+function firstClassDeclaration(Microsoft\PhpParser\Node $node): ?Microsoft\PhpParser\Node\Statement\ClassDeclaration
+{
+    if ($node instanceof Microsoft\PhpParser\Node\Statement\ClassDeclaration) {
+        return $node;
+    }
+    foreach ($node->getChildNodes() as $child) {
+        $found = firstClassDeclaration($child);
+        if ($found !== null) {
+            return $found;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * 完全修飾名が BEAR\Resource\ResourceObject に (間接的に) 行き着くか。
+ * 継承の連鎖はクラス対応表でファイルを引き、ディスクから読んで辿る。
+ * 深さの上限 (20) と循環の検出を持つ。拡張のクラスは使わない (循環論法の防止)。
+ *
+ * @param array<string, string> $classMap 完全修飾名 → ファイル
+ * @param array<string, bool>   $memo     完全修飾名 → リソースか (メモ化)
+ * @param list<string>          $chain    現在の連鎖 (循環の検出用)
+ */
+function extendsResourceObject(array $classMap, string $fqn, array &$memo, array $chain, int $depth, Microsoft\PhpParser\Parser $parser): bool
+{
+    if ($fqn === 'BEAR\Resource\ResourceObject') {
+        return true;
+    }
+    if (isset($memo[$fqn])) {
+        return $memo[$fqn];
+    }
+    if ($depth >= 20) {
+        return false;
+    }
+    if (in_array($fqn, $chain, true)) {
+        return false;
+    }
+    $file = $classMap[$fqn] ?? null;
+    if ($file === null) {
+        return false;
+    }
+    $text = (string) file_get_contents($file);
+    $class = firstClassDeclaration($parser->parseSourceFile($text));
+    if ($class === null || $class->classBaseClause === null || $class->classBaseClause->baseClass === null) {
+        return false;
+    }
+    $parent = $class->classBaseClause->baseClass->getResolvedName();
+    if ($parent === null) {
+        return false;
+    }
+    $result = extendsResourceObject($classMap, (string) $parent, $memo, [...$chain, $fqn], $depth + 1, $parser);
+    $memo[$fqn] = $result;
+
+    return $result;
+}
+
+/**
+ * リソースクラスの宣言を集める。
+ *
+ * クラス宣言は構文解析で探し (拡張と同じ「最初のクラス宣言」の規則)、継承の
+ * 連鎖は psr-4 対応表でファイルを引き、ディスクから読んで辿る。拡張と同じ規則
+ * を独立に書き下したもの (共有はしない)。docblock 由来の誤検出は構文解析で
+ * 拾わない。起点のクラスは解析済みの宣言から判定する (完全修飾名で対応表を
+ * 引き直すと、同じ完全修飾名の別ファイルに上書きされて本物が落ちる)。
+ *
+ * @param int $collisions classMap() が数えた完全修飾名の衝突件数 (参照で返す)
  *
  * @return list<array{file: string, name: string, offset: int, uri: string}>
  */
-function resourceClasses(string $app): array
+function resourceClasses(string $app, int &$collisions): array
 {
+    $psr4 = psr4Map($app);
+    $classMap = classMap($app, $psr4, $collisions);
+    $parser = new Microsoft\PhpParser\Parser();
+    $memo = [];
     $out = [];
     foreach (phpFiles($app) as $file) {
         $normalized = str_replace('\\', '/', $file);
@@ -102,7 +265,26 @@ function resourceClasses(string $app): array
             continue;
         }
         $text = (string) file_get_contents($file);
-        if (!preg_match('/\bclass\s+(\w+)\s+extends\s+ResourceObject\b/', $text, $cm, PREG_OFFSET_CAPTURE)) {
+        $class = firstClassDeclaration($parser->parseSourceFile($text));
+        if ($class === null || $class->name === null) {
+            continue;
+        }
+        $fqn = fqnForFile($file, $app, $psr4);
+        if ($fqn === null) {
+            continue;
+        }
+        // 起点は解析済みの宣言から。完全修飾名で対応表を引き直すと、同じ完全
+        // 修飾名のファイルが2つあるとき (psr-4 が src/ と tests/ の両方を指す
+        // 等) あとから来たほうに上書きされ、本物のリソースが黙って落ちる。
+        // 対応表を引くのは親をたどるときだけで十分 (親は別ファイルにある)。
+        if ($class->classBaseClause === null || $class->classBaseClause->baseClass === null) {
+            continue;
+        }
+        $parent = $class->classBaseClause->baseClass->getResolvedName();
+        if ($parent === null) {
+            continue;
+        }
+        if (!extendsResourceObject($classMap, (string) $parent, $memo, [], 0, $parser)) {
             continue;
         }
 
@@ -113,8 +295,8 @@ function resourceClasses(string $app): array
 
         $out[] = [
             'file' => $file,
-            'name' => $cm[1][0],
-            'offset' => $cm[1][1],
+            'name' => $class->name->getText($text),
+            'offset' => $class->name->getStartPosition(),
             'uri' => strtolower($m[1]) . '://self/' . $path,
         ];
     }
@@ -339,7 +521,8 @@ fwrite(STDERR, sprintf("indexed in %.1fs\n", microtime(true) - $indexStart));
 
 // ---- 測定 --------------------------------------------------------------
 
-$classes = resourceClasses($app);
+$collisions = 0;
+$classes = resourceClasses($app, $collisions);
 if ($only !== null) {
     $classes = array_values(array_filter($classes, static fn (array $c): bool => (bool) preg_match('#' . $only . '#', $c['file'])));
 }
@@ -475,6 +658,7 @@ $q = static fn (array $xs, float $p): float => $xs === [] ? 0.0 : $xs[(int) min(
 echo "\n対象: {$app}\n";
 echo str_repeat('=', 76), "\n";
 printf("リソースクラス                       %4d\n", $totals['classes']);
+printf("psr-4 完全修飾名の衝突 (先勝ち)      %4d\n", $collisions);
 printf("返ってきた参照の総数                 %4d\n", $totals['returned']);
 printf("  うち文字列一致の期待集合と一致     %4d\n", $totals['agreed']);
 printf("  期待集合に無いのに返った (超過)    %4d\n", $totals['extra']);

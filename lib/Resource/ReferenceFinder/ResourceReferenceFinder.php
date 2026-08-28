@@ -11,6 +11,7 @@ use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
 use Suzumaze\BearPhpactor\Util\PathGuard;
 use Suzumaze\BearPhpactor\Util\PhpClassDeclaration;
 use Suzumaze\BearPhpactor\Util\ProjectLocator;
+use Suzumaze\BearPhpactor\Util\ResourceObjectInheritance;
 use FilesystemIterator;
 use Generator;
 use Microsoft\PhpParser\Node\StringLiteral;
@@ -50,11 +51,22 @@ final class ResourceReferenceFinder implements ReferenceFinder
         // の継承も無いドキュメントは参照検索の対象ではない。構文解析より先に降りる
         // (LocatorEntryPointTest と同じ流儀。当拡張は連鎖の先頭に居るので、全PHP
         // ファイルの全参照検索で最初に走ることになる)。
+        //
+        // ただし間接継承のリソース (class Foo extends Bar で Bar が ResourceObject
+        // を継承する形。PLAN.md §2.17 で実測した505本中21本) は、本文にこの3語を
+        // 1つも含まない。リソースクラスは規約上 /Resource/App/ か /Resource/Page/
+        // の下に置かれるので、パスにその区切りがあれば本文の検査に加えて通過
+        // させる。文字列検査のみで構文解析はしない。リソースでないのに通過する
+        // 誤検出は後段の継承チェックが空で落とす (LocatorEntryPointTest の注記:
+        // 誤検出は許容、取りこぼしは禁止)。
         $text = $document->__toString();
+        $path = $document->uri()?->path() ?? '';
         if (
             !str_contains($text, 'app://')
             && !str_contains($text, 'page://')
             && !str_contains($text, 'ResourceObject')
+            && !str_contains($path, '/Resource/App/')
+            && !str_contains($path, '/Resource/Page/')
         ) {
             return false;
         }
@@ -211,8 +223,16 @@ final class ResourceReferenceFinder implements ReferenceFinder
         if ($class->classBaseClause === null || $class->classBaseClause->baseClass === null) {
             return null;
         }
-        $resolved = $class->classBaseClause->baseClass->getResolvedName();
-        if ($resolved === null || (string) $resolved !== 'BEAR\Resource\ResourceObject') {
+        // 継承の連鎖を辿る (class Foo extends Bar で Bar extends ResourceObject の
+        // とき Foo もリソース。PLAN.md §2.17)。親クラスはディスクから読むため、
+        // 未保存の編集は親クラス側には反映されない (ResourceObjectInheritance の
+        // コメント参照)。
+        $found = ProjectLocator::locate($path);
+        if ($found === null) {
+            return null;
+        }
+        $inheritance = new ResourceObjectInheritance($found['root'], $found['psr4'], $this->parser);
+        if (!$inheritance->extendsResourceObject($class)) {
             return null;
         }
 

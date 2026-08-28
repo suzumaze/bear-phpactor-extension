@@ -7,6 +7,7 @@ namespace Suzumaze\BearPhpactor\Resource\Model;
 use Suzumaze\BearPhpactor\Util\PathGuard;
 use Suzumaze\BearPhpactor\Util\PhpClassDeclaration;
 use Suzumaze\BearPhpactor\Util\ProjectLocator;
+use Suzumaze\BearPhpactor\Util\ResourceObjectInheritance;
 use FilesystemIterator;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -31,6 +32,8 @@ final class Project
         private string $fromPath = '',
     ) {
     }
+
+    private ?ResourceObjectInheritance $inheritance = null;
 
     /**
      * ファイルパスから、それを含むプロジェクトを探す (composer.json を上方向に探索)。
@@ -310,18 +313,27 @@ final class Project
     }
 
     /**
-     * ファイル内のクラスが BEAR\Resource\ResourceObject を継承しているか。
-     * 構文解析で判定するため、'extends MyResourceObject' や docblock 中の
-     * 'extends ResourceObject' という文言にはマッチしない。
+     * ファイル内のクラスが BEAR\Resource\ResourceObject を (間接的に) 継承して
+     * いるか。構文解析で判定するため、'extends MyResourceObject' や docblock 中
+     * の 'extends ResourceObject' という文言にはマッチしない。継承の連鎖は
+     * ResourceObjectInheritance が psr-4 対応表で辿る (PLAN.md §2.17)。
      */
     private function extendsResourceObject(string $path): bool
     {
         $class = PhpClassDeclaration::find($path);
-        if ($class === null || $class->classBaseClause === null || $class->classBaseClause->baseClass === null) {
+        if ($class === null) {
             return false;
         }
-        $resolved = $class->classBaseClause->baseClass->getResolvedName();
 
-        return $resolved !== null && (string) $resolved === 'BEAR\Resource\ResourceObject';
+        return $this->inheritance()->extendsResourceObject($class);
+    }
+
+    /**
+     * 継承の連鎖を辿る共通部品。resourceClasses() はファイルごとに走るため、
+     * 同じ親クラスを何度も解析しないよう Project インスタンスごとに1つ持つ。
+     */
+    private function inheritance(): ResourceObjectInheritance
+    {
+        return $this->inheritance ??= new ResourceObjectInheritance($this->root, $this->psr4);
     }
 }

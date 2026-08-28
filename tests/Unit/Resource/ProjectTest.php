@@ -60,6 +60,15 @@ final class ProjectTest extends TestCase
         self::assertArrayNotHasKey('app://self/extendsCustomBase', $classes);
         // docblock に 'extends ResourceObject' と書いてあるだけのクラスは候補に含めない
         self::assertArrayNotHasKey('app://self/docblockMention', $classes);
+        // 別名インポート経由の間接継承 (実アプリの形) は候補に含める
+        self::assertArrayHasKey('app://self/indirectAlias', $classes);
+        // 2段の連鎖 (孫) も候補に含める
+        self::assertArrayHasKey('app://self/indirectGrandchild', $classes);
+        // 辿っても ResourceObject に行き着かないクラスは候補に含めない
+        self::assertArrayNotHasKey('app://self/indirectNotResource', $classes);
+        // 循環する継承 (A extends B かつ B extends A) は候補に含めない
+        self::assertArrayNotHasKey('app://self/cycleA', $classes);
+        self::assertArrayNotHasKey('app://self/cycleB', $classes);
         self::assertSame('Acme\Blog\Resource\App\User', $classes['app://self/user']);
     }
 

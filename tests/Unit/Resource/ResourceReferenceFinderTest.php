@@ -145,19 +145,23 @@ final class ResourceReferenceFinderTest extends TestCase
 
     public function testSkipsDocumentWithoutResourceMarkers(): void
     {
-        // リソースの目印 (app:// / page:// / ResourceObject) が1つも無い
-        // ドキュメントは、findReferences() 冒頭の安価な事前判定で降りる。
-        // 構文解析にすら入らない (パーサーのモックが呼ばれないことで担保)。
+        // リソースの目印 (app:// / page:// / ResourceObject) が1つも無く、
+        // /Resource/App/ や /Resource/Page/ の下にも無いドキュメントは、
+        // findReferences() 冒頭の安価な事前判定で降りる。構文解析にすら
+        // 入らない (パーサーのモックが呼ばれないことで担保)。
         // ※ これは「カーソル位置が無関係かどうか」とは独立の入口の判定。
         // 「カーソルが無関係な位置」の検証は testDoesNotScanProjectAtUnrelatedPosition
         // が担う (こちらはリソースの目印を含むドキュメントでないと意味が無い)。
+        // ※ 目印が無くても /Resource/App/ /Resource/Page/ の下にあるドキュメントは
+        // 通過する (間接継承のリソースは本文に目印を持たない。PLAN.md §2.17)。
+        // 通過した非リソースは後段の継承チェックが空で落とす。
         $finder = new ResourceReferenceFinder(
             new StringLiteralAtOffset($this->parserThatMustNotRun()),
             new ResourceTargetResolver(),
             $this->parserThatMustNotRun(),
         );
         $document = TextDocumentBuilder::create("<?php\n\$x = 'hello';\n")
-            ->uri('file://' . self::fixtureDir() . '/src/Resource/App/Article.php')
+            ->uri('file://' . self::fixtureDir() . '/src/Domain/ArticleBase.php')
             ->language('php')
             ->build();
 
@@ -198,6 +202,43 @@ final class ResourceReferenceFinderTest extends TestCase
         $response = $this->requestReferences(
             'tests/Resource/App/ArticleTest.php',
             'final class ArticleTest',
+            false
+        );
+
+        self::assertSame([], $this->asReferences($response->result));
+    }
+
+    public function testFindsReferencesFromIndirectClassDeclaration(): void
+    {
+        // 別名インポート経由の間接継承 (PLAN.md §2.17 の欠陥の修正)。
+        // IndirectArticle extends ValidArticleBase (ArticleBase の別名) で、
+        // ArticleBase は ResourceObject を継承する。クラス宣言名の上で参照検索
+        // すると IndirectCaller.php の #[Link] が返る。修正前は0件だった。
+        $response = $this->requestReferences(
+            'src/Resource/App/IndirectArticle.php',
+            'final class IndirectArticle',
+            false
+        );
+
+        $file = self::fixtureDir() . '/src/Resource/App/IndirectCaller.php';
+        $content = (string) file_get_contents($file);
+        $literal = "'app://self/indirectArticle'";
+        [$line, $char] = $this->positionOf($literal, $content);
+
+        self::assertSame([
+            ['file://' . $file, $line, $char, $line, $char + strlen($literal)],
+        ], $this->asReferences($response->result));
+    }
+
+    public function testReturnsEmptyForIndirectNonResourceClass(): void
+    {
+        // 否定側の対照: Resource/App/ にあるが、辿っても ResourceObject に
+        // 行き着かないクラス (IndirectNotResource extends PlainBase) では、
+        // クラス名の上でも参照検索は空を返す。判定を広げたとき、広がりすぎ
+        // ないことの検査。
+        $response = $this->requestReferences(
+            'src/Resource/App/IndirectNotResource.php',
+            'final class IndirectNotResource',
             false
         );
 
