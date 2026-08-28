@@ -1,0 +1,8 @@
+parameters:
+    level: 5
+    paths:
+        - lib
+        - tests/Unit
+    excludePaths:
+        - tests/Fixture
+    phpVersion: 80200

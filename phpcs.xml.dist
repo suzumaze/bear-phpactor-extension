@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<ruleset name="suzumaze/bear-phpactor-extension">
+    <description>PSR-12 coding standard for lib/ and tests/</description>
+
+    <file>lib</file>
+    <file>tests</file>
+
+    <rule ref="PSR12"/>
+
+    <!--
+        LSPテストのカーソル位置マーカー `<caret>` をクラス名に埋め込むため、
+        意図的にPHPとして不完全な10ファイルは検査対象外。
+        (テストはマーカーを除去したテキストをパースする)
+    -->
+    <exclude-pattern>tests/Fixture/JsonSchema/basic/src/Resource/App/(BodyTypeDemo|NoSchema|User)\.php</exclude-pattern>
+    <exclude-pattern>tests/Fixture/JsonSchema/basic/src/Resource/App/Cache/(ArticlePreview|ArticleList|ArticleTags|AuthorProfile|AuthorList|Orphan)\.php</exclude-pattern>
+    <exclude-pattern>tests/Fixture/JsonSchema/basic/src/Resource/Page/Admin/UserProfile\.php</exclude-pattern>
+</ruleset>

@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>言語サーバーは実際に何をしているのか — phpactorの通信を1バイトずつ読む</title>
+<style>
+:root {
+  color-scheme: light dark;
+
+  --ink:        light-dark(#1a1a1a, #e8e6e3);
+  --ink-soft:   light-dark(#565248, #a8a29a);
+  --paper:      light-dark(#fbfaf8, #16161a);
+  --panel:      light-dark(#ffffff, #1f1f25);
+  --rule:       light-dark(#ddd8d0, #33333d);
+  --accent:     light-dark(#8a3324, #e8a598);
+  --accent-dim: light-dark(#f3eae7, #2c2226);
+  --client:     light-dark(#1f5c8b, #7fb8e0);
+  --server:     light-dark(#5a6f2f, #a8c465);
+
+  --mono: ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+  --sans: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+
+  accent-color: var(--accent);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16.5px;
+  line-height: 1.9;
+  -webkit-text-size-adjust: 100%;
+}
+
+.wrap { max-width: 47rem; margin-inline: auto; padding: 3.5rem 1.5rem 6rem; }
+
+/* ---- 見出し ---- */
+h1 {
+  font-size: clamp(1.7rem, 4.5vw, 2.4rem);
+  line-height: 1.45;
+  font-weight: 700;
+  letter-spacing: .01em;
+  margin: 0 0 1rem;
+  text-wrap: balance;
+}
+.lead {
+  font-size: 1.02rem;
+  color: var(--ink-soft);
+  margin: 0 0 1rem;
+  text-wrap: pretty;
+}
+.meta {
+  font-size: .82rem;
+  color: var(--ink-soft);
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  padding: .7rem 0;
+  margin-bottom: 3rem;
+}
+
+h2 {
+  font-size: 1.28rem;
+  line-height: 1.6;
+  font-weight: 700;
+  margin: 4rem 0 1.2rem;
+  padding-top: 1.4rem;
+  border-top: 2px solid var(--ink);
+  text-wrap: balance;
+}
+h2 .num {
+  display: block;
+  font-family: var(--mono);
+  font-size: .78rem;
+  font-weight: 400;
+  color: var(--accent);
+  letter-spacing: .12em;
+  margin-bottom: .35rem;
+}
+h3 {
+  font-size: 1.02rem;
+  font-weight: 700;
+  margin: 2.4rem 0 .8rem;
+  padding-left: .7rem;
+  border-left: 3px solid var(--accent);
+}
+
+p { margin: 0 0 1.2rem; text-wrap: pretty; }
+
+/* ---- 本文中の強調 ---- */
+strong { font-weight: 700; background: linear-gradient(transparent 62%, var(--accent-dim) 62%); }
+code {
+  font-family: var(--mono);
+  font-size: .86em;
+  background: var(--accent-dim);
+  padding: .12em .38em;
+  border-radius: 3px;
+}
+
+/* ---- コードブロック ---- */
+figure { margin: 1.6rem 0; }
+figcaption {
+  font-size: .8rem;
+  color: var(--ink-soft);
+  margin-bottom: .45rem;
+  font-family: var(--mono);
+}
+pre {
+  margin: 0;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  font-size: .8rem;
+  line-height: 1.75;
+  tab-size: 2;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+pre:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 通信の向き */
+.dir { display: block; font-weight: 700; letter-spacing: .04em; margin-bottom: .5rem; font-size: .82rem; }
+.c2s .dir { color: var(--client); }
+.s2c .dir { color: var(--server); }
+.c2s pre { border-left: 4px solid var(--client); }
+.s2c pre { border-left: 4px solid var(--server); }
+
+/* ---- 補足ボックス ---- */
+.note {
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--accent);
+  background: var(--panel);
+  padding: 1rem 1.2rem;
+  margin: 1.8rem 0;
+  font-size: .93rem;
+}
+.note > :last-child { margin-bottom: 0; }
+.note b { display: block; margin-bottom: .4rem; }
+
+/* ---- 表 ---- */
+table { border-collapse: collapse; width: 100%; margin: 1.6rem 0; font-size: .9rem; }
+th, td { text-align: left; padding: .6rem .7rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { border-bottom: 2px solid var(--ink); font-weight: 700; white-space: nowrap; }
+td code { white-space: nowrap; }
+
+ul, ol { margin: 0 0 1.2rem; padding-left: 1.4rem; }
+li { margin-bottom: .5rem; }
+
+dl { margin: 1.6rem 0; }
+dt { font-weight: 700; margin-top: 1.3rem; font-family: var(--mono); font-size: .92rem; color: var(--accent); }
+dd { margin: .3rem 0 0; }
+
+footer {
+  margin-top: 5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--rule);
+  font-size: .84rem;
+  color: var(--ink-soft);
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+
+<h1>言語サーバーは、実際には何をしているのか</h1>
+
+<p class="lead">
+エディタの補完や「定義へ移動」の裏側で、実際にどんなバイト列が流れているのか。
+この文書に載せた通信は、すべて手元のphpactorに実際に話しかけて記録した本物です。
+作り話のサンプルは1つもありません。
+</p>
+
+<p class="meta">
+記録日: 2026年8月24日 ／ 対象: phpactor（PHP用の言語サーバー） ／
+記録に使ったスクリプト: <code>docs/capture/lsp-capture.php</code> ／ 全ログ: <code>docs/capture/lsp-capture.txt</code> ／ 題材: <code>docs/capture/lsp-demo/</code>
+</p>
+
+<h2><span class="num">01</span>言語サーバーとは、エディタの外にいる「コードを読める人」</h2>
+
+<p>
+エディタ自身は、開いているファイルがPHPなのかRustなのかを本当は知りません。
+知っているふりをするために、昔はエディタごとに言語ごとの実装を書いていました。
+エディタが10個、言語が20個あれば、200通りの実装が要ります。
+</p>
+
+<p>
+<strong>LSP（Language Server Protocol＝言語サーバープロトコル）</strong>は、そこに1枚の共通の話し方を挟みました。
+言語の知識を持つ<strong>別プロセス</strong>を1つ立て、エディタはそのプロセスに決まった形式で質問する。
+これで200が10＋20、つまり30で済みます。
+Microsoftが2016年にVS Codeのために公開し、いまはVim・Neovim・Emacs・Helix・Zedなど、
+ほぼすべてのエディタが対応しています。
+</p>
+
+<p>
+だから「PHPの言語サーバーを1つ書く」と、その恩恵は特定のエディタに閉じません。
+これがBEAR.Sundayの支援をphpactorの拡張として作る理由です。
+PhpStormのプラグインはPhpStormだけのものですが、言語サーバーの拡張はどのエディタからも使えます。
+</p>
+
+<h2><span class="num">02</span>通信の実体は、ヘッダーが1行ついたJSON</h2>
+
+<p>
+エディタとサーバーは、標準入出力（多くの場合はパイプ）で繋がっています。
+そこを流れるのは、HTTPに似た<strong>ヘッダー</strong>と、<strong>JSONの本文</strong>を空行で区切ったものです。
+これが実際に流れた最初の1通、生のバイト列そのままです。
+</p>
+
+<figure class="c2s">
+  <figcaption>エディタ → サーバー（実記録）</figcaption>
+  <span class="dir">▶ CLIENT → SERVER</span>
+<pre tabindex="0"><code>Content-Length: 177
+
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"processId":64007,
+"rootUri":"file:///tmp/lsp-demo","capabilities":{"textDocument":{"definition":
+{"linkSupport":false}}}}}</code></pre>
+</figure>
+
+<p>
+読み方はこうです。
+<code>Content-Length: 177</code> は「このあと本文が177バイト続く」という宣言。
+続く区切りは改行2つ（正確には<code>\r\n\r\n</code>）。そのあとがJSONです。
+</p>
+
+<p>
+本文の形は<strong>JSON-RPC 2.0</strong>という既存の規約に従います。中身は4つだけです。
+</p>
+
+<table>
+<thead><tr><th>キー</th><th>意味</th></tr></thead>
+<tbody>
+<tr><td><code>jsonrpc</code></td><td>常に <code>"2.0"</code>。この規約に従っているという印</td></tr>
+<tr><td><code>id</code></td><td>質問の通し番号。<strong>答えは同じ番号を付けて返る</strong>ので、順番が前後しても対応が分かる</td></tr>
+<tr><td><code>method</code></td><td>何を聞いているか。<code>initialize</code>、<code>textDocument/definition</code> など</td></tr>
+<tr><td><code>params</code></td><td>その引数</td></tr>
+</tbody>
+</table>
+
+<div class="note">
+<b>「通知」にはidが無い</b>
+<p>
+<code>id</code>を持つものは<strong>リクエスト</strong>で、必ず答えが返ります。
+<code>id</code>が無いものは<strong>通知</strong>で、答えは返りません。
+「ファイルを開いた」「保存した」のような、返事の要らない報告に使います。
+後で出てくる<code>initialized</code>や<code>textDocument/didOpen</code>がそれです。
+</p>
+</div>
+
+<h2><span class="num">03</span>最初のやりとりは、できることの申告</h2>
+
+<p>
+接続すると、まずエディタが<code>initialize</code>を送り、サーバーが<strong>自分にできることの一覧</strong>を返します。
+これが実際に返ってきたものです（2,046バイトあるので、要点だけ抜いています）。
+</p>
+
+<figure class="s2c">
+  <figcaption>サーバー → エディタ（実記録・抜粋）</figcaption>
+  <span class="dir">◀ SERVER → CLIENT</span>
+<pre tabindex="0"><code>Content-Type: application/vscode-jsonrpc; charset=utf8
+Content-Length: 2046
+
+{"jsonrpc":"2.0","id":1,"result":{"capabilities":{
+  "textDocumentSync": 1,
+  "completionProvider": {
+    "triggerCharacters": [":", "&gt;", "$", "[", "@", "(", "'", "\"", "\\"],
+    "resolveProvider": true
+  },
+  "hoverProvider": true,
+  "definitionProvider": true,
+  "typeDefinitionProvider": true,
+  "referencesProvider": true,
+  "renameProvider": { "prepareProvider": true },
+  "codeActionProvider": { "codeActionKinds": [ ...30種類... ] }
+},
+"serverInfo":{"name":"bear/phpactor-extension","version":"1.0.0+no-version-set"}}}</code></pre>
+</figure>
+
+<p>
+<code>"definitionProvider": true</code> が「定義へ移動に答えられます」という申告です。
+ここが<code>false</code>や未定義なら、エディタはそもそも聞いてきません。
+<strong>エディタのメニューが灰色になるかどうかは、この1行で決まります。</strong>
+</p>
+
+<p>
+<code>triggerCharacters</code>も面白いところです。
+<code>-&gt;</code>の<code>&gt;</code>や<code>$</code>を打った瞬間に補完を出してほしい、という要求で、
+エディタはこの文字が入力されたときだけ自動で補完を聞きに行きます。
+</p>
+
+<div class="note">
+<b>serverInfoの名前は、拡張が動いている証拠にはならない</b>
+<p>
+<code>"name":"bear/phpactor-extension"</code>は、いま作っているパッケージの名前です。
+一見「拡張が入った状態の記録だ」と読めますが、<strong>違います</strong>。
+この名前はphpactorの実行ファイルが置かれているディレクトリの<code>composer.json</code>から
+取られているだけで、拡張が読み込まれたかどうかとは無関係です。
+</p>
+<p>
+実際に確かめました。この拡張は読み込まれると<code>var/extension-loaded</code>という印を書きます。
+記録は13時25分と13時35分に取りましたが、印の更新時刻は11時32分のまま動いていません。
+つまり<strong>この記録は素のphpactorのもの</strong>です。
+理由は明確で、拡張は<code>.phpactor.json</code>経由でしか読み込まれず、
+そのファイルは信頼登録したディレクトリでしか読まれないところ、
+題材にした<code>/tmp/lsp-demo</code>を信頼登録していなかったためです。
+</p>
+<p>
+この文書の目的にとっては、むしろ好都合でした。
+ここに載っている往復は<strong>拡張抜きのphpactorが標準で答えている姿</strong>で、
+BEAR.Sundayの拡張は、この同じ流れに1枚割り込むだけのものだからです。
+</p>
+</div>
+
+<h2><span class="num">04</span>ファイルの中身は、ディスクではなくエディタから来る</h2>
+
+<p>
+次にエディタは「このファイルを開いた」と報告します。
+注目してほしいのは、<strong>ファイルの本文を丸ごと送っている</strong>ことです。
+</p>
+
+<figure class="c2s">
+  <figcaption>エディタ → サーバー（実記録）</figcaption>
+  <span class="dir">▶ CLIENT → SERVER</span>
+<pre tabindex="0"><code>Content-Length: 247
+
+{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{
+"uri":"file:///tmp/lsp-demo/src/Main.php","languageId":"php","version":1,
+"text":"&lt;?php\n\nnamespace Demo;\n\n$greeter = new Greeter();\necho $greeter-&gt;greet('world');\n"}}}</code></pre>
+</figure>
+
+<p>
+サーバーはパスを受け取っているのだから、自分でディスクを読めばよさそうに見えます。
+そうしないのは、<strong>編集中のファイルはディスクの内容と違う</strong>からです。
+保存していない変更に対しても補完や診断が効くのは、本文がこうして送られているためです。
+以後の編集は<code>textDocument/didChange</code>で差分が送られ、<code>version</code>が増えていきます。
+</p>
+
+<h2><span class="num">05</span>インデックスができるまで、サーバーは答えられない</h2>
+
+<p>
+ここで実際に踏んだ失敗を残しておきます。
+最初の記録では、ファイルを開いた直後に定義ジャンプを聞いたところ、<strong>答えが空</strong>で返りました。
+</p>
+
+<figure class="s2c">
+  <figcaption>サーバー → エディタ（1回目の記録・失敗）</figcaption>
+  <span class="dir">◀ SERVER → CLIENT</span>
+<pre tabindex="0"><code>{"jsonrpc":"2.0","id":2,"result":null}</code></pre>
+</figure>
+
+<p>
+理由は、そのすぐ前に流れていた通知にありました。
+</p>
+
+<figure class="s2c">
+  <figcaption>サーバー → エディタ（実記録・進捗の通知）</figcaption>
+  <span class="dir">◀ SERVER → CLIENT</span>
+<pre tabindex="0"><code>{"method":"window/showMessage","params":{"type":3,"message":"1053 PHP files"}}
+{"method":"window/showMessage","params":{"type":3,"message":"500/1053 (47.48%, 40/1,611 mb) - 47%"}}
+{"method":"window/showMessage","params":{"type":3,"message":"1000/1053 (94.97%, 75/1,611 mb) - 95%"}}
+{"method":"window/showMessage","params":{"type":3,"message":"Done indexing (10.00s, 78/1,611 mb), watching with pattern matching find (BSD/GNU)"}}</code></pre>
+</figure>
+
+<p>
+サーバーは起動後にプロジェクト全体を読んで<strong>インデックス</strong>を作ります。
+「どのクラスがどのファイルにあるか」の索引です。これが終わるまで、
+クラス名から場所を引く質問には答えられません。10秒かかっています。
+</p>
+
+<p>
+エディタを開いた直後だけ補完が効かない、という経験に心当たりがあれば、これがその正体です。
+<strong>そして、この待ち時間は自動テストでも同じように効きます。</strong>
+インデックス完了の通知を待たずに質問を投げるテストは、実装が正しくても落ちます。
+</p>
+
+<h2><span class="num">06</span>定義ジャンプの1往復を、まるごと見る</h2>
+
+<p>
+インデックスの完成を待ってから、あらためて聞きました。題材はこのファイルです。
+</p>
+
+<figure>
+  <figcaption>docs/capture/lsp-demo/src/Main.php（記録時のパスは /tmp/lsp-demo）</figcaption>
+<pre tabindex="0"><code>1  &lt;?php
+2
+3  namespace Demo;
+4
+5  $greeter = new Greeter();
+6  echo $greeter-&gt;greet('world');</code></pre>
+</figure>
+
+<p>
+5行目の<code>Greeter</code>にカーソルを置いて「定義へ移動」を要求します。
+</p>
+
+<figure class="c2s">
+  <figcaption>エディタ → サーバー（実記録）</figcaption>
+  <span class="dir">▶ CLIENT → SERVER</span>
+<pre tabindex="0"><code>{"jsonrpc":"2.0","id":2,"method":"textDocument/definition","params":{
+  "textDocument":{"uri":"file:///tmp/lsp-demo/src/Main.php"},
+  "position":{"line":4,"character":20}
+}}</code></pre>
+</figure>
+
+<p>
+<code>"line":4</code>が5行目を指しているのは、<strong>LSPの行と桁は0から数える</strong>ためです。
+人間が見る行番号より常に1つ小さくなります。ここは実装でよく間違えるところです。
+<code>character</code>も同じく0起点で、20は<code>Greeter</code>という語の内側にあたります。
+</p>
+
+<figure class="s2c">
+  <figcaption>サーバー → エディタ（実記録）</figcaption>
+  <span class="dir">◀ SERVER → CLIENT</span>
+<pre tabindex="0"><code>Content-Length: 161
+
+{"jsonrpc":"2.0","id":2,"result":{
+  "uri":"file:///tmp/lsp-demo/src/Greeter.php",
+  "range":{"start":{"line":4,"character":0},"end":{"line":10,"character":1}}
+}}</code></pre>
+</figure>
+
+<p>
+返ってきたのは<strong>Location（場所）</strong>という形です。中身は2つだけ。
+<code>uri</code>がどのファイルか、<code>range</code>がその中のどこからどこまでか。
+エディタはこれを受け取って、そのファイルを開き、その範囲を選択状態にします。
+<strong>「定義へ移動」の実体は、この2つの数字の組を受け取ることだけです。</strong>
+</p>
+
+<div class="note">
+<b>返るのは文字列ではなく、位置</b>
+<p>
+ここが検索との決定的な違いです。grepが返すのは「その文字列が現れる行」で、
+同名の別物や、コメントの中の同じ語も一緒に返ります。
+言語サーバーが返すのは<strong>その名前が実際に指している定義そのものの位置</strong>で、ふつう1件です。
+文字列が一致しただけの場所は、原理的に返りません。
+ただし万能ではなく、返せなかったのか、そもそも無いのかは<code>null</code>だけからは区別できません（§05）。
+</p>
+</div>
+
+<h2><span class="num">07</span>ホバーと補完も、同じ形の1往復</h2>
+
+<p>
+仕組みが分かれば、ほかの機能も同じです。メソッド名の上にカーソルを置いたとき（ホバー）:
+</p>
+
+<figure class="s2c">
+  <figcaption>サーバー → エディタ（実記録・textDocument/hoverの応答）</figcaption>
+  <span class="dir">◀ SERVER → CLIENT</span>
+<pre tabindex="0"><code>{"jsonrpc":"2.0","id":3,"result":{
+  "contents":{
+    "kind":"markdown",
+    "value":"### Greeter # greet\n\n```php\n&lt;?php public function greet(string $name): string\n```"
+  },
+  "range":{"start":{"line":5,"character":5},"end":{"line":5,"character":20}}
+}}</code></pre>
+</figure>
+
+<p>
+中身は<strong>Markdown</strong>です。エディタはこれを整形して吹き出しに出すだけで、
+何を書くかはサーバーが決めています。<code>range</code>は「この範囲に対する説明ですよ」という印で、
+エディタはその範囲に下線を引いたりします。
+</p>
+
+<p>
+<code>$greeter-&gt;</code>と打った直後の補完:
+</p>
+
+<figure class="s2c">
+  <figcaption>サーバー → エディタ（実記録・textDocument/completionの応答）</figcaption>
+  <span class="dir">◀ SERVER → CLIENT</span>
+<pre tabindex="0"><code>{"jsonrpc":"2.0","id":5,"result":{
+  "isIncomplete":true,
+  "items":[
+    {"label":"greet","kind":2,"insertText":"greet","insertTextFormat":1,"data":0}
+  ]
+}}</code></pre>
+</figure>
+
+<p>
+<code>label</code>が一覧に表示される文字、<code>insertText</code>が選んだときに挿入される文字です。
+<code>kind</code>は種類を表す数値で、<strong>2はメソッド</strong>（5ならフィールド、7ならクラス）。
+エディタが候補の横にアイコンを出せるのはこの数値のおかげです。
+<code>isIncomplete: true</code>は「まだ候補がある。文字が増えたらまた聞いて」という意味です。
+</p>
+
+<h2><span class="num">08</span>BEAR.Sundayの拡張は、この往復のどこに入るのか</h2>
+
+<p>
+ここまでのやりとりで、拡張が関わるのは<strong>サーバーが答えを作る一瞬だけ</strong>です。
+プロトコルの読み書きも、ヘッダーの組み立ても、phpactorが全部やります。
+</p>
+
+<figure>
+  <figcaption>定義ジャンプ1回の内訳</figcaption>
+<pre tabindex="0"><code>エディタ
+  │  textDocument/definition （位置を送る）
+  ▼
+phpactor 本体
+  │  ・ヘッダーを剥がしてJSONにする
+  │  ・その位置の構文要素を特定する
+  ▼
+登録されている DefinitionLocator を順に試す   ← ★ここが拡張の居場所
+  │  ・PHPのクラス名を解決するもの（本体が持っている）
+  │  ・app://self/user を解決するもの（これから作る）
+  ▼
+phpactor 本体
+  │  ・返ってきた場所を Location に整える
+  │  ・ヘッダーを付けて書き出す
+  ▼
+エディタ</code></pre>
+</figure>
+
+<p>
+作るものは、この<code>DefinitionLocator</code>という<strong>インターフェースを実装したクラス1個</strong>です。
+「この位置にあるのが<code>'app://self/user'</code>という文字列なら、
+<code>src/Resource/App/User.php</code>の場所を返す」という判断だけを書きます。
+</p>
+
+<p>
+そして、それをphpactorに見つけてもらうために<strong>タグを付けて登録</strong>します。
+タグの文字列はphpactorのソースで確認済みのものです。
+</p>
+
+<table>
+<thead><tr><th>やりたいこと</th><th>付けるタグ</th></tr></thead>
+<tbody>
+<tr><td>定義へ移動</td><td><code>reference_finder.definition_locator</code></td></tr>
+<tr><td>補完</td><td><code>completion.completor</code></td></tr>
+<tr><td>診断（波線）</td><td><code>language_server.diagnostics_provider</code></td></tr>
+<tr><td>コードアクション（電球）</td><td><code>language_server.code_action_provider</code></td></tr>
+<tr><td>型の解決</td><td><code>worse_reflection.member_type_resolver</code></td></tr>
+</tbody>
+</table>
+
+<p>
+最後の<code>worse_reflection.member_type_resolver</code>だけ毛色が違います。
+これは<strong>型推論そのものに口を出す</strong>ための口で、
+<code>$client-&gt;get('app://self/user')</code>の戻り値を具象クラスとして扱わせるのに使います。
+文字列の中身を見て型を決める、という芸当がここで可能になります。
+</p>
+
+<h2><span class="num">09</span>AIがこれを読むと、何が変わるのか</h2>
+
+<p>
+最後に、いま作っているものがAIエージェントにとって何を意味するかを書きます。
+</p>
+
+<p>
+AIがコードを調べるとき、いちばん素朴な手段は<strong>文字列検索</strong>です。
+しかし<code>app://self/user</code>という文字列をgrepしても、返るのは
+「その文字が現れた行の一覧」でしかありません。
+それが本当にリソースを指しているのか、対応するクラスが実在するのか、
+コメントの中の書きかけなのか、検索結果からは分かりません。
+</p>
+
+<p>
+言語サーバーが返すのは、この文書で見てきたとおり<strong>構造のついた事実</strong>です。
+</p>
+
+<table>
+<thead><tr><th></th><th>文字列検索が返すもの</th><th>言語サーバーが返すもの</th></tr></thead>
+<tbody>
+<tr><td>形</td><td>行のテキスト</td><td><code>uri</code> と <code>range</code>（機械が扱える座標）</td></tr>
+<tr><td>件数</td><td>一致した数だけ</td><td>実際に指している定義、ふつう1件</td></tr>
+<tr><td>誤り</td><td>同名の別物・コメントも混ざる</td><td>原理的に混ざらない設計（名前を解決してから答えるため）</td></tr>
+<tr><td>未保存の編集</td><td>反映されない</td><td>反映される</td></tr>
+<tr><td>存在しないとき</td><td>「見つからない」としか言えない</td><td><code>result: null</code>が返る。<strong>ただし §05 のとおり、準備がまだのときも同じ<code>null</code></strong></td></tr>
+</tbody>
+</table>
+
+<p>
+最後の行には但し書きが要ります。
+<code>null</code>は「本当に無い」とも「まだ答えられない」とも読めるからです。
+それでも、行のテキストが0件だったという事実より扱いやすいことは確かで、
+<strong>インデックスの完了を待ってからの<code>null</code>は「無い」と読んでよい</strong>という判断ができます。
+条件つきであることを承知して使えば、AIが自分の調査結果を信じてよいかの材料になります。
+</p>
+
+<div class="note">
+<b>MCPとの関係</b>
+<p>
+同じ発想を別の道でやっているのが、PhpStormプラグイン側で進めている<strong>MCP</strong>
+（Model Context Protocol＝AIが外部ツールに事実を問い合わせる規約）です。
+向いている先は同じ「AIに推測させず、事実を答える」ですが、
+LSPは<strong>エディタが</strong>聞く規約、MCPは<strong>AIが</strong>聞く規約という違いがあります。
+片方を作ればもう片方が要らなくなる、という関係ではありません。
+</p>
+</div>
+
+<h2><span class="num">10</span>用語</h2>
+
+<dl>
+<dt>LSP / Language Server Protocol</dt>
+<dd>エディタと、言語の知識を持つ別プロセスとの間の共通の話し方。2016年にMicrosoftが公開。</dd>
+
+<dt>JSON-RPC 2.0</dt>
+<dd>「関数を呼んで結果をもらう」をJSONで表現する既存の規約。LSPはこれを土台にしている。</dd>
+
+<dt>リクエストと通知</dt>
+<dd><code>id</code>があるものがリクエスト（答えが返る）、無いものが通知（返らない）。</dd>
+
+<dt>Location</dt>
+<dd>場所を表す形。<code>uri</code>（どのファイル）と<code>range</code>（どこからどこまで）の組。</dd>
+
+<dt>range / position</dt>
+<dd>位置。<code>line</code>と<code>character</code>で表し、<strong>どちらも0から数える</strong>。</dd>
+
+<dt>capabilities</dt>
+<dd>できることの申告。<code>initialize</code>の応答で返り、エディタのメニューの有効・無効を決める。</dd>
+
+<dt>インデックス</dt>
+<dd>「どのクラスがどのファイルにあるか」の索引。起動後に構築され、完成まで名前引きの質問には答えられない。</dd>
+
+<dt>phpactor</dt>
+<dd>PHPで書かれたPHP用の言語サーバー。単体で動き、拡張で機能を足せる。</dd>
+
+<dt>DefinitionLocator</dt>
+<dd>phpactorで「定義へ移動」に答える部品のインターフェース。BEAR.Sundayの拡張はこれを実装する。</dd>
+
+<dt>WorseReflection</dt>
+<dd>phpactorの型推論エンジン。「Reflectionより劣る」という自虐的な命名で、コードを実行せず静的に読むぶん精度が落ちることを指す。</dd>
+
+<dt>MCP / Model Context Protocol</dt>
+<dd>AIエージェントが外部ツールに事実を問い合わせるための規約。LSPと目的は近いが、聞く主体が違う。</dd>
+</dl>
+
+<footer>
+<p>
+この文書の通信記録は、<code>phpactor language-server</code>を実際に起動し、
+標準入出力に手でJSON-RPCを流して取得したものです。抜粋はしていますが、改変はしていません。
+</p>
+</footer>
+
+</main>
+</body>
+</html>

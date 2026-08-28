@@ -1,0 +1,61 @@
+<?php
+
+declare(strict_types=1);
+
+use BEAR\Resource\ResourceInterface;
+use BEAR\Resource\ResourceObject;
+
+/**
+ * v0.3 の型推論テスト。
+ *
+ * $this->resource->get('app://self/user') の戻り値が、URIに対応する具象
+ * リソースクラス (Acme\Blog\Resource\App\User) として推論されることを
+ * wrAssertType で検証する。TestAssertWalker がこのファイルを拾って実行する。
+ */
+final class UriDemo extends ResourceObject
+{
+    public function __construct(private readonly ResourceInterface $resource)
+    {
+    }
+
+    public function onGet(): static
+    {
+        $user = $this->resource->get('app://self/user');
+        wrAssertType('Acme\Blog\Resource\App\User', $user);
+
+        $posts = $this->resource->get('app://self/blog/posts');
+        wrAssertType('Acme\Blog\Resource\App\Blog\Posts', $posts);
+
+        $index = $this->resource->get('page://self/index');
+        wrAssertType('Acme\Blog\Resource\Page\Index', $index);
+
+        // 実在しないリソースは解決せず、宣言された戻り値 (ResourceObject) に落ちる
+        $missing = $this->resource->get('app://self/missing');
+        wrAssertType('BEAR\Resource\ResourceObject', $missing);
+
+        // 対象メソッドは get 以外も同じ仕組み
+        $created = $this->resource->post('app://self/user');
+        wrAssertType('Acme\Blog\Resource\App\User', $created);
+
+        $deleted = $this->resource->delete('app://self/user');
+        wrAssertType('Acme\Blog\Resource\App\User', $deleted);
+
+        // 対象外メソッド (href) は解決しない
+        $href = $this->resource->href('app://self/user');
+        wrAssertType('BEAR\Resource\ResourceObject', $href);
+
+        // 解決した型はメンバーアクセスも機能する (onGet は static を返す)
+        wrAssertType('Acme\Blog\Resource\App\User', $user->onGet());
+
+        return $this;
+    }
+
+    public function onPost(string $uri): static
+    {
+        // 文字列リテラルでない引数は解決しない
+        $dynamic = $this->resource->get($uri);
+        wrAssertType('BEAR\Resource\ResourceObject', $dynamic);
+
+        return $this;
+    }
+}

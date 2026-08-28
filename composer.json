@@ -1,0 +1,44 @@
+{
+    "name": "suzumaze/bear-phpactor-extension",
+    "description": "BEAR.Sunday extension for phpactor",
+    "type": "phpactor-extension",
+    "license": "MIT",
+    "require": {
+        "php": "^8.2"
+    },
+    "require-dev": {
+        "phpactor/phpactor": "^2026.07",
+        "phpactor/language-server-protocol": "3.17.4",
+        "phpunit/phpunit": "^10.0",
+        "squizlabs/php_codesniffer": "^4.0",
+        "phpstan/phpstan": "^2.2"
+    },
+    "extra": {
+        "phpactor.extension_class": "Suzumaze\\BearPhpactor\\BearSundayExtension"
+    },
+    "bin": [
+        "bin/bear-phpactor-init"
+    ],
+    "autoload": {
+        "psr-4": {
+            "Suzumaze\\BearPhpactor\\": "lib/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Suzumaze\\BearPhpactor\\Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "scripts": {
+        "test": "phpunit",
+        "cs": "phpcs",
+        "sa": "phpstan analyse --no-progress --memory-limit=256M",
+        "check": [
+            "@cs",
+            "@sa",
+            "@test"
+        ]
+    }
+}

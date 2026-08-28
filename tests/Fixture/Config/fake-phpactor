@@ -1,0 +1,36 @@
+#!/bin/sh
+# Fake phpactor for PhpactorConfigGeneratorTest.
+#
+# Prints the same shape of output as `phpactor config:dump --config-only`
+# (a JSON object with a container.extension_classes list). The --working-dir
+# argument is accepted and ignored.
+#
+# Modes (via FAKE_PHPACTOR_MODE):
+#   fail     exit 1 with a message on stderr
+#   garbage  print non-JSON and exit 0
+#   empty    print JSON with an empty extension list
+#   (unset)  print the normal fixture config
+
+if [ "$FAKE_PHPACTOR_MODE" = "fail" ]; then
+    echo "fake phpactor: simulated failure" >&2
+    exit 1
+fi
+
+if [ "$FAKE_PHPACTOR_MODE" = "garbage" ]; then
+    echo "this is not json"
+    exit 0
+fi
+
+if [ "$FAKE_PHPACTOR_MODE" = "empty" ]; then
+    echo '{"container.extension_classes": []}'
+    exit 0
+fi
+
+cat <<'EOF'
+{
+    "container.extension_classes": [
+        "Phpactor\\Extension\\Core\\CoreExtension",
+        "Phpactor\\Extension\\Debug\\DebugExtension"
+    ]
+}
+EOF

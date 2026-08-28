@@ -1,0 +1,9 @@
+{
+    "name": "myvendor/sql-fixture-app",
+    "description": "BEAR.Sunday-style fixture app for SQL definition jump tests",
+    "autoload": {
+        "psr-4": {
+            "MyVendor\\SqlFixture\\": "src/"
+        }
+    }
+}

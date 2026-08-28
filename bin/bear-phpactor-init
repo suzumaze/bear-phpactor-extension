@@ -1,0 +1,73 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Suzumaze\BearPhpactor\Config\PhpactorConfigGenerator;
+use Suzumaze\BearPhpactor\Config\PhpactorVersionConflictDetector;
+
+/**
+ * Generates or updates `.phpactor.json` for a BEAR.Sunday project.
+ *
+ * Run from the project root (the directory that should contain
+ * `.phpactor.json`). The phpactor binary is resolved in this order:
+ * the PHPACTOR_BIN environment variable, `vendor/bin/phpactor` in the
+ * project root, or `phpactor` on PATH.
+ */
+
+$autoloadCandidates = [
+    __DIR__ . '/../vendor/autoload.php',
+    __DIR__ . '/../../autoload.php',
+];
+$autoload = null;
+foreach ($autoloadCandidates as $candidate) {
+    if (is_file($candidate)) {
+        $autoload = $candidate;
+        break;
+    }
+}
+if ($autoload === null) {
+    fwrite(STDERR, "Could not locate vendor/autoload.php\n");
+    exit(1);
+}
+require $autoload;
+
+$projectRoot = getcwd();
+if ($projectRoot === false) {
+    fwrite(STDERR, "Could not determine the current working directory\n");
+    exit(1);
+}
+
+$conflict = (new PhpactorVersionConflictDetector($projectRoot))->brokenCombination();
+if ($conflict !== null) {
+    fwrite(
+        STDERR,
+        sprintf(
+            "Warning: phpactor/language-server %s with phpactor/language-server-protocol %s is a broken combination.\n"
+            . "textDocument/didChange never reaches the server: unsaved edits are ignored and every feature answers from the didOpen text until you save — with no error anywhere, so this is easy to miss.\n"
+            . "Fix: composer require --dev phpactor/language-server-protocol:3.17.4\n"
+            . "The regression is fixed upstream in the pull request that makes the handler read contentChanges as objects (https://github.com/phpactor/language-server/pull/68), but no release has been cut yet.\n",
+            $conflict['language_server'],
+            $conflict['protocol']
+        )
+    );
+}
+
+$phpactorBin = getenv('PHPACTOR_BIN');
+if (!is_string($phpactorBin) || $phpactorBin === '') {
+    $candidate = $projectRoot . '/vendor/bin/phpactor';
+    $phpactorBin = is_file($candidate) ? $candidate : 'phpactor';
+}
+
+try {
+    $result = (new PhpactorConfigGenerator($phpactorBin, $projectRoot))->generate();
+} catch (RuntimeException $e) {
+    fwrite(STDERR, $e->getMessage() . "\n");
+    exit(1);
+}
+
+printf(
+    "Wrote %d extension classes to %s (Suzumaze\\BearPhpactor\\BearSundayExtension first)\n",
+    $result['extension_count'],
+    $result['config_file']
+);

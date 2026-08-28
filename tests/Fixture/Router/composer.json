@@ -1,0 +1,9 @@
+{
+    "name": "bear/phpactor-extension-router-fixture",
+    "description": "Fixture for the Router definition locator: proves the namespace root comes from psr-4, not a hardcoded path",
+    "autoload": {
+        "psr-4": {
+            "RouterFixture\\": "lib/"
+        }
+    }
+}

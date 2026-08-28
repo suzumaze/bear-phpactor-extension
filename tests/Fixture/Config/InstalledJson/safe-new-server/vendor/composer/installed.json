@@ -1,0 +1,12 @@
+{
+    "packages": [
+        {
+            "name": "phpactor/language-server",
+            "version": "7.1.0"
+        },
+        {
+            "name": "phpactor/language-server-protocol",
+            "version": "3.17.5"
+        }
+    ]
+}

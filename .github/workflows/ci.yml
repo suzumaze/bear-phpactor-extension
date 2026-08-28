@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # phpactor requires ^8.2; 8.5 is what this package is developed on.
+        php: ['8.2', '8.3', '8.4', '8.5']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: Install dependencies
+        # phpactor pulls dev-master dependencies, hence the stability settings
+        # already declared in composer.json.
+        run: composer update --no-interaction --no-progress --prefer-dist
+
+      - name: PHPUnit
+        run: vendor/bin/phpunit
+
+      - name: PHP_CodeSniffer
+        run: vendor/bin/phpcs
+
+      - name: PHPStan
+        # phpstan's default 128M memory limit is exhausted by this package's
+        # analysis (our code raised the analysis cost); 192M passes but barely,
+        # so 256M leaves margin. `parameters.memoryLimit` is not a valid phpstan
+        # config key, so the limit must be passed on the command line.
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=256M

@@ -1,0 +1,9 @@
+{
+    "name": "myvendor/json-schema-fixture",
+    "description": "Fixture project for the JsonSchema definition locator",
+    "autoload": {
+        "psr-4": {
+            "MyVendor\\JsonSchemaFixture\\": "src/"
+        }
+    }
+}

@@ -1,0 +1,7 @@
+{
+    "name": "acme/blog-fixture-nested",
+    "description": "Nested composer.json without autoload.psr-4: ProjectLocator must skip it and continue upward",
+    "require": {
+        "php": "^8.2"
+    }
+}

@@ -1,0 +1,14 @@
+{
+    "name": "acme/blog-fixture",
+    "description": "Fixture project for BEAR.Sunday phpactor extension tests",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": "^8.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Acme\\Blog\\": "src/"
+        }
+    }
+}

@@ -1,0 +1,19 @@
+{
+    "name": "acme/refs-fixture",
+    "description": "Fixture project for resource reference finder tests",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": "^8.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Acme\\Refs\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Acme\\Refs\\": "tests/"
+        }
+    }
+}

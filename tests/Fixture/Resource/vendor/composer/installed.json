@@ -1,0 +1,14 @@
+{
+    "packages": [
+        {
+            "name": "acme/tags-core",
+            "version": "1.0.0",
+            "install-path": "../acme/tags-core",
+            "autoload": {
+                "psr-4": {
+                    "Acme\\Tags\\": "src/"
+                }
+            }
+        }
+    ]
+}
