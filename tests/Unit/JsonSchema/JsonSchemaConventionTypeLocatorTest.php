@@ -46,6 +46,39 @@ final class JsonSchemaConventionTypeLocatorTest extends TestCase
         );
     }
 
+    public function testJumpFromPositionRightAfterClassName(): void
+    {
+        // 後ろ側は緩い: クラス名トークンの終端 (getEndPosition()、最後の文字の
+        // 直後でテキスト上は空白) でもクラス名の上とみなす。VS Code の「単語の
+        // 直後は単語の上」という慣習に合わせた意図的な非対称。ここが >= に
+        // 変わると直後のF12が効かなくなる。
+        [$text] = $this->fixtureWithCaret('src/Resource/App/User.php', '<caret>');
+        [, $nameEnd] = $this->classNameTokenOffsets($text, 'User');
+
+        $this->assertTypeDefinitionAt(
+            $text,
+            $nameEnd,
+            'var/json_schema/user.json',
+            'src/Resource/App/User.php',
+        );
+    }
+
+    public function testReturnsNothingAtPositionJustBeforeClassName(): void
+    {
+        // 前側は厳格: クラス名の1文字前 (getStartPosition() - 1、テキスト上は
+        // class と名前のあいだの空白) はクラス名の上とみなさない。後ろ側の緩さと
+        // 意図的に非対称。ここが - 1 で緩むと1文字前のF12が誤って飛ぶ。
+        [$text] = $this->fixtureWithCaret('src/Resource/App/User.php', '<caret>');
+        [$nameStart] = $this->classNameTokenOffsets($text, 'User');
+
+        $this->assertTypeDefinitionAt(
+            $text,
+            $nameStart - 1,
+            null,
+            'src/Resource/App/User.php',
+        );
+    }
+
     public function testJumpFromKebabCasedClassName(): void
     {
         $this->assertTypeDefinition(
@@ -335,6 +368,24 @@ final class JsonSchemaConventionTypeLocatorTest extends TestCase
             self::assertSame($expectedPosition[0], $response->result->range->start->line);
             self::assertSame($expectedPosition[1], $response->result->range->start->character);
         }
+    }
+
+    /**
+     * テキスト中のクラス名トークンの [開始, 終端] バイトオフセットを返す。
+     * 終端は排他 (Microsoft\PhpParser の getEndPosition() と同じ、最後の文字の1つ次)。
+     * 位置はテキストから計算するので、フィクスチャの行が増えても壊れない。
+     *
+     * @return array{0: int, 1: int}
+     */
+    private function classNameTokenOffsets(string $text, string $className): array
+    {
+        $declaration = 'final class ' . $className;
+        $offset = strpos($text, $declaration);
+        self::assertNotFalse($offset, sprintf('Class declaration "%s" not found', $declaration));
+        $start = $offset + strlen('final class ');
+        $end = $start + strlen($className);
+
+        return [$start, $end];
     }
 
     /**
