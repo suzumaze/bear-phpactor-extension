@@ -136,7 +136,10 @@ function collectSites(string $app): array
                 continue;
             }
 
-            if ($isRoute && str_starts_with($value, '/')) {
+            // ルートパスは $map->route(...) の第1引数 (ルート名) だけ。第2引数は HTTP の
+            // URL パターンでリソースとは無関係。第1引数かどうかは構文木で判定する
+            // (isRouteFirstArgument)。位置の勘定はメソッド連鎖や改行で壊れる。
+            if ($isRoute && str_starts_with($value, '/') && isRouteFirstArgument($node, $text)) {
                 $sites['route_path'][] = [$file, $offset, $value];
             }
         }
@@ -533,9 +536,12 @@ function expectedSqlFile(string $refFile, string $queryName): array
 }
 
 /**
- * Expected Page resource file for a route path. The extension returns every
- * psr-4 dir that has the file, so more than one candidate is undeterminable
- * (the server would show a picker).
+ * Expected Page resource file for a route path. The extension resolves the
+ * route path as a page://self resource URI: the direct class first, and when
+ * missing, one level deeper (context prefixes such as Content/ and Admin/).
+ * More than one candidate is undeterminable — the extension stays quiet, but
+ * expecting that would copy its implementation, so the meter says it cannot
+ * compute the correct answer.
  */
 function expectedRouteFile(string $refFile, string $routePath): array
 {
@@ -561,20 +567,50 @@ function expectedRouteFile(string $refFile, string $routePath): array
         return ['status' => 'unknown', 'file' => null];
     }
 
+    // 直接のクラスが無いときは1階層深いディレクトリ (コンテキスト接頭辞) を探す。
+    // 候補が2件以上のときは「判定不能」: 拡張が飛ばないことを期待値にすると拡張の
+    // 実装をそのまま写すことになるため、ここは正解を計算できないと正直に出す。
+    $pageDir = 'Resource/Page';
+    $rest = substr($relative, strlen($pageDir) + 1); // "ArticleRedirector.php"
+    $candidates = [];
+    foreach (psr4Dirs($projectRoot) as $dir) {
+        $base = $dir . '/' . $pageDir;
+        if (!is_dir($base)) {
+            continue;
+        }
+        foreach (new FilesystemIterator($base, FilesystemIterator::SKIP_DOTS) as $entry) {
+            if (!$entry->isDir()) {
+                continue;
+            }
+            $file = $entry->getPathname() . '/' . $rest;
+            if (is_file($file)) {
+                $candidates[] = $file;
+            }
+        }
+    }
+    if (count($candidates) === 1) {
+        return ['status' => 'file', 'file' => $candidates[0]];
+    }
+    if (count($candidates) > 1) {
+        return ['status' => 'unknown', 'file' => null];
+    }
+
     return ['status' => 'none', 'file' => null, 'note' => $projectRoot . ' に ' . $relative . ' が無い'];
 }
 
 /**
  * Route path to a Page resource file name: '/index' -> '/Index.php',
- * '/user-profile' -> '/UserProfile.php'. Independent copy of
- * RouterUtil::toResourceFileName().
+ * '/user-profile' -> '/UserProfile.php', '/articleRedirector' ->
+ * '/ArticleRedirector.php'. Independent copy of the case-preserving
+ * conversion (ResourceUri::pascalSegment / bear/resource AppAdapter):
+ * ucfirst on each '-' separated word, no strtolower.
  */
 function routeToResourceFileName(string $path): string
 {
     $segments = explode('/', $path);
     $converted = array_map(static function (string $segment): string {
         $words = array_map(
-            static fn (string $word): string => ucfirst(strtolower($word)),
+            static fn (string $word): string => ucfirst($word),
             explode('-', $segment)
         );
 
@@ -582,6 +618,50 @@ function routeToResourceFileName(string $path): string
     }, $segments);
 
     return implode('/', $converted) . '.php';
+}
+
+/**
+ * 文字列リテラルが $map->route(...) / $map->get(...) の第1引数 (ルート名) であるか。
+ *
+ * lib/Router/RouterDefinitionLocator と同じ規則だが、独立に書いている
+ * (PLAN.md §2.19: 測定器が拡張と同じ規則を書き写すと欠陥を自分自身で追認する)。
+ * 第2引数は HTTP の URL パターンでリソースとは無関係。受け入れる呼び出し名は
+ * Aura.Router の Map クラスで ($name, $path, $handler = null) という同じ引数形を持つ
+ * 8つ: route と get / post / put / patch / delete / head / options (第1引数はどれも
+ * ルート名)。attach ($namePrefix, $pathPrefix, callable $callable) は第1引数が名前の
+ * 接頭辞であってルート名ではないため対象外。変数名 ($map) は見ない。
+ */
+function isRouteFirstArgument(Microsoft\PhpParser\Node\StringLiteral $literal, string $text): bool
+{
+    $argument = $literal->getParent();
+    if (!$argument instanceof Microsoft\PhpParser\Node\Expression\ArgumentExpression
+        || $argument->expression !== $literal) {
+        return false;
+    }
+
+    $list = $argument->getParent();
+    if (!$list instanceof Microsoft\PhpParser\Node\DelimitedList\ArgumentExpressionList
+        || ($list->children[0] ?? null) !== $argument) {
+        return false;
+    }
+
+    $call = $list->getParent();
+    if (!$call instanceof Microsoft\PhpParser\Node\Expression\CallExpression) {
+        return false;
+    }
+
+    $names = ['route', 'get', 'post', 'put', 'patch', 'delete', 'head', 'options'];
+    $callable = $call->callableExpression;
+    if ($callable instanceof Microsoft\PhpParser\Node\Expression\MemberAccessExpression) {
+        $member = $callable->memberName;
+
+        return $member instanceof Microsoft\PhpParser\Token && in_array($member->getText($text), $names, true);
+    }
+    if ($callable instanceof Microsoft\PhpParser\Node\QualifiedName) {
+        return in_array(ltrim($callable->__toString(), '\\'), $names, true);
+    }
+
+    return false;
 }
 
 /**

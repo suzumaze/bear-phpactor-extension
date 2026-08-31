@@ -51,6 +51,21 @@ final class SqlDefinitionLocatorTest extends TestCase
         self::assertSame(0, $location->range->start->character);
     }
 
+    public function testGotoDefinitionFromFullyQualifiedDbQueryAttribute(): void
+    {
+        // use なし完全修飾（先頭バックスラッシュ付き）でも第1引数から飛ぶ
+        $location = $this->requestDefinition(
+            'src/Query/FullyQualifiedDbQueryInterface.php',
+            "'findFoo'",
+            1
+        );
+
+        self::assertInstanceOf(LspLocation::class, $location);
+        self::assertSame($this->sqlFileUri('findFoo.sql'), $location->uri);
+        self::assertSame(0, $location->range->start->line);
+        self::assertSame(0, $location->range->start->character);
+    }
+
     public function testGotoDefinitionFromQueryAnnotation(): void
     {
         // PHPDocの @Query("point_distance") の名前にカーソルを置く
@@ -102,6 +117,18 @@ final class SqlDefinitionLocatorTest extends TestCase
         $location = $this->requestDefinition(
             'src/Query/PointQueryInterface.php',
             "'row'",
+            1
+        );
+
+        self::assertNull($location);
+    }
+
+    public function testNoLocationWhenFullyQualifiedNameIsForeignNamespace(): void
+    {
+        // 先頭バックスラッシュ付きでも \Foo\Bar\DbQuery は別物なので飛ばない
+        $location = $this->requestDefinition(
+            'src/Query/ForeignNamespaceDbQueryInterface.php',
+            "'x'",
             1
         );
 

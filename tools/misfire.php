@@ -186,7 +186,10 @@ function collectSites(string $app): array
                 continue;
             }
 
-            if ($isRoute && str_starts_with($value, '/')) {
+            // ルートパスは $map->route(...) の第1引数 (ルート名) だけ。第2引数は HTTP の
+            // URL パターンでリソースとは無関係。第1引数かどうかは構文木で判定する
+            // (isRouteFirstArgument)。位置の勘定はメソッド連鎖や改行で壊れる。
+            if ($isRoute && str_starts_with($value, '/') && isRouteFirstArgument($node, $text)) {
                 $sites['route_path'][] = [$file, $start, $end, $value];
             }
         }
@@ -270,6 +273,50 @@ function isSqlFile(string $path): bool
 function isPageResourceFile(string $path): bool
 {
     return (bool) preg_match('#/Resource/Page/.+\.php$#', $path);
+}
+
+/**
+ * 文字列リテラルが $map->route(...) / $map->get(...) の第1引数 (ルート名) であるか。
+ *
+ * lib/Router/RouterDefinitionLocator と同じ規則だが、独立に書いている
+ * (PLAN.md §2.19: 測定器が拡張と同じ規則を書き写すと欠陥を自分自身で追認する)。
+ * 第2引数は HTTP の URL パターンでリソースとは無関係。受け入れる呼び出し名は
+ * Aura.Router の Map クラスで ($name, $path, $handler = null) という同じ引数形を持つ
+ * 8つ: route と get / post / put / patch / delete / head / options (第1引数はどれも
+ * ルート名)。attach ($namePrefix, $pathPrefix, callable $callable) は第1引数が名前の
+ * 接頭辞であってルート名ではないため対象外。変数名 ($map) は見ない。
+ */
+function isRouteFirstArgument(Microsoft\PhpParser\Node\StringLiteral $literal, string $text): bool
+{
+    $argument = $literal->getParent();
+    if (!$argument instanceof Microsoft\PhpParser\Node\Expression\ArgumentExpression
+        || $argument->expression !== $literal) {
+        return false;
+    }
+
+    $list = $argument->getParent();
+    if (!$list instanceof Microsoft\PhpParser\Node\DelimitedList\ArgumentExpressionList
+        || ($list->children[0] ?? null) !== $argument) {
+        return false;
+    }
+
+    $call = $list->getParent();
+    if (!$call instanceof Microsoft\PhpParser\Node\Expression\CallExpression) {
+        return false;
+    }
+
+    $names = ['route', 'get', 'post', 'put', 'patch', 'delete', 'head', 'options'];
+    $callable = $call->callableExpression;
+    if ($callable instanceof Microsoft\PhpParser\Node\Expression\MemberAccessExpression) {
+        $member = $callable->memberName;
+
+        return $member instanceof Microsoft\PhpParser\Token && in_array($member->getText($text), $names, true);
+    }
+    if ($callable instanceof Microsoft\PhpParser\Node\QualifiedName) {
+        return in_array(ltrim($callable->__toString(), '\\'), $names, true);
+    }
+
+    return false;
 }
 
 /**

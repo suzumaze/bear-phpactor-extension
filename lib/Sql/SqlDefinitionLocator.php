@@ -151,6 +151,8 @@ final class SqlDefinitionLocator implements DefinitionLocator
     private function isDbQueryAttribute(Attribute $attribute): bool
     {
         $name = NodeUtil::nameFromTokenOrQualifiedName($attribute, $attribute->name);
+        // 先頭の \ は同じ名前の別表記（use なし完全修飾の書き方）なので落とす
+        $name = ltrim((string) $name, '\\');
 
         return $name === self::DB_QUERY_SHORT_NAME || $name === self::DB_QUERY_FQN;
     }

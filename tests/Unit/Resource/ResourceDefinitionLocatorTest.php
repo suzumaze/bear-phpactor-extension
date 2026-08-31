@@ -64,6 +64,56 @@ final class ResourceDefinitionLocatorTest extends TestCase
         self::assertSame(12, $location->range->start->character);
     }
 
+    public function testJumpsFromEmbedSrc(): void
+    {
+        // #[Embed(rel: 'authorList', src: 'app://self/user')] の src から
+        // App/User.php へ飛ぶ。属性の中の文字列リテラルもリソースURIとして
+        // 扱う (囲みの文脈を見ない。ルーター側で起きた §2.20 と同じ形の
+        // 文脈制限をURIジャンプに入れると、この経路が黙って死ぬ)。
+        $location = $this->requestDefinitionInFile('src/Resource/App/Articles.php', 'app://self/user');
+
+        self::assertSame('file://' . self::fixtureDir() . '/src/Resource/App/User.php', $location->uri);
+        self::assertSame(8, $location->range->start->line);
+        self::assertSame(12, $location->range->start->character);
+    }
+
+    public function testJumpsFromLinkHref(): void
+    {
+        // #[Link(rel: 'goCategoryList', href: 'app://self/blog/posts')] の href から
+        // App/Blog/Posts.php へ飛ぶ。rel: のような他の名前付き引数が付いていても
+        // 引数の位置は見ないので飛ぶ。
+        $location = $this->requestDefinitionInFile('src/Resource/App/Articles.php', 'app://self/blog/posts');
+
+        self::assertSame('file://' . self::fixtureDir() . '/src/Resource/App/Blog/Posts.php', $location->uri);
+        self::assertSame(8, $location->range->start->line);
+        self::assertSame(12, $location->range->start->character);
+    }
+
+    public function testJumpsFromUriTemplateInEmbed(): void
+    {
+        // 'app://self/article{?id}' は ResourceUri::fromString が {?id} を落として
+        // App/Article.php へ飛ぶ (実アプリで最も多い形)。
+        $location = $this->requestDefinitionInFile('src/Resource/App/Articles.php', 'app://self/article{?id}');
+
+        self::assertSame('file://' . self::fixtureDir() . '/src/Resource/App/Article.php', $location->uri);
+        self::assertSame(8, $location->range->start->line);
+        self::assertSame(12, $location->range->start->character);
+    }
+
+    public function testJumpsFromQueryStringInLink(): void
+    {
+        // 'app://self/crawl/tags?articleId={id}' はクエリ文字列を落として
+        // App/Crawl/Tags.php へ飛ぶ (BEAR.Kata に実在する形)。
+        $location = $this->requestDefinitionInFile(
+            'src/Resource/App/Articles.php',
+            'app://self/crawl/tags?articleId={id}'
+        );
+
+        self::assertSame('file://' . self::fixtureDir() . '/src/Resource/App/Crawl/Tags.php', $location->uri);
+        self::assertSame(8, $location->range->start->line);
+        self::assertSame(12, $location->range->start->character);
+    }
+
     public function testReturnsNullForMissingResource(): void
     {
         $response = $this->requestDefinitionResponse('app://self/missing');
@@ -169,6 +219,29 @@ final class ResourceDefinitionLocatorTest extends TestCase
     {
         $response = $this->requestDefinitionResponse($needle);
 
+        self::assertInstanceOf(LspLocation::class, $response->result);
+
+        return $response->result;
+    }
+
+    /**
+     * 指定したフィクスチャファイル (createTester が開く src/Resource 配下) の
+     * needle の先頭位置で定義ジャンプを要求し、結果の Location を返す。
+     */
+    private function requestDefinitionInFile(string $relativeFile, string $needle): LspLocation
+    {
+        [$tester, , ] = $this->createTester();
+        $file = self::fixtureDir() . '/' . $relativeFile;
+        $fileContent = (string) file_get_contents($file);
+        [$line, $char] = $this->positionOf($needle, $fileContent);
+
+        $response = $tester->requestAndWait(DefinitionRequest::METHOD, [
+            'textDocument' => ProtocolFactory::textDocumentIdentifier('file://' . $file),
+            'position' => ProtocolFactory::position($line, $char),
+        ]);
+
+        self::assertNotNull($response);
+        $tester->assertSuccess($response);
         self::assertInstanceOf(LspLocation::class, $response->result);
 
         return $response->result;

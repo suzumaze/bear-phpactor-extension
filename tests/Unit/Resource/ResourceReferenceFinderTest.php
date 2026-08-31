@@ -59,6 +59,45 @@ final class ResourceReferenceFinderTest extends TestCase
         self::assertSame($this->expectedReferences(), $this->asReferences($response->result));
     }
 
+    public function testFindsReferencesFromPositionRightAfterClassName(): void
+    {
+        // 後ろ側は緩い: クラス名トークンの終端 (getEndPosition()、最後の文字の
+        // 直後でテキスト上は空白) でもクラス名の上とみなす。VS Code の「単語の
+        // 直後は単語の上」という慣習に合わせた意図的な非対称
+        // (ResourceReferenceFinder.php:220 の $offset > $name->getEndPosition()
+        // が等号を含む)。ロケータ側 (JsonSchemaConventionTypeLocator) は
+        // getDescendantNodeAtPosition() で位置から木を降りるため名前の直後は
+        // ClassBaseClause に落ちて境界の行に届かないが、こちらは
+        // PhpClassDeclaration::findInSource() がソース全体から宣言を探すため
+        // この位置は境界の行に生で届く (生きた検査)。
+        $response = $this->requestReferences(
+            'src/Resource/App/Article.php',
+            'final class Article',
+            false,
+            strlen('Article') // クラス名トークン先頭 → 終端 (getEndPosition())
+        );
+
+        self::assertSame($this->expectedReferences(), $this->asReferences($response->result));
+    }
+
+    public function testReturnsNothingAtPositionJustBeforeClassName(): void
+    {
+        // 前側は厳格: クラス名の1文字前 (getStartPosition() - 1、テキスト上は
+        // class と名前のあいだの空白) はクラス名の上とみなさない。後ろ側の緩さと
+        // 意図的に非対称 (ResourceReferenceFinder.php:220 の
+        // $offset < $name->getStartPosition() が等号を含まない)。ここが - 1 で
+        // 緩むと1文字前のF12が誤って飛ぶ。こちらも位置で木を降りないため、
+        // この位置は境界の行に生で届く (生きた検査)。
+        $response = $this->requestReferences(
+            'src/Resource/App/Article.php',
+            'final class Article',
+            false,
+            -1
+        );
+
+        self::assertSame([], $this->asReferences($response->result));
+    }
+
     public function testFindsSameReferencesFromUriString(): void
     {
         // Articles.php の 'app://self/article{?id}' の文字列の中から同じ要求を
@@ -360,6 +399,7 @@ final class ResourceReferenceFinderTest extends TestCase
         string $relativeFile,
         string $needle,
         bool $includeDeclaration,
+        int $cursorDelta = 0,
     ): \Phpactor\LanguageServer\Core\Rpc\ResponseMessage {
         $file = self::fixtureDir() . '/' . $relativeFile;
         $content = (string) file_get_contents($file);
@@ -368,6 +408,10 @@ final class ResourceReferenceFinderTest extends TestCase
             // カーソルは「クラス名トークンの上」に置く (final の上ではない)
             $char += strlen('final class ');
         }
+        // クラス名トークン先頭からのずらし幅 (文字数)。境界の検査 (名前の直後・
+        // 1文字前) はこの引数でカーソルを動かす。既存呼び出しは省略 (0) で
+        // 従来どおりクラス名トークンの先頭に置かれる。
+        $char += $cursorDelta;
 
         $tester = $this->createTester();
         $response = $tester->requestAndWait(ReferencesRequest::METHOD, [
