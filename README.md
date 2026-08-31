@@ -1,5 +1,7 @@
 # suzumaze/bear-phpactor-extension
 
+English | [日本語](README.ja.md)
+
 BEAR.Sunday conventions for [phpactor](https://github.com/phpactor/phpactor), the PHP language server. This Composer package plugs BEAR.Sunday's naming and directory conventions into phpactor's LSP: definition jumps and completion that know where `app://self/user` lives, where SQL files go, and how JSON Schemas are named.
 
 It implements no LSP protocol code itself — it registers a few locators and completors with phpactor's extension container.
