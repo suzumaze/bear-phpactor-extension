@@ -10,9 +10,9 @@ It implements no LSP protocol code itself — it registers a few locators and co
 
 | Feature | What happens |
 |---|---|
-| Resource URI definition jump | Cursor on `'app://self/user'` → jumps to `src/Resource/App/User.php` (psr-4 aware) |
+| Resource URI definition jump | Cursor on `'app://self/user'` → jumps to `src/Resource/App/User.php` (psr-4 aware). Fires anywhere a resource URI string literal appears — including inside `#[Embed(src: ...)]` / `#[Link(href: ...)]` attributes, not just in plain code |
 | Resource URI completion | `'app://self/<caret>'` → completes URIs of resource classes that exist in the project |
-| SQL definition jump | Cursor on `#[DbQuery('point_distance')]` (Ray.MediaQuery) or `@Query("point_distance")` (Ray.QueryModule) → jumps to `var/db/sql/point_distance.sql` |
+| SQL definition jump | Cursor on `#[DbQuery('point_distance')]` (Ray.MediaQuery — the fully-qualified form written without a `use`, `#[\Ray\MediaQuery\Annotation\DbQuery('point_distance')]`, works too) or `@Query("point_distance")` (Ray.QueryModule) → jumps to `var/db/sql/point_distance.sql` |
 | JSON Schema definition jump (attribute) | Cursor on `#[JsonSchema('user.json')]` → jumps to `var/json_schema/user.json`; a `params:` named argument resolves under `var/json_validate/` instead |
 | JSON Schema type definition jump (convention) | Cursor on a resource class declaration name → Go to Type Definition jumps to `var/json_schema/<kebab-case>.json` (e.g. `BodyTypeDemo` → `body-type-demo.json`, `Page\Admin\UserProfile` → `admin/user-profile.json`) |
 | Router definition jump | Cursor on a **route name** in `aura.route.php` — the first argument of `$map->route()` / `$map->get()` / `$map->post()` / … → jumps to the corresponding Page resource class. Context prefixes are followed (`'/article-redirector'` finds `Page/Content/ArticleRedirector.php`), and inner capitals are preserved (`'/articleRedirector'` → `ArticleRedirector`, not `Articleredirector`). The second argument (the URL pattern, e.g. `'/blogs/{blogger}'`) is deliberately **not** a jump site: it is an HTTP path, not a resource path, and jumping from it lands on the wrong class. `$map->attach()` is excluded too — its first argument is a name prefix |
@@ -162,17 +162,23 @@ cd /path/to/your-app && vendor/bin/phpactor config:trust --trust
 php /path/to/bear-phpactor-extension/tools/coverage.php /path/to/your-app
 ```
 
-Measured on a production application with 276 resources: **544 of 550 sites, 99%**.
-The remaining misses are URIs assembled at runtime (`'page://self/content/' . $slug`),
-where naming no class is the correct answer.
+Measured on [BEAR.Kata](https://github.com/bearsunday/BEAR.Kata), BEAR.Sunday's own
+public tutorial application: 474 sites, **0 mismatches**. 388 sites got the expected
+answer; the remaining 85 are sites where returning nothing is the correct answer (most
+are resource classes with no matching JSON Schema file under the naming convention —
+Kata's tutorial-sized codebase does not give every resource one). The expected file for
+each site is computed independently of this extension's own code, directly from the
+BEAR.Sunday naming convention, so a mistake shared by both would still surface as a
+mismatch here.
 
-Two caveats. The tool measures **reach, not correctness** — it counts whether a site got
-an answer, not whether the answer was the right file. And it does not measure **false
-positives**, places where a jump fires but should not.
+A separate probe for false positives — jumping from a site that should not jump — found
+**0 misfires** across 948 checks (`tools/misfire.php`). Completion candidates are not
+covered by either tool; verifying those needs inspecting each suggestion list, which is
+a different kind of check.
 
 ## Known limitations
 
-- **Jump targets land at file start (0,0).** Only the Router locator computes the class-name position; the other three locators return the file's first line. Cosmetic, but visible in the editor.
+- **SQL jumps land at file start (0,0).** The Router and Resource URI locators land on the class-declaration name, and both JSON Schema locators (attribute and convention) land on the `title` key inside the schema file. Only the SQL locator returns the `.sql` file's first line. Cosmetic, but visible in the editor.
 - **The resource-class scan regex can false-positive.** `Project::resourcePhpFiles()` matches files whose text contains `extends ... ResourceObject`; a docblock sentence or a class extending `MyResourceObject` can match, which bloats URI completion candidates.
 - **Reference search only reads files from disk, and only inside psr-4 directories.** A `#[Link]` you have typed but not saved does not appear in the results, and neither do sites in files outside the `autoload`/`autoload-dev` psr-4 roots — `bin/*.php`, `public/index.php`, and the like. Measured on BEAR.Kata: 16 of the sites a plain text search finds live in `bin/`. The definition jump is unaffected; it works from the buffer the editor sends.
 - **Windows absolute-path detection is incomplete in psr-4 resolution.** Paths starting with `/` are treated as absolute; drive-letter paths (`C:/src`) are handled by `PathGuard` but not by the psr-4 directory resolution side.

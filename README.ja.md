@@ -10,9 +10,9 @@ LSP（Language Server Protocol、エディタと言語サーバーをつなぐ�
 
 | 機能 | 何が起きるか |
 |---|---|
-| リソースURI定義ジャンプ | `'app://self/user'`にカーソルを置く → `src/Resource/App/User.php`へ飛ぶ（psr-4を考慮） |
+| リソースURI定義ジャンプ | `'app://self/user'`にカーソルを置く → `src/Resource/App/User.php`へ飛ぶ（psr-4を考慮）。リソースURIの文字列リテラルがある場所ならどこでも発火する——`#[Embed(src: ...)]`・`#[Link(href: ...)]`属性の中も含み、普通のコードの中だけではない |
 | リソースURI補完 | `'app://self/<カーソル>'` → プロジェクト内に実在するリソースクラスのURIを補完する |
-| SQL定義ジャンプ | `#[DbQuery('point_distance')]`（Ray.MediaQuery）または`@Query("point_distance")`（Ray.QueryModule）にカーソルを置く → `var/db/sql/point_distance.sql`へ飛ぶ |
+| SQL定義ジャンプ | `#[DbQuery('point_distance')]`（Ray.MediaQuery。`use`を書かない完全修飾の形`#[\Ray\MediaQuery\Annotation\DbQuery('point_distance')]`でも動く）または`@Query("point_distance")`（Ray.QueryModule）にカーソルを置く → `var/db/sql/point_distance.sql`へ飛ぶ |
 | JSON Schema定義ジャンプ（属性） | `#[JsonSchema('user.json')]`にカーソルを置く → `var/json_schema/user.json`へ飛ぶ。名前付き引数`params:`が付いていれば`var/json_validate/`配下を解決する |
 | JSON Schema型定義ジャンプ（規約） | リソースクラスの宣言名にカーソルを置き「型定義へ移動」を実行 → `var/json_schema/<ケバブケース>.json`へ飛ぶ（例: `BodyTypeDemo` → `body-type-demo.json`、`Page\Admin\UserProfile` → `admin/user-profile.json`） |
 | ルータージャンプ | `aura.route.php`の中の**ルート名**（`$map->route()` / `$map->get()` / `$map->post()`などの第1引数）にカーソルを置く → 対応するPageリソースクラスへ飛ぶ。文脈接頭辞を辿る（`'/article-redirector'`は`Page/Content/ArticleRedirector.php`を見つける）。大文字も保つ（`'/articleRedirector'` → `ArticleRedirector`。`Articleredirector`にはならない）。第2引数（URLパターン、例`'/blogs/{blogger}'`）は**意図的にジャンプの対象外**——HTTPのパスであってリソースのパスではなく、そこから飛ぶと間違ったクラスに着地する。`$map->attach()`も対象外——第1引数が名前の接頭辞であるため |
@@ -135,13 +135,13 @@ cd /path/to/your-app && vendor/bin/phpactor config:trust --trust
 php /path/to/bear-phpactor-extension/tools/coverage.php /path/to/your-app
 ```
 
-276個のリソースを持つ本番アプリケーションで測定: **550箇所中544箇所、99%**。残りの外れは実行時に組み立てられるURI（`'page://self/content/' . $slug`）で、どのクラスも指さないのが正しい答えです。
+[BEAR.Kata](https://github.com/bearsunday/BEAR.Kata)（BEAR.Sunday公式のチュートリアル用アプリ）で測定: 474箇所中**不一致0**。388箇所は期待どおりの答えが返り、残り85箇所は「何も返らないのが正しい答え」の箇所です（大半は、命名規約に合うJSON Schemaファイルが無いリソースクラス——Kataはチュートリアル規模のコードなので、すべてのリソースにJSON Schemaがあるわけではありません）。各箇所の期待ファイルは、この拡張自身のコードとは独立に、BEAR.Sundayの命名規約から直接計算しています。両者に共通の思い違いがあれば、それでも不一致として表面化する作りです。
 
-2つ、注意点があります。この道具が測るのは**届いているかどうかであって、正しいかどうかではありません**——答えが返ったかどうかを数えるだけで、それが正しいファイルかどうかは見ていません。そして**誤爆**（飛ぶべきでない場所で飛んでしまうこと）も測っていません。
+誤爆（飛ぶべきでない場所で飛んでしまうこと）を測る別の検査では、948件の確認で**誤爆0**でした（`tools/misfire.php`）。補完の候補一覧はどちらの道具でも検査していません——候補の中身を1件ずつ見る必要があり、別種の検査になります。
 
 ## 既知の限界
 
-- **ジャンプ先はファイルの先頭（0,0）に着地します。** クラス名の位置を計算しているのはルーターのロケータだけで、残り3つのロケータはファイルの1行目を返します。見た目だけの問題ですが、エディタ上では見えます。
+- **SQLジャンプだけ、ファイルの先頭（0,0）に着地します。** ルーターとリソースURIのロケータはクラス宣言名の位置に、JSON Schemaのロケータ（属性・規約の両方）はスキーマファイル内の`title`キーの位置に着地します。ファイルの1行目をそのまま返すのはSQLのロケータだけです。見た目だけの問題ですが、エディタ上では見えます。
 - **リソースクラスを走査する正規表現が、誤検出することがあります。** `Project::resourcePhpFiles()`は、テキストに`extends ... ResourceObject`を含むファイルにマッチします。docblockの説明文や、`MyResourceObject`を継承するクラスもマッチしてしまい、URI補完の候補が水増しされます。
 - **参照検索はディスクからしかファイルを読まず、しかもpsr-4のディレクトリの中だけです。** 保存していない`#[Link]`は結果に出てきませんし、`autoload`・`autoload-dev`のpsr-4の根の外にあるファイル（`bin/*.php`や`public/index.php`など）の箇所も出てきません。BEAR.Kataで測定したところ、単純なテキスト検索が見つける箇所のうち16件が`bin/`にありました。定義ジャンプはこの影響を受けません——エディタが送ってくるバッファから動作するためです。
 - **Windowsの絶対パス判定が、psr-4の解決では不完全です。** `/`で始まるパスは絶対パス扱いにしていますが、ドライブレター付きのパス（`C:/src`）は`PathGuard`側では扱っていても、psr-4のディレクトリ解決側では扱っていません。
