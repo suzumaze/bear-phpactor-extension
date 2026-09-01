@@ -24,6 +24,8 @@ All jumps are pure path/namespace mapping — no PHP type inference is involved.
 
 phpactor itself must be installed in the project (the extension is loaded by phpactor, not the other way around):
 
+**This goes against phpactor's own advice.** phpactor's [README](https://github.com/phpactor/phpactor/blob/master/README.md) states plainly: "Phpactor is a general tool, it is not intended that it be installed as a project dependency." This package asks you to do exactly that. The reason is structural: `PhpactorDispatcherFactory` instantiates every class listed in `.phpactor.json` while phpactor boots, so each class must be autoloadable at that point — which means phpactor and this extension need to share one autoloader, your project's `vendor/`. A phpactor installed elsewhere cannot see a package that lives only in your project.
+
 ```bash
 composer require --dev phpactor/phpactor suzumaze/bear-phpactor-extension
 vendor/bin/bear-phpactor-init
@@ -183,6 +185,12 @@ a different kind of check.
 - **Reference search only reads files from disk, and only inside psr-4 directories.** A `#[Link]` you have typed but not saved does not appear in the results, and neither do sites in files outside the `autoload`/`autoload-dev` psr-4 roots — `bin/*.php`, `public/index.php`, and the like. Measured on BEAR.Kata: 16 of the sites a plain text search finds live in `bin/`. The definition jump is unaffected; it works from the buffer the editor sends.
 - **Windows absolute-path detection is incomplete in psr-4 resolution.** Paths starting with `/` are treated as absolute; drive-letter paths (`C:/src`) are handled by `PathGuard` but not by the psr-4 directory resolution side.
 - **"Find all references" with `includeDeclaration: true` lists the class itself as the declaration.** On a resource class declaration name, the definition chain no longer resolves to `var/json_schema/<name>.json` (the convention jump moved to Go to Type Definition), so the built-in locator answers and VS Code's "Find All References" shows the class itself in the declaration slot before the actual reference sites.
+
+## Support
+
+This is a personal side project, maintained on a best-effort basis. Bug reports and pull requests are welcome, but there is no support commitment.
+
+If you use PhpStorm, [idea-php-bearsunday-plugin](https://github.com/bearsunday/idea-php-bearsunday-plugin) is a more complete, actively maintained option — it reads BEAR.Sunday's structure directly through JetBrains' PSI and includes features (such as MCP tool integration) this package does not attempt. This package exists for editors that speak LSP and have no BEAR.Sunday-aware plugin of their own.
 
 ## Development
 

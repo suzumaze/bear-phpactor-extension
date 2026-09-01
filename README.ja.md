@@ -24,6 +24,8 @@ LSP（Language Server Protocol、エディタと言語サーバーをつなぐ�
 
 phpactor自体をプロジェクトにインストールする必要があります（この拡張はphpactorから読み込まれる側で、逆ではありません）。
 
+**これはphpactor自身の助言に反しています。** phpactorの[README](https://github.com/phpactor/phpactor/blob/master/README.md)にはこう明記されています——"Phpactor is a general tool, it is not intended that it be installed as a project dependency."（Phpactorは汎用ツールであり、プロジェクトの依存関係としてインストールすることは意図していない）。この拡張が求めているのは、まさにその逆です。理由は好みではなく構造上のものです。`PhpactorDispatcherFactory`はphpactorの起動中に、`.phpactor.json`に列挙された全クラスを`new`します。その時点でクラスがオートロードできる必要があるため、phpactorとこの拡張は同じオートローダー——プロジェクトの`vendor/`——を共有しなければなりません。別の場所にインストールされたphpactorから、プロジェクト内にしか無いパッケージは見えません。
+
 ```bash
 composer require --dev phpactor/phpactor suzumaze/bear-phpactor-extension
 vendor/bin/bear-phpactor-init
@@ -146,6 +148,12 @@ php /path/to/bear-phpactor-extension/tools/coverage.php /path/to/your-app
 - **参照検索はディスクからしかファイルを読まず、しかもpsr-4のディレクトリの中だけです。** 保存していない`#[Link]`は結果に出てきませんし、`autoload`・`autoload-dev`のpsr-4の根の外にあるファイル（`bin/*.php`や`public/index.php`など）の箇所も出てきません。BEAR.Kataで測定したところ、単純なテキスト検索が見つける箇所のうち16件が`bin/`にありました。定義ジャンプはこの影響を受けません——エディタが送ってくるバッファから動作するためです。
 - **Windowsの絶対パス判定が、psr-4の解決では不完全です。** `/`で始まるパスは絶対パス扱いにしていますが、ドライブレター付きのパス（`C:/src`）は`PathGuard`側では扱っていても、psr-4のディレクトリ解決側では扱っていません。
 - **`includeDeclaration: true`付きの「すべての参照を検索」は、クラス自身を宣言として列挙します。** リソースクラスの宣言名の上では、定義の鎖がもう`var/json_schema/<name>.json`には解決されません（規約ジャンプは「型定義へ移動」に移したため）。そのため組込みのロケータが答え、VS Codeの「すべての参照を検索」は、実際の参照箇所より前に、宣言の位置としてクラス自身を表示します。
+
+## サポート
+
+これは個人の趣味プロジェクトで、ベストエフォートで保守しています。不具合報告やプルリクエストは歓迎しますが、サポートを約束するものではありません。
+
+PhpStormを使っているなら、[idea-php-bearsunday-plugin](https://github.com/bearsunday/idea-php-bearsunday-plugin)のほうが機能が揃っており、活発に保守されています——JetBrainsのPSI(構文木とインデックスを提供する独自API)を通じてBEAR.Sundayの構造を直接読み取り、MCPツール連携などこの拡張が手を出していない機能も持っています。この拡張は、LSPを話せるがBEAR.Sunday対応プラグインを持たないエディタのために存在します。
 
 ## 開発
 
