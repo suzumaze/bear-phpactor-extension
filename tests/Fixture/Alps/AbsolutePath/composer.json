@@ -1,0 +1,9 @@
+{
+    "name": "myvendor/alps-absolute-path",
+    "description": "Fixture project whose apidoc.xml <alps> element is an absolute path",
+    "autoload": {
+        "psr-4": {
+            "MyVendor\\AlpsAbsolute\\": "src/"
+        }
+    }
+}

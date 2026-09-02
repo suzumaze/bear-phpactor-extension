@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Suzumaze\BearPhpactor\Tests\Unit;
 
+use Suzumaze\BearPhpactor\Alps\AlpsDefinitionLocator;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaConventionTypeLocator;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaDefinitionLocator;
 use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceDefinitionLocator;
@@ -18,7 +19,7 @@ use Phpactor\TextDocument\TextDocumentBuilder;
 use PHPUnit\Framework\TestCase;
 
 /**
- * 4ロケータの入口の安価な事前判定。
+ * 5ロケータの入口の安価な事前判定。
  *
  * 自拡張が container.extension_classes の先頭に来ると、すべてのPHPファイルの
  * すべての定義ジャンプで最初に走る。該当しないことが安価に分かる場合は
@@ -43,6 +44,15 @@ final class LocatorEntryPointTest extends TestCase
             new StringLiteralAtOffset($this->parserThatMustNotRun()),
             $this->parserThatMustNotRun(),
         );
+        $document = TextDocumentBuilder::create("<?php\nfinal class Foo\n{\n}\n")->language('php')->build();
+
+        $this->expectException(CouldNotLocateDefinition::class);
+        $locator->locateDefinition($document, ByteOffset::fromInt(10));
+    }
+
+    public function testAlpsBailsBeforeParsingWithoutAlpsAttribute(): void
+    {
+        $locator = new AlpsDefinitionLocator(new StringLiteralAtOffset($this->parserThatMustNotRun()));
         $document = TextDocumentBuilder::create("<?php\nfinal class Foo\n{\n}\n")->language('php')->build();
 
         $this->expectException(CouldNotLocateDefinition::class);

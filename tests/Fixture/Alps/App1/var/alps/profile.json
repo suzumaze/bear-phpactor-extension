@@ -1,0 +1,14 @@
+{
+    "$schema": "./vendor/bear/api-doc/alps-schema.json",
+    "alps": {
+        "doc": {"value": "Fixture ALPS profile"},
+        "descriptor": [
+            {"id": "Article", "title": "Article", "descriptor": [
+                {"href": "#goArticle"},
+                {"href": "#doDeleteArticle"}
+            ]},
+            {"id": "goArticle", "type": "safe", "rt": "#Article", "title": "View Article"},
+            {"id": "doDeleteArticle", "type": "idempotent", "rt": "#ArticleList", "title": "Delete Article"}
+        ]
+    }
+}

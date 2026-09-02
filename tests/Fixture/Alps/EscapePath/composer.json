@@ -1,0 +1,9 @@
+{
+    "name": "myvendor/alps-escape-path",
+    "description": "Fixture project whose apidoc.xml <alps> path escapes the project root",
+    "autoload": {
+        "psr-4": {
+            "MyVendor\\AlpsEscape\\": "src/"
+        }
+    }
+}

@@ -38,9 +38,9 @@ use Phpactor\WorseReflection\Core\TypeFactory;
  * the convention jump was overriding that.
  *
  * The project root comes from the document's location (ProjectLocator, shared
- * with the other three locators), not from the LSP workspace root. String
+ * with the other four locators), not from the LSP workspace root. String
  * literals are extracted via StringLiteralAtOffset and resolved paths are
- * checked by PathGuard, both shared across the four features. The schema-file
+ * checked by PathGuard, both shared across the five features. The schema-file
  * resolution itself is delegated to JsonSchemaPathResolver, shared with the
  * body-key completor (BodyPropertyCompletor).
  *

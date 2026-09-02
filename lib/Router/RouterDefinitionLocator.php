@@ -43,7 +43,7 @@ use Phpactor\WorseReflection\Core\Util\NodeUtil;
  * リソースの起点は composer.json の autoload.psr-4 から取る (例:
  * "MyVendor\\MyProject\\": "src/" なら src/Resource/Page/Index.php を探す)。
  * プロジェクトルートは ProjectLocator、ルートパスの文字列抽出は
- * StringLiteralAtOffset、パスの安全検査は PathGuard と、4機能共通の部品を使う。
+ * StringLiteralAtOffset、パスの安全検査は PathGuard と、5機能共通の部品を使う。
  */
 final class RouterDefinitionLocator implements DefinitionLocator
 {

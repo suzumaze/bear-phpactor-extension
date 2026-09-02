@@ -1,0 +1,9 @@
+{
+    "name": "myvendor/alps-no-apidoc",
+    "description": "Fixture project without apidoc.xml for the ALPS definition locator",
+    "autoload": {
+        "psr-4": {
+            "MyVendor\\AlpsNoApidoc\\": "src/"
+        }
+    }
+}

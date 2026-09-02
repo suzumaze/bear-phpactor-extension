@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Suzumaze\BearPhpactor\Tests\Unit;
 
+use Suzumaze\BearPhpactor\Alps\AlpsDefinitionLocator;
 use Suzumaze\BearPhpactor\BearSundayExtension;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaConventionTypeLocator;
 use Suzumaze\BearPhpactor\Resource\Completor\BodyPropertyCompletor;
@@ -69,6 +70,18 @@ final class BearSundayExtensionTest extends TestCase
         self::assertArrayHasKey(
             'bear_sunday.completor.body_property',
             $container->getServiceIdsForTag(CompletionExtension::TAG_COMPLETOR),
+        );
+    }
+
+    public function testRegistersAlpsDefinitionLocatorWithTag(): void
+    {
+        $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
+
+        $locator = $container->get(AlpsDefinitionLocator::class);
+        self::assertInstanceOf(AlpsDefinitionLocator::class, $locator);
+        self::assertArrayHasKey(
+            AlpsDefinitionLocator::class,
+            $container->getServiceIdsForTag(ReferenceFinderExtension::TAG_DEFINITION_LOCATOR),
         );
     }
 

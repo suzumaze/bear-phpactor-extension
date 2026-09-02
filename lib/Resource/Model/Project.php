@@ -18,7 +18,7 @@ use RecursiveIteratorIterator;
  * リソースクラスの名前空間の起点は composer.json の autoload.psr-4 から取る。
  * 例: "Acme\Blog\": "src/" なら Resource ディレクトリは src/Resource、
  * クラス名前空間は Acme\Blog\Resource\App\User となる。
- * プロジェクトルートの探索は ProjectLocator に委譲する (4機能共通)。
+ * プロジェクトルートの探索は ProjectLocator に委譲する (5機能共通)。
  */
 final class Project
 {

@@ -233,7 +233,7 @@ final class SqlDefinitionLocator implements DefinitionLocator
 
     /**
      * ドキュメントの置かれたディレクトリから上へ、psr-4 を持つ composer.json を辿って
-     * プロジェクトルートとする (4機能共通の ProjectLocator)。見つからなければ null。
+     * プロジェクトルートとする (5機能共通の ProjectLocator)。見つからなければ null。
      */
     private function projectRoot(TextDocument $document): ?string
     {

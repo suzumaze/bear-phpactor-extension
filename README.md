@@ -15,6 +15,7 @@ It implements no LSP protocol code itself — it registers a few locators and co
 | SQL definition jump | Cursor on `#[DbQuery('point_distance')]` (Ray.MediaQuery — the fully-qualified form written without a `use`, `#[\Ray\MediaQuery\Annotation\DbQuery('point_distance')]`, works too) or `@Query("point_distance")` (Ray.QueryModule) → jumps to `var/db/sql/point_distance.sql` |
 | JSON Schema definition jump (attribute) | Cursor on `#[JsonSchema('user.json')]` → jumps to `var/json_schema/user.json`; a `params:` named argument resolves under `var/json_validate/` instead |
 | JSON Schema type definition jump (convention) | Cursor on a resource class declaration name → Go to Type Definition jumps to `var/json_schema/<kebab-case>.json` (e.g. `BodyTypeDemo` → `body-type-demo.json`, `Page\Admin\UserProfile` → `admin/user-profile.json`) |
+| ALPS profile definition jump | Cursor on `#[Alps('doDeleteArticle')]` (`bear/api-doc`'s attribute) → jumps to the matching descriptor's `id` in the ALPS profile JSON that `apidoc.xml`'s `<alps>` element points to. The short name, the fully-qualified name, and the fully-qualified name with a leading backslash (the form Ray.Di-generated code uses) all work |
 | Router definition jump | Cursor on a **route name** in `aura.route.php` — the first argument of `$map->route()` / `$map->get()` / `$map->post()` / … → jumps to the corresponding Page resource class. Context prefixes are followed (`'/article-redirector'` finds `Page/Content/ArticleRedirector.php`), and inner capitals are preserved (`'/articleRedirector'` → `ArticleRedirector`, not `Articleredirector`). The second argument (the URL pattern, e.g. `'/blogs/{blogger}'`) is deliberately **not** a jump site: it is an HTTP path, not a resource path, and jumping from it lands on the wrong class. `$map->attach()` is excluded too — its first argument is a name prefix |
 | Resource reference search | Cursor on a resource URI string (`'app://self/article'`) or a resource class declaration name → lists every place in the project that references that resource (`#[Link]`/`#[Embed]`/`$this->resource->get()`, …) |
 
@@ -22,9 +23,9 @@ All jumps are pure path/namespace mapping — no PHP type inference is involved.
 
 ## Installation
 
-phpactor itself must be installed in the project (the extension is loaded by phpactor, not the other way around):
+phpactor and this extension must share one Composer autoloader (the extension is loaded by phpactor, not the other way around). The simplest way is your project's own `composer.json`:
 
-**This goes against phpactor's own advice.** phpactor's [README](https://github.com/phpactor/phpactor/blob/master/README.md) states plainly: "Phpactor is a general tool, it is not intended that it be installed as a project dependency." This package asks you to do exactly that. The reason is structural: `PhpactorDispatcherFactory` instantiates every class listed in `.phpactor.json` while phpactor boots, so each class must be autoloadable at that point — which means phpactor and this extension need to share one autoloader, your project's `vendor/`. A phpactor installed elsewhere cannot see a package that lives only in your project.
+**Installing phpactor into the project goes against phpactor's own advice.** phpactor's [README](https://github.com/phpactor/phpactor/blob/master/README.md) states plainly: "Phpactor is a general tool, it is not intended that it be installed as a project dependency." The reason this package still supports installing it this way is structural, not a preference: `PhpactorDispatcherFactory` instantiates every class listed in `.phpactor.json` while phpactor boots, so each class must already be autoloadable at that point — phpactor and this extension simply need to share one autoloader, and your project's `vendor/` is the easiest one to reach for. It does not have to be, though: see [Installing outside the project](#installing-outside-the-project) below for a way to keep your project's `composer.json` untouched entirely.
 
 ```bash
 composer require --dev phpactor/phpactor suzumaze/bear-phpactor-extension
@@ -38,6 +39,20 @@ Notes:
 - `phpactor config:trust --trust` marks the directory as trusted; phpactor ignores `.phpactor.json` in untrusted directories.
 - The `extra.phpactor.extension_class` key in this package's `composer.json` is kept for ecosystem convention only — phpactor no longer reads it. The only working load path is `container.extension_classes` in `.phpactor.json`, and it applies to the language server only (not the CLI).
 - Pin `phpactor/language-server-protocol` to `3.17.4` (`composer require --dev phpactor/language-server-protocol:3.17.4`). With language-server 7.0.1 and protocol 3.17.5, `textDocument/didChange` never reaches the server: unsaved edits are ignored and every feature answers from the `didOpen` text until you save — with no error anywhere. `bear-phpactor-init` detects this combination and warns on stderr (the command still succeeds). The regression is fixed upstream in the pull request that makes the handler read `contentChanges` as objects ([phpactor/language-server#68](https://github.com/phpactor/language-server/pull/68)), but no release has been cut yet. Drop the pin once a fixed language-server is released.
+
+### Installing outside the project
+
+phpactor and this extension can instead live together in one directory outside any project, leaving every project's `composer.json` untouched:
+
+```bash
+mkdir -p ~/phpactor-global && cd ~/phpactor-global
+composer require phpactor/phpactor suzumaze/bear-phpactor-extension
+vendor/bin/bear-phpactor-init
+```
+
+Copy the `.phpactor.json` this generates into phpactor's *global* config file — `$XDG_CONFIG_HOME/phpactor/phpactor.json`, or `~/.config/phpactor/phpactor.json` if that variable is unset. phpactor reads this file before any per-project trust check, so `config:trust` is not required for it to take effect. Point your editor's phpactor path at this external `vendor/bin/phpactor` instead of a project-local one.
+
+Verified twice, independently: a project with no `vendor/` at all, and only `php` and `autoload.psr-4` in its `composer.json`, gets working definition jumps this way. **Tested on one machine only (macOS)** — Windows and Linux are unverified.
 
 ## Why `.phpactor.json` lists every extension class
 

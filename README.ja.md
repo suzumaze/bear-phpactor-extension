@@ -15,6 +15,7 @@ LSP（Language Server Protocol、エディタと言語サーバーをつなぐ�
 | SQL定義ジャンプ | `#[DbQuery('point_distance')]`（Ray.MediaQuery。`use`を書かない完全修飾の形`#[\Ray\MediaQuery\Annotation\DbQuery('point_distance')]`でも動く）または`@Query("point_distance")`（Ray.QueryModule）にカーソルを置く → `var/db/sql/point_distance.sql`へ飛ぶ |
 | JSON Schema定義ジャンプ（属性） | `#[JsonSchema('user.json')]`にカーソルを置く → `var/json_schema/user.json`へ飛ぶ。名前付き引数`params:`が付いていれば`var/json_validate/`配下を解決する |
 | JSON Schema型定義ジャンプ（規約） | リソースクラスの宣言名にカーソルを置き「型定義へ移動」を実行 → `var/json_schema/<ケバブケース>.json`へ飛ぶ（例: `BodyTypeDemo` → `body-type-demo.json`、`Page\Admin\UserProfile` → `admin/user-profile.json`） |
+| ALPSプロファイル定義ジャンプ | `#[Alps('doDeleteArticle')]`（`bear/api-doc`の属性）にカーソルを置く → `apidoc.xml`の`<alps>`要素が指すALPSプロファイルJSON内の、対応する記述子の`id`へ飛ぶ。短縮名・完全修飾名・先頭バックスラッシュ付き完全修飾名（Ray.Diが生成するコードの書き方）のどれでも動く |
 | ルータージャンプ | `aura.route.php`の中の**ルート名**（`$map->route()` / `$map->get()` / `$map->post()`などの第1引数）にカーソルを置く → 対応するPageリソースクラスへ飛ぶ。文脈接頭辞を辿る（`'/article-redirector'`は`Page/Content/ArticleRedirector.php`を見つける）。大文字も保つ（`'/articleRedirector'` → `ArticleRedirector`。`Articleredirector`にはならない）。第2引数（URLパターン、例`'/blogs/{blogger}'`）は**意図的にジャンプの対象外**——HTTPのパスであってリソースのパスではなく、そこから飛ぶと間違ったクラスに着地する。`$map->attach()`も対象外——第1引数が名前の接頭辞であるため |
 | リソース参照検索 | リソースURI文字列（`'app://self/article'`）またはリソースクラスの宣言名にカーソルを置く → そのリソースを参照している箇所を全部列挙する（`#[Link]`・`#[Embed]`・`$this->resource->get()`など） |
 
@@ -22,9 +23,9 @@ LSP（Language Server Protocol、エディタと言語サーバーをつなぐ�
 
 ## インストール
 
-phpactor自体をプロジェクトにインストールする必要があります（この拡張はphpactorから読み込まれる側で、逆ではありません）。
+phpactorとこの拡張は、1つのComposerオートローダーを共有する必要があります（この拡張はphpactorから読み込まれる側で、逆ではありません）。もっとも簡単なのは、プロジェクト自身の`composer.json`を使う方法です。
 
-**これはphpactor自身の助言に反しています。** phpactorの[README](https://github.com/phpactor/phpactor/blob/master/README.md)にはこう明記されています——"Phpactor is a general tool, it is not intended that it be installed as a project dependency."（Phpactorは汎用ツールであり、プロジェクトの依存関係としてインストールすることは意図していない）。この拡張が求めているのは、まさにその逆です。理由は好みではなく構造上のものです。`PhpactorDispatcherFactory`はphpactorの起動中に、`.phpactor.json`に列挙された全クラスを`new`します。その時点でクラスがオートロードできる必要があるため、phpactorとこの拡張は同じオートローダー——プロジェクトの`vendor/`——を共有しなければなりません。別の場所にインストールされたphpactorから、プロジェクト内にしか無いパッケージは見えません。
+**phpactorをプロジェクトにインストールする方法は、phpactor自身の助言に反しています。** phpactorの[README](https://github.com/phpactor/phpactor/blob/master/README.md)にはこう明記されています——"Phpactor is a general tool, it is not intended that it be installed as a project dependency."（Phpactorは汎用ツールであり、プロジェクトの依存関係としてインストールすることは意図していない）。それでもこの拡張がこの方法をサポートしているのは、好みではなく構造上の理由です。`PhpactorDispatcherFactory`はphpactorの起動中に、`.phpactor.json`に列挙された全クラスを`new`します。その時点でクラスがオートロードできる必要があるため、phpactorとこの拡張は同じオートローダーを共有しさえすればよく、プロジェクトの`vendor/`はその中でいちばん手近な場所というだけです。必ずそこである必要はありません——プロジェクトの`composer.json`にまったく触れずに済ませる方法を、下の「プロジェクトの外にインストールする」にまとめました。
 
 ```bash
 composer require --dev phpactor/phpactor suzumaze/bear-phpactor-extension
@@ -38,6 +39,20 @@ phpactor config:trust --trust
 - `phpactor config:trust --trust`はそのディレクトリを信頼済みとして記録します。信頼されていないディレクトリの`.phpactor.json`はphpactorに無視されます。
 - このパッケージの`composer.json`にある`extra.phpactor.extension_class`キーは、エコシステムの慣習に合わせて残しているだけで、phpactorはもう読みません。実際に効く読み込み経路は`.phpactor.json`の`container.extension_classes`だけで、しかも言語サーバーにしか適用されません（CLIには効きません）。
 - `phpactor/language-server-protocol`を`3.17.4`に固定してください（`composer require --dev phpactor/language-server-protocol:3.17.4`）。language-server 7.0.1とprotocol 3.17.5の組み合わせだと、`textDocument/didChange`がサーバーに届きません。つまり保存前の編集が無視され、保存するまですべての機能が`didOpen`時点のテキストに対して答え続けます——エラーは一切出ません。`bear-phpactor-init`はこの組み合わせを検知して標準エラー出力に警告します（コマンド自体は成功扱いのまま進みます）。この不具合は上流で修正済みで、`contentChanges`をオブジェクトとして読むよう直したプルリクエスト（[phpactor/language-server#68](https://github.com/phpactor/language-server/pull/68)）がありますが、まだリリースは切られていません。修正版のlanguage-serverが配布されたら、このバージョン固定は外してください。
+
+### プロジェクトの外にインストールする
+
+phpactorとこの拡張は、どこかのプロジェクトの外にある1つのディレクトリに一緒にインストールすることもできます。この方法なら、どのプロジェクトの`composer.json`にも触れません。
+
+```bash
+mkdir -p ~/phpactor-global && cd ~/phpactor-global
+composer require phpactor/phpactor suzumaze/bear-phpactor-extension
+vendor/bin/bear-phpactor-init
+```
+
+ここで生成される`.phpactor.json`の中身を、phpactorの*グローバル*設定ファイル——`$XDG_CONFIG_HOME/phpactor/phpactor.json`（この環境変数が未設定なら`~/.config/phpactor/phpactor.json`）——にコピーしてください。phpactorはこのファイルを、プロジェクトごとの信頼チェックより前に読むため、これが効くのに`config:trust`は要りません。エディタのphpactorパスは、プロジェクトローカルのものではなく、この外部の`vendor/bin/phpactor`を指すようにしてください。
+
+2回、独立に確認済みです。`vendor/`が一切無く、`composer.json`に`php`と`autoload.psr-4`しか無いプロジェクトでも、この方法で定義ジャンプが動作します。**検証したのは1台のマシン（macOS）だけです**——Windows・Linuxでの動作は未確認です。
 
 ## `.phpactor.json`がすべての拡張クラスを列挙している理由
 

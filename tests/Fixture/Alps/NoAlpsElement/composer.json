@@ -1,0 +1,9 @@
+{
+    "name": "myvendor/alps-no-element",
+    "description": "Fixture project whose apidoc.xml has no <alps> element",
+    "autoload": {
+        "psr-4": {
+            "MyVendor\\AlpsNoElement\\": "src/"
+        }
+    }
+}

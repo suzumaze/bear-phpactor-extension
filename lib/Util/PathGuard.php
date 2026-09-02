@@ -7,7 +7,7 @@ namespace Suzumaze\BearPhpactor\Util;
 /**
  * ファイルパスの安全性検査。ベースディレクトリの外へ出る相対パスを拒否する。
  *
- * 4機能 (Resource URI / SQL / Router / JsonSchema) の定義ジャンプは、いずれも
+ * 5機能 (Resource URI / SQL / Router / JsonSchema / Alps) の定義ジャンプは、いずれも
  * カーソル上の文字列をファイル名に変換してからベースディレクトリと結合する。
  * 「.. による脱出」「絶対パス」「バックスラッシュ区切り」の拒否をここに1か所
  * 集め、各機能は結合時に resolveInside() を通す。さらに結合後のパスがベース

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Suzumaze\BearPhpactor;
 
+use Suzumaze\BearPhpactor\Alps\AlpsDefinitionLocator;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaConventionTypeLocator;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaDefinitionLocator;
 use Suzumaze\BearPhpactor\Resource\Completor\BodyPropertyCompletor;
@@ -119,6 +120,15 @@ final class BearSundayExtension implements Extension
             },
             [ReferenceFinderExtension::TAG_TYPE_LOCATOR => []]
         );
+
+        // ALPSプロファイル: #[Alps('doDeleteArticle')] 属性から profile.json の
+        // 記述子定義へ定義ジャンプ。プロファイルの場所は固定の規約パスでは無く、
+        // プロジェクトルート直下の apidoc.xml の <alps> 要素で指定される。
+        $container->register(AlpsDefinitionLocator::class, function (Container $container): AlpsDefinitionLocator {
+            return new AlpsDefinitionLocator();
+        }, [
+            ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => [],
+        ]);
 
         // 参照検索: リソースURI文字列・リソースクラス宣言名から、そのリソースを
         // 参照する箇所 (textDocument/references) を探す。必ず false で終わる
