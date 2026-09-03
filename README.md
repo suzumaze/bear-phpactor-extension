@@ -167,9 +167,10 @@ reference is reported only when it points at the file you asked about.
 ## Measuring how much of a real project this covers
 
 Fixtures prove a feature fires once. They do not say what fraction of a real
-application it reaches. `tools/coverage.php` answers that: it parses every PHP file
-in a target project, collects every site this extension claims to answer
-(resource URIs, query names, route paths, resource class declarations), asks a real
+application it reaches. `tools/coverage.php` answers that for four of the five
+features (resource URIs, query names, route paths, resource class declarations —
+the ALPS profile jump is not yet covered by this tool): it parses every PHP file
+in a target project, collects every site those features claim to answer, asks a real
 language server for a definition at each one, and reports the hit rate plus every miss
 with its file and line.
 
@@ -195,7 +196,7 @@ a different kind of check.
 
 ## Known limitations
 
-- **SQL jumps land at file start (0,0).** The Router and Resource URI locators land on the class-declaration name, and both JSON Schema locators (attribute and convention) land on the `title` key inside the schema file. Only the SQL locator returns the `.sql` file's first line. Cosmetic, but visible in the editor.
+- **SQL jumps land at file start (0,0).** The Router and Resource URI locators land on the class-declaration name, both JSON Schema locators (attribute and convention) land on the `title` key inside the schema file, and the ALPS profile locator lands on the matching descriptor's `id` key. Only the SQL locator returns the `.sql` file's first line. Cosmetic, but visible in the editor.
 - **The resource-class scan regex can false-positive.** `Project::resourcePhpFiles()` matches files whose text contains `extends ... ResourceObject`; a docblock sentence or a class extending `MyResourceObject` can match, which bloats URI completion candidates.
 - **Reference search only reads files from disk, and only inside psr-4 directories.** A `#[Link]` you have typed but not saved does not appear in the results, and neither do sites in files outside the `autoload`/`autoload-dev` psr-4 roots — `bin/*.php`, `public/index.php`, and the like. Measured on BEAR.Kata: 16 of the sites a plain text search finds live in `bin/`. The definition jump is unaffected; it works from the buffer the editor sends.
 - **Windows absolute-path detection is incomplete in psr-4 resolution.** Paths starting with `/` are treated as absolute; drive-letter paths (`C:/src`) are handled by `PathGuard` but not by the psr-4 directory resolution side.
