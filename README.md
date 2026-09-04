@@ -17,9 +17,25 @@ It implements no LSP protocol code itself — it registers a few locators and co
 | JSON Schema type definition jump (convention) | Cursor on a resource class declaration name → Go to Type Definition jumps to `var/json_schema/<kebab-case>.json` (e.g. `BodyTypeDemo` → `body-type-demo.json`, `Page\Admin\UserProfile` → `admin/user-profile.json`) |
 | ALPS profile definition jump | Cursor on `#[Alps('doDeleteArticle')]` (`bear/api-doc`'s attribute) → jumps to the matching descriptor's `id` in the ALPS profile JSON that `apidoc.xml`'s `<alps>` element points to. The short name, the fully-qualified name, and the fully-qualified name with a leading backslash (the form Ray.Di-generated code uses) all work |
 | Router definition jump | Cursor on a **route name** in `aura.route.php` — the first argument of `$map->route()` / `$map->get()` / `$map->post()` / … → jumps to the corresponding Page resource class. Context prefixes are followed (`'/article-redirector'` finds `Page/Content/ArticleRedirector.php`), and inner capitals are preserved (`'/articleRedirector'` → `ArticleRedirector`, not `Articleredirector`). The second argument (the URL pattern, e.g. `'/blogs/{blogger}'`) is deliberately **not** a jump site: it is an HTTP path, not a resource path, and jumping from it lands on the wrong class. `$map->attach()` is excluded too — its first argument is a name prefix |
+| Twig / Qiq embedded-template definition jump | In a standard Twig template, cursor on the leading relation in `{{ rel }}` or `{{ rel|raw }}`; in a standard Qiq template, cursor on `{{= $rel }}` or `{{h $rel }}` (legacy `$this->rel` is also supported) → jumps to the same-engine template declared by the parent Resource's `#[Embed(rel: 'rel', src: ...)]` |
 | Resource reference search | Cursor on a resource URI string (`'app://self/article'`) or a resource class declaration name → lists every place in the project that references that resource (`#[Link]`/`#[Embed]`/`$this->resource->get()`, …) |
 
 All jumps are pure path/namespace mapping — no PHP type inference is involved. Project roots and namespace prefixes come from the project's `composer.json` `autoload.psr-4`.
+
+## Twig / Qiq embedded templates
+
+This is BEAR.Sunday semantics implemented in phpactor's LSP definition chain, not a VS Code `DefinitionProvider`. Any LSP client can use it when it sends the Twig/Qiq document to phpactor; if the client does not open and send those documents, this package cannot provide jumps from them. In particular, the current Phpactor VS Code client does not send Twig documents to the language server, so Twig definition jumps are unavailable in VS Code. Qiq templates use `.php` files and are available when VS Code treats them as PHP documents.
+
+The supported standard layouts and references are deliberately narrow:
+
+| Source template | Supported cursor position | Target |
+|---|---|---|
+| `var/templates/{App,Page}/.../*.html.twig` | the leading relation in a complete Twig print expression, with an optional filter chain: `{{ rel }}`, `{{ rel|raw }}` | `var/templates/` template for the matching `#[Embed]` relation |
+| `var/qiq/template/{App,Page}/.../*.php` | Qiq 3's `{{= $rel }}` or `{{h $rel }}`; legacy `$this->rel` is also supported | `var/qiq/template/` template for the same `#[Embed]` relation |
+
+Both the parent and embedded Resource and the target template must exist inside the project. Only named string `rel:` and `src:` arguments on `#[Embed]` are used. Absolute `app://self/...` / `page://self/...` sources and relative `/...` sources are supported; a relative source inherits the parent Resource's scheme and resolves against the `self` host. A repeated `rel` resolves only when every occurrence names the same normalized URI; otherwise it returns no location. General Twig `include`/`extends`/`import`, Twig property expressions, Qiq code tags and arbitrary PHP expressions, imported-app resources, custom template roots, and ambiguous conventions are intentionally unsupported.
+
+The VS Code extension pack's Twig navigation and `idea-php-bearsunday-plugin` are not replaced by this feature: those use editor-specific architecture and provide different capabilities. This package is an LSP-side option for clients such as VS Code, Neovim, and Emacs.
 
 ## Installation
 

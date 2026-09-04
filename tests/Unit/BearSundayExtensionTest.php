@@ -12,6 +12,7 @@ use Suzumaze\BearPhpactor\Resource\Completor\ResourceUriCompletor;
 use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceDefinitionLocator;
 use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceReferenceFinder;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
+use Suzumaze\BearPhpactor\Template\EmbedTemplateDefinitionLocator;
 use Phpactor\Container\PhpactorContainer;
 use Phpactor\Extension\Completion\CompletionExtension;
 use Phpactor\Extension\FilePathResolver\FilePathResolverExtension;
@@ -81,6 +82,18 @@ final class BearSundayExtensionTest extends TestCase
         self::assertInstanceOf(AlpsDefinitionLocator::class, $locator);
         self::assertArrayHasKey(
             AlpsDefinitionLocator::class,
+            $container->getServiceIdsForTag(ReferenceFinderExtension::TAG_DEFINITION_LOCATOR),
+        );
+    }
+
+    public function testRegistersEmbedTemplateDefinitionLocatorWithTag(): void
+    {
+        $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
+
+        $locator = $container->get(EmbedTemplateDefinitionLocator::class);
+        self::assertInstanceOf(EmbedTemplateDefinitionLocator::class, $locator);
+        self::assertArrayHasKey(
+            EmbedTemplateDefinitionLocator::class,
             $container->getServiceIdsForTag(ReferenceFinderExtension::TAG_DEFINITION_LOCATOR),
         );
     }
