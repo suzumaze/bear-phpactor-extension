@@ -16,6 +16,7 @@ use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Router\RouterDefinitionLocator;
 use Suzumaze\BearPhpactor\Sql\SqlDefinitionLocator;
+use Suzumaze\BearPhpactor\Template\EmbedTemplateDefinitionLocator;
 use Phpactor\Container\Container;
 use Phpactor\Container\ContainerBuilder;
 use Phpactor\Container\Extension;
@@ -129,6 +130,18 @@ final class BearSundayExtension implements Extension
         }, [
             ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => [],
         ]);
+
+        // Twig / Qiq: Resource の #[Embed(rel, src) に対応するテンプレート変数から、
+        // 埋め込み先 Resource の同種テンプレートへ定義ジャンプ。
+        $container->register(
+            EmbedTemplateDefinitionLocator::class,
+            function (Container $container): EmbedTemplateDefinitionLocator {
+                return new EmbedTemplateDefinitionLocator();
+            },
+            [
+                ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => [],
+            ]
+        );
 
         // 参照検索: リソースURI文字列・リソースクラス宣言名から、そのリソースを
         // 参照する箇所 (textDocument/references) を探す。必ず false で終わる
