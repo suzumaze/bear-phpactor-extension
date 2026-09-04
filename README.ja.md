@@ -17,7 +17,7 @@ LSP（Language Server Protocol、エディタと言語サーバーをつなぐ�
 | JSON Schema型定義ジャンプ（規約） | リソースクラスの宣言名にカーソルを置き「型定義へ移動」を実行 → `var/json_schema/<ケバブケース>.json`へ飛ぶ（例: `BodyTypeDemo` → `body-type-demo.json`、`Page\Admin\UserProfile` → `admin/user-profile.json`） |
 | ALPSプロファイル定義ジャンプ | `#[Alps('doDeleteArticle')]`（`bear/api-doc`の属性）にカーソルを置く → `apidoc.xml`の`<alps>`要素が指すALPSプロファイルJSON内の、対応する記述子の`id`へ飛ぶ。短縮名・完全修飾名・先頭バックスラッシュ付き完全修飾名（Ray.Diが生成するコードの書き方）のどれでも動く |
 | ルータージャンプ | `aura.route.php`の中の**ルート名**（`$map->route()` / `$map->get()` / `$map->post()`などの第1引数）にカーソルを置く → 対応するPageリソースクラスへ飛ぶ。文脈接頭辞を辿る（`'/article-redirector'`は`Page/Content/ArticleRedirector.php`を見つける）。大文字も保つ（`'/articleRedirector'` → `ArticleRedirector`。`Articleredirector`にはならない）。第2引数（URLパターン、例`'/blogs/{blogger}'`）は**意図的にジャンプの対象外**——HTTPのパスであってリソースのパスではなく、そこから飛ぶと間違ったクラスに着地する。`$map->attach()`も対象外——第1引数が名前の接頭辞であるため |
-| Twig / Qiq埋め込みテンプレート定義ジャンプ | 標準Twigテンプレートの`{{ rel }}`、または標準Qiqテンプレートの`{{= $this->rel }}` / `{{h $this->rel }}`にカーソルを置く → 親Resourceの`#[Embed(rel: 'rel', src: ...)]`が宣言する`app://self/...`リソースの、同じテンプレートエンジン用テンプレートへ飛ぶ |
+| Twig / Qiq埋め込みテンプレート定義ジャンプ | 標準Twigテンプレートの`{{ rel }}` / `{{ rel|raw }}`の先頭relation、または標準Qiqテンプレートの`{{= $rel }}` / `{{h $rel }}`（旧`$this->rel`も対応）にカーソルを置く → 親Resourceの`#[Embed(rel: 'rel', src: ...)]`が宣言する、同じテンプレートエンジン用テンプレートへ飛ぶ |
 | リソース参照検索 | リソースURI文字列（`'app://self/article'`）またはリソースクラスの宣言名にカーソルを置く → そのリソースを参照している箇所を全部列挙する（`#[Link]`・`#[Embed]`・`$this->resource->get()`など） |
 
 どのジャンプも純粋なパス・名前空間の対応づけで、PHPの型推論は一切使っていません。プロジェクトの根や名前空間の接頭辞は、対象プロジェクトの`composer.json`の`autoload.psr-4`から取ります。
@@ -30,10 +30,10 @@ LSP（Language Server Protocol、エディタと言語サーバーをつなぐ�
 
 | 開始テンプレート | 対応するカーソル位置 | 解決先 |
 |---|---|---|
-| `var/templates/{App,Page}/.../*.html.twig` | 完結した裸のTwig出力式`{{ rel }}` | `#[Embed(rel: 'rel', src: 'app://self/...')]`に対応する`var/templates/`内のテンプレート |
-| `var/qiq/template/{App,Page}/.../*.php` | `{{= $this->rel }}`または`{{h $this->rel }}` | 同じ`#[Embed]`関係に対応する`var/qiq/template/`内のテンプレート |
+| `var/templates/{App,Page}/.../*.html.twig` | 完結したTwig出力式の先頭relation。フィルターチェーン付きも対象: `{{ rel }}`、`{{ rel|raw }}` | 対応する`#[Embed]`関係の`var/templates/`内テンプレート |
+| `var/qiq/template/{App,Page}/.../*.php` | Qiq 3の`{{= $rel }}`または`{{h $rel }}`。旧`$this->rel`も対応 | 同じ`#[Embed]`関係に対応する`var/qiq/template/`内テンプレート |
 
-親・埋め込み先のResourceと解決先テンプレートは、すべてプロジェクト内に実在する必要があります。`#[Embed]`の名前付き文字列引数`rel:`と`src:`、かつ`app://self/...`だけを解釈します。同じ`rel`が繰り返される場合、すべて同じURIを指すときだけ解決し、異なるURIなら場所を返しません。一般的なTwigの`include`/`extends`/`import`、Twigのプロパティ・フィルター式、Qiqのコードタグや任意のPHP式、ImportAppのリソース、カスタムテンプレートルート、曖昧な規約は意図的に未対応です。
+親・埋め込み先のResourceと解決先テンプレートは、すべてプロジェクト内に実在する必要があります。`#[Embed]`の名前付き文字列引数`rel:`と`src:`だけを解釈します。絶対形式の`app://self/...` / `page://self/...`と相対形式の`/...`に対応し、相対形式は親Resourceのschemeを引き継いで`self` hostとして解決します。同じ`rel`が繰り返される場合、正規化後のURIがすべて同じときだけ解決し、異なるURIなら場所を返しません。一般的なTwigの`include`/`extends`/`import`、Twigのプロパティ式、Qiqのコードタグや任意のPHP式、ImportAppのリソース、カスタムテンプレートルート、曖昧な規約は意図的に未対応です。
 
 この機能は、VS Code Extension PackのTwigナビゲーションや`idea-php-bearsunday-plugin`を置き換えるものではありません。これらはエディタ固有のアーキテクチャで異なる機能を提供しており、本パッケージはLSP側に置く別の選択肢です。
 

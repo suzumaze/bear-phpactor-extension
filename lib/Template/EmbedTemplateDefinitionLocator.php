@@ -28,11 +28,12 @@ use Phpactor\WorseReflection\Core\TypeFactory;
  *
  * 対象は BEAR の標準テンプレート配置にある、次の変数参照だけ:
  *
- * - var/templates/{App,Page}/.../*.html.twig の {{ rel }}
- * - var/qiq/template/{App,Page}/.../*.php の {{= $this->rel }} / {{h $this->rel }}
+ * - var/templates/{App,Page}/.../*.html.twig の {{ rel }} / {{ rel|raw }}
+ * - var/qiq/template/{App,Page}/.../*.php の {{= $rel }} / {{h $rel }}
+ *   (Qiq 1.x の $this->rel も互換性のため対象)
  *
- * 親 Resource の #[Embed(rel: 'rel', src: 'app://self/...')] に対応する実在の
- * Resource と同種テンプレートがある場合だけ、埋め込み先テンプレートを返す。
+ * 親 Resource の #[Embed] に対応する実在の Resource と同種テンプレートが
+ * ある場合だけ、埋め込み先テンプレートを返す。相対 src は親の scheme を使う。
  * Twig 一般の include / extends や任意の Qiq/PHP 式は解釈しない。
  */
 final class EmbedTemplateDefinitionLocator implements DefinitionLocator
@@ -90,7 +91,7 @@ final class EmbedTemplateDefinitionLocator implements DefinitionLocator
             throw new CouldNotLocateDefinition('Parent Resource does not exist inside the project');
         }
 
-        $embeddedUri = $this->embeddedUri($parentFile, $relation);
+        $embeddedUri = $this->embeddedUri($parentFile, $parentUri, $relation);
         if ($embeddedUri === null || $embeddedUri->host() !== 'self') {
             throw new CouldNotLocateDefinition('No supported self-hosted Embed relation found');
         }
@@ -201,8 +202,8 @@ final class EmbedTemplateDefinitionLocator implements DefinitionLocator
     private function relationAtOffset(string $source, int $offset, string $kind): ?string
     {
         $pattern = $kind === 'twig'
-            ? '/\{\{\s*(?<relation>[A-Za-z_][A-Za-z0-9_]*)\s*\}\}/'
-            : '/\{\{(?:=|h)\s+\$this->(?<relation>[A-Za-z_][A-Za-z0-9_]*)\s*\}\}/';
+            ? '/\{\{\s*(?<relation>[A-Za-z_][A-Za-z0-9_]*)\s*(?:\|[^{}]+)?\}\}/'
+            : '/\{\{(?:=|h)\s+\$(?:this->)?(?<relation>[A-Za-z_][A-Za-z0-9_]*)\s*\}\}/';
 
         if (preg_match_all($pattern, $source, $matches, PREG_OFFSET_CAPTURE) === false) {
             return null;
@@ -217,7 +218,7 @@ final class EmbedTemplateDefinitionLocator implements DefinitionLocator
         return null;
     }
 
-    private function embeddedUri(string $resourceFile, string $relation): ?ResourceUri
+    private function embeddedUri(string $resourceFile, ResourceUri $parentUri, string $relation): ?ResourceUri
     {
         $source = @file_get_contents($resourceFile);
         if ($source === false) {
@@ -236,7 +237,7 @@ final class EmbedTemplateDefinitionLocator implements DefinitionLocator
                 continue;
             }
 
-            $uri = ResourceUri::fromString($arguments['src']);
+            $uri = $this->embedSourceUri($arguments['src'], $parentUri);
             if ($uri === null) {
                 return null;
             }
@@ -245,6 +246,15 @@ final class EmbedTemplateDefinitionLocator implements DefinitionLocator
         }
 
         return count($uris) === 1 ? reset($uris) : null;
+    }
+
+    private function embedSourceUri(string $source, ResourceUri $parentUri): ?ResourceUri
+    {
+        if (preg_match('#^/(?!/)#', $source) === 1) {
+            $source = sprintf('%s://self%s', $parentUri->scheme(), $source);
+        }
+
+        return ResourceUri::fromString($source);
     }
 
     private function isEmbedAttribute(Attribute $attribute): bool

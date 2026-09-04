@@ -1,8 +1,12 @@
+{{= $user }}
+{{h $user }}
 {{= $this->user }}
 {{h $this->user }}
-{{= $this->missing }}
-{{= $this->escape }}
-{{= $this->title }}
-{{ $this->user }}
-{{= $this->user->name }}
-{{= $this->user
+{{= $relativeUser }}
+{{= $missing }}
+{{= $escape }}
+{{= $relativeEscape }}
+{{= $title }}
+{{ $user }}
+{{= $user->name }}
+{{= $user

@@ -46,13 +46,25 @@ final class EmbedTemplateDefinitionLocatorTest extends TestCase
         self::assertSame($this->uri('var/templates/App/User.html.twig'), $location->uri);
     }
 
+    public function testTwigEmbedVariableWithRawFilterJumpsToEmbeddedTwigTemplate(): void
+    {
+        $location = $this->requestDefinition(
+            'var/templates/App/Dashboard.html.twig',
+            'twig',
+            'user|raw',
+        );
+
+        self::assertInstanceOf(LspLocation::class, $location);
+        self::assertSame($this->uri('var/templates/App/User.html.twig'), $location->uri);
+    }
+
     public function testQiqEmbedVariableJumpsToEmbeddedQiqTemplate(): void
     {
         $location = $this->requestDefinition(
             'var/qiq/template/App/Dashboard.php',
-            'qiq',
-            '$this->user',
-            strlen('$this->'),
+            'php',
+            '$user',
+            1,
         );
 
         self::assertInstanceOf(LspLocation::class, $location);
@@ -63,14 +75,47 @@ final class EmbedTemplateDefinitionLocatorTest extends TestCase
     {
         $location = $this->requestDefinition(
             'var/qiq/template/App/Dashboard.php',
-            'qiq',
-            '$this->user',
-            strlen('$this->'),
+            'php',
+            '$user',
+            1,
             1,
         );
 
         self::assertInstanceOf(LspLocation::class, $location);
         self::assertSame($this->uri('var/qiq/template/App/User.php'), $location->uri);
+    }
+
+    public function testLegacyQiqEmbedVariableJumpsToEmbeddedQiqTemplate(): void
+    {
+        $location = $this->requestDefinition(
+            'var/qiq/template/App/Dashboard.php',
+            'php',
+            '$this->user',
+            strlen('$this->'),
+        );
+
+        self::assertInstanceOf(LspLocation::class, $location);
+        self::assertSame($this->uri('var/qiq/template/App/User.php'), $location->uri);
+    }
+
+    public function testRelativeEmbedSourceUsesParentResourceScheme(): void
+    {
+        $twig = $this->requestDefinition(
+            'var/templates/Page/Dashboard.html.twig',
+            'twig',
+            'user|raw',
+        );
+        $qiq = $this->requestDefinition(
+            'var/qiq/template/App/Dashboard.php',
+            'php',
+            '$relativeUser',
+            1,
+        );
+
+        self::assertInstanceOf(LspLocation::class, $twig);
+        self::assertSame($this->uri('var/templates/Page/User.html.twig'), $twig->uri);
+        self::assertInstanceOf(LspLocation::class, $qiq);
+        self::assertSame($this->uri('var/qiq/template/App/User.php'), $qiq->uri);
     }
 
     public function testReturnsNothingOutsideSupportedTwigReference(): void
@@ -99,15 +144,15 @@ final class EmbedTemplateDefinitionLocatorTest extends TestCase
     {
         $codeTagLocation = $this->requestDefinition(
             'var/qiq/template/App/Dashboard.php',
-            'qiq',
-            '{{ $this->user }}',
-            strlen('{{ $this->'),
+            'php',
+            '{{ $user }}',
+            strlen('{{ $'),
         );
         $propertyLocation = $this->requestDefinition(
             'var/qiq/template/App/Dashboard.php',
-            'qiq',
-            '$this->user->name',
-            strlen('$this->'),
+            'php',
+            '$user->name',
+            1,
         );
 
         self::assertNull($codeTagLocation);
@@ -123,8 +168,15 @@ final class EmbedTemplateDefinitionLocatorTest extends TestCase
         );
         $traversal = $this->requestDefinition(
             'var/qiq/template/App/Dashboard.php',
-            'qiq',
-            'escape',
+            'php',
+            '$escape',
+            1,
+        );
+        $relativeTraversal = $this->requestDefinition(
+            'var/qiq/template/App/Dashboard.php',
+            'php',
+            '$relativeEscape',
+            1,
         );
         $ambiguous = $this->requestDefinition(
             'var/templates/App/Dashboard.html.twig',
@@ -134,6 +186,7 @@ final class EmbedTemplateDefinitionLocatorTest extends TestCase
 
         self::assertNull($missing);
         self::assertNull($traversal);
+        self::assertNull($relativeTraversal);
         self::assertNull($ambiguous);
     }
 
@@ -146,8 +199,8 @@ final class EmbedTemplateDefinitionLocatorTest extends TestCase
         );
         $qiq = $this->requestDefinition(
             'var/qiq/template/App/Dashboard.php',
-            'qiq',
-            '{{= $this->user',
+            'php',
+            '{{= $user',
         );
 
         self::assertNull($twig);
