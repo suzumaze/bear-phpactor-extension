@@ -24,7 +24,7 @@ All jumps are pure path/namespace mapping — no PHP type inference is involved.
 
 ## Twig / Qiq embedded templates
 
-This is BEAR.Sunday semantics implemented in phpactor's LSP definition chain, not a VS Code `DefinitionProvider`. Any LSP client can use it when it sends the Twig/Qiq document to phpactor; if the client does not open and send those documents, this package cannot provide jumps from them.
+This is BEAR.Sunday semantics implemented in phpactor's LSP definition chain, not a VS Code `DefinitionProvider`. Any LSP client can use it when it sends the Twig/Qiq document to phpactor; if the client does not open and send those documents, this package cannot provide jumps from them. In particular, the current Phpactor VS Code client does not send Twig documents to the language server, so Twig definition jumps are unavailable in VS Code. Qiq templates use `.php` files and are available when VS Code treats them as PHP documents.
 
 The supported standard layouts and references are deliberately narrow:
 

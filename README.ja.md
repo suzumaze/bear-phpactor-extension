@@ -24,7 +24,7 @@ LSP（Language Server Protocol、エディタと言語サーバーをつなぐ�
 
 ## Twig / Qiqの埋め込みテンプレート
 
-この機能はVS Codeの`DefinitionProvider`ではなく、BEAR.Sunday固有の意味をphpactorのLSP定義ジャンプ連鎖に載せる実装です。LSPクライアントがTwig/Qiq文書をphpactorへ開いて送信する限り、VS Code・Neovim・Emacsなど任意のLSPクライアントで利用できます。クライアントがその文書を送信しない場合、このパッケージだけでテンプレート上のジャンプは提供できません。
+この機能はVS Codeの`DefinitionProvider`ではなく、BEAR.Sunday固有の意味をphpactorのLSP定義ジャンプ連鎖に載せる実装です。LSPクライアントがTwig/Qiq文書をphpactorへ開いて送信する限り、VS Code・Neovim・Emacsなど任意のLSPクライアントで利用できます。クライアントがその文書を送信しない場合、このパッケージだけでテンプレート上のジャンプは提供できません。特に、現行のPhpactor VS CodeクライアントはTwig文書をLanguage Serverへ送信しないため、VS CodeではTwig上の定義ジャンプを利用できません。Qiqテンプレートは`.php`ファイルなので、VS CodeがPHP文書として扱う環境では利用できます。
 
 対応する標準配置とカーソル位置は意図的に限定しています。
 
