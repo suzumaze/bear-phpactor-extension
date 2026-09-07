@@ -8,11 +8,11 @@
     <rule ref="PSR12"/>
 
     <!--
-        LSPテストのカーソル位置マーカー `<caret>` をクラス名に埋め込むため、
-        意図的にPHPとして不完全な10ファイルは検査対象外。
-        (テストはマーカーを除去したテキストをパースする)
+        LSPテストのカーソル位置マーカーを含むPHPフィクスチャと、PHP構文ではない
+        Qiqテンプレートは意図的に検査対象外。
     -->
     <exclude-pattern>tests/Fixture/JsonSchema/basic/src/Resource/App/(BodyTypeDemo|NoSchema|User)\.php</exclude-pattern>
     <exclude-pattern>tests/Fixture/JsonSchema/basic/src/Resource/App/Cache/(ArticlePreview|ArticleList|ArticleTags|AuthorProfile|AuthorList|Orphan)\.php</exclude-pattern>
     <exclude-pattern>tests/Fixture/JsonSchema/basic/src/Resource/Page/Admin/UserProfile\.php</exclude-pattern>
+    <exclude-pattern>tests/Fixture/Template/basic/var/qiq/template/.*\.php</exclude-pattern>
 </ruleset>
