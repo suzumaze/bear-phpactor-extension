@@ -123,7 +123,8 @@ final class EmbedTemplateDefinitionLocatorTest extends TestCase
         $location = $this->requestDefinition(
             'var/templates/App/Dashboard.html.twig',
             'twig',
-            'title',
+            'user|raw',
+            strlen('user|'),
         );
 
         self::assertNull($location);
