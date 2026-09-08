@@ -7,7 +7,7 @@ namespace Suzumaze\BearPhpactor\Util;
 /**
  * プロジェクトルートと psr-4 マッピングの探索。
  *
- * 5機能 (Resource URI / SQL / Router / JsonSchema / Alps) は、いずれも「ドキュメントの
+ * 各種の定義ジャンプは、いずれも「ドキュメントの
  * 位置から上へ composer.json を辿る」方式でプロジェクトルートを求める。この探索
  * ロジックはかつて3実装がバラバラだったが、ここに1つに統一した。
  */

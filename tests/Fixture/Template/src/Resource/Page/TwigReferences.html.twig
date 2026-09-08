@@ -1,0 +1,7 @@
+{{ block('main_bottom', 'Page/Content/Index.html.twig') }}
+{% include 'element/component/structured_data.html.twig' with { type: 'article' } %}
+{% extends 'layout/contents_default.html.twig' %}
+{{ include('element/component/card.html.twig') }}
+{% include dynamic_template %}
+{# {% include 'missing/commented.html.twig' %} #}
+{% verbatim %}{{ include('missing/verbatim.html.twig') }}{% endverbatim %}
