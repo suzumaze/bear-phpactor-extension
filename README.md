@@ -24,7 +24,7 @@ All jumps are pure path/namespace mapping — no PHP type inference is involved.
 
 ## Twig / Qiq template jumps
 
-This is BEAR.Sunday semantics implemented in phpactor's LSP definition chain, not a VS Code `DefinitionProvider`. Any LSP client can use it when it sends the Twig/Qiq document to phpactor; if the client does not open and send those documents, this package cannot provide jumps from them. In particular, the current Phpactor VS Code client does not send Twig documents to the language server, so Twig definition jumps are unavailable in VS Code. Qiq templates use `.php` files and are available when VS Code treats them as PHP documents.
+This is BEAR.Sunday semantics implemented in phpactor's LSP definition chain, not a VS Code `DefinitionProvider`. Any LSP client can use it when it sends the Twig/Qiq document to phpactor; if the client does not open and send those documents, this package cannot provide jumps from them. In particular, the current Phpactor VS Code client does not select Twig documents by default. Qiq templates use `.php` files and reach phpactor normally; the VS Code workaround for Twig is documented under [Editor setup](#editor-setup).
 
 Two kinds of reference are supported: explicit template paths and relations backed by BEAR.Sunday's `#[Embed]`. The supported standard layouts and cursor positions are deliberately narrow:
 
@@ -136,6 +136,24 @@ The client bundles its own phpactor, and that copy cannot autoload this package.
 `phpactor.path` is what makes the difference between the extension working and silently
 doing nothing.
 
+The official client currently selects only `php` and `blade` documents. To opt Twig files
+into phpactor, add this workspace setting alongside `phpactor.path`:
+
+```json
+{
+    "phpactor.path": "vendor/bin/phpactor",
+    "files.associations": {
+        "*.html.twig": "php"
+    }
+}
+```
+
+This makes VS Code send `.html.twig` documents to phpactor, and the definition locators
+still recognize them from their file extension. It is a workaround, not native Twig
+selector support: VS Code treats those files as PHP, which can change syntax highlighting,
+diagnostics, formatting, and the behavior of other Twig extensions. Keep it workspace-local
+and remove it if those trade-offs are unacceptable.
+
 **Trust the folder.** VS Code opens an unfamiliar folder in Restricted Mode, and no
 language server starts there — verified by opening a project and finding no phpactor
 process at all. Nothing errors; the features are simply absent. Accept the trust prompt,
@@ -215,7 +233,7 @@ a different kind of check.
 ## Known limitations
 
 - **Template jumps follow the BEAR modules' default loader configuration only.** Twig searches `src/Resource` and then `var/templates`, matching `Madapaja.TwigModule`'s default `AppPathProvider`. Qiq searches `var/qiq/template` with the `.php` extension, matching `BEAR.QiqModule`. Custom Twig paths/namespaces and custom Qiq paths/extensions/collections cannot be inferred from DI bindings and are not resolved. Explicit template paths must be static string literals.
-- **The official VS Code phpactor client does not send Twig documents to phpactor.** Its document selector currently includes only `php` and `blade`, so this package's Twig jump works only with an LSP client configured to attach phpactor to Twig documents. Qiq files under the BEAR default layout use `.php` and do reach phpactor normally.
+- **The official VS Code phpactor client does not select Twig documents by default.** Its document selector currently includes only `php` and `blade`. The `files.associations` workaround in [Editor setup](#editor-setup) sends `.html.twig` files as PHP, with the corresponding language-mode trade-offs. Clients that support configuring their LSP document selector directly should attach phpactor to Twig instead. Qiq files under the BEAR default layout use `.php` and reach phpactor normally.
 - **SQL jumps land at file start (0,0).** The Router and Resource URI locators land on the class-declaration name, both JSON Schema locators (attribute and convention) land on the `title` key inside the schema file, and the ALPS profile locator lands on the matching descriptor's `id` key. Only the SQL locator returns the `.sql` file's first line. Cosmetic, but visible in the editor.
 - **The resource-class scan regex can false-positive.** `Project::resourcePhpFiles()` matches files whose text contains `extends ... ResourceObject`; a docblock sentence or a class extending `MyResourceObject` can match, which bloats URI completion candidates.
 - **Reference search only reads files from disk, and only inside psr-4 directories.** A `#[Link]` you have typed but not saved does not appear in the results, and neither do sites in files outside the `autoload`/`autoload-dev` psr-4 roots — `bin/*.php`, `public/index.php`, and the like. Measured on BEAR.Kata: 16 of the sites a plain text search finds live in `bin/`. The definition jump is unaffected; it works from the buffer the editor sends.

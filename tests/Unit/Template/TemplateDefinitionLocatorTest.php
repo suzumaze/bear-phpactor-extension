@@ -43,6 +43,18 @@ final class TemplateDefinitionLocatorTest extends TestCase
         self::assertSame($this->uri($target), $location->uri);
     }
 
+    public function testTwigStaticReferenceJumpsWhenVsCodeAssociatesTwigWithPhp(): void
+    {
+        $location = $this->requestDefinition(
+            'src/Resource/Page/TwigReferences.html.twig',
+            'element/component/card.html.twig',
+            'php',
+        );
+
+        self::assertInstanceOf(LspLocation::class, $location);
+        self::assertSame($this->uri('var/templates/element/component/card.html.twig'), $location->uri);
+    }
+
     /** @return iterable<string, array{string, string}> */
     public static function twigReferenceProvider(): iterable
     {
