@@ -105,9 +105,9 @@ at all, check that file for a relative entry.
 
 Because this extension is listed **first**, its locators run before phpactor's built-in ones. The chain is first-match-wins, and this ordering is what makes the convention jumps work:
 
-- **Cursor on a resource class declaration name** (e.g. `final class User` in `src/Resource/App/User.php`) → F12 (definition) behaves like the built-in: it stays put. The built-in answer in that situation is "you are already here", and that is what you get.
+- **Cursor on a resource class declaration name** (e.g. `final class User` in `src/Resource/App/User.php`) → *Go to Definition* behaves like the built-in: it stays put. `F12` is only VS Code's default keyboard shortcut for that editor action; the same action is available from the context menu and command palette. The built-in answer in that situation is "you are already here", and that is what you get.
 - **The class-name convention jump lives on Go to Type Definition instead.** Right-click → *Go to Type Definition* (no default keybinding) on a resource class declaration name jumps to `var/json_schema/user.json`. The JSON Schema decides the shape of the resource body, so "where is this resource's type" is the natural question for it to answer.
-- **Why not F12?** The convention jump used to override definition on class declaration names. A missed Shift (⇧F12 for reference search, F12 for definition) then landed in a JSON file, which read as "reference search is broken" — one key's difference looked like a defect. Moving the jump to a feature with no default keybinding removes the collision.
+- **Why not Go to Definition?** The convention jump used to override that action on class declaration names. In VS Code, the default shortcuts are `Shift+F12` for reference search and `F12` for definition; missing Shift then landed in a JSON file, which read as "reference search is broken". Moving the jump to a separate editor action removes the collision.
 - **Everything else is unaffected.** Usage sites such as `new User()` are not class declarations, so the convention jump does not fire and the built-in locator handles them as usual. Normal PHP definition jumps (variables, methods, parameters, non-resource classes) are untouched.
 
 ## Editor setup
@@ -147,6 +147,10 @@ into phpactor, add this workspace setting alongside `phpactor.path`:
     }
 }
 ```
+
+Twig itself does not require the `.html.twig` suffix. This glob deliberately matches the
+[default BEAR.Sunday TwigModule convention](https://bearsunday.github.io/manuals/1.0/ja/html-twig-v2.html) documented for Resource templates; it is not an
+attempt to recognize arbitrary Twig projects or custom template-loader configuration.
 
 This makes VS Code send `.html.twig` documents to phpactor, and the definition locators
 still recognize them from their file extension. It is a workaround, not native Twig
