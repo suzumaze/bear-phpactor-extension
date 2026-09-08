@@ -17,6 +17,7 @@ use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Router\RouterDefinitionLocator;
 use Suzumaze\BearPhpactor\Sql\SqlDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\EmbedTemplateDefinitionLocator;
+use Suzumaze\BearPhpactor\Template\TemplateDefinitionLocator;
 use Phpactor\Container\Container;
 use Phpactor\Container\ContainerBuilder;
 use Phpactor\Container\Extension;
@@ -69,8 +70,8 @@ final class BearSundayExtension implements Extension
             ]
         );
 
-        // リソースURI全体を1つのリンクにする (textDocument/documentLink)。
-        // 定義ジャンプ経由ではクリック範囲を指定できず app/self/user が3つに割れるため。
+        // リソースURIとテンプレート名全体を1つのリンクにする (textDocument/documentLink)。
+        // 定義ジャンプ経由ではクリック範囲を指定できず、スラッシュで分割されるため。
         // phpactor はこのメソッドを未実装なので、登録しても何も置き換えない。
         $container->register(
             'bear_sunday.resource.document_link_handler',
@@ -78,9 +79,21 @@ final class BearSundayExtension implements Extension
                 return new ResourceUriDocumentLinkHandler(
                     $container->get(LanguageServerExtension::SERVICE_SESSION_WORKSPACE),
                     $container->get('bear_sunday.resource.definition_locator'),
+                    $container->get(TemplateDefinitionLocator::class),
                 );
             },
             [LanguageServerExtension::TAG_METHOD_HANDLER => []]
+        );
+
+        // Twig/Qiqテンプレート内の静的なテンプレート参照を実ファイルへ解決する。
+        // Twig: extends/include/include()/block()第2引数。
+        // Qiq: setLayout()/render()/extends()（裸のQiq helperと$this->形式の両方）。
+        $container->register(
+            TemplateDefinitionLocator::class,
+            function (Container $container): TemplateDefinitionLocator {
+                return new TemplateDefinitionLocator();
+            },
+            [ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => []]
         );
 
         // Aura.Router: aura.route.php のルートパスから Page リソースクラスへの定義ジャンプ。

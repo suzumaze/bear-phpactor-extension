@@ -6,6 +6,7 @@ namespace Suzumaze\BearPhpactor\Resource\LanguageServer;
 
 use Amp\Promise;
 use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceDefinitionLocator;
+use Suzumaze\BearPhpactor\Template\TemplateDefinitionLocator;
 use Microsoft\PhpParser\Node\StringLiteral;
 use Microsoft\PhpParser\Parser;
 use Phpactor\Extension\LanguageServerBridge\Converter\PositionConverter;
@@ -26,7 +27,7 @@ use function iterator_to_array;
 use function str_contains;
 
 /**
- * リソースURI全体を1つのリンクにする。
+ * リソースURIとTwig/Qiqテンプレート名の全体を1つのリンクにする。
  *
  * 定義ジャンプ (textDocument/definition) は飛び先しか返せない。phpactor の
  * GotoDefinitionHandler は Location だけを返し、LocationLink も
@@ -38,15 +39,17 @@ use function str_contains;
  * textDocument/documentLink はサーバーがクリック範囲を明示できる。
  * phpactor はこのメソッドを実装していないので、登録しても何も置き換えない。
  *
- * 飛び先の解決は ResourceDefinitionLocator をそのまま呼ぶ。別に書くと
+ * リソースURIの飛び先の解決は ResourceDefinitionLocator をそのまま呼ぶ。別に書くと
  * リンクとジャンプで挙動がずれる (同じ処理の重複が実バグになった経緯は PLAN.md §2.6)。
  * 曖昧なURIでロケータが諦めればリンクも出ない、という一致も自動的に得られる。
+ * テンプレート名も同様に TemplateDefinitionLocator へ解決を委譲する。
  */
 final class ResourceUriDocumentLinkHandler implements Handler, CanRegisterCapabilities
 {
     public function __construct(
         private Workspace $workspace,
         private ResourceDefinitionLocator $locator,
+        private ?TemplateDefinitionLocator $templateLocator = null,
         private Parser $parser = new Parser(),
     ) {
     }
@@ -70,38 +73,59 @@ final class ResourceUriDocumentLinkHandler implements Handler, CanRegisterCapabi
             $textDocument = $this->workspace->get($params->textDocument->uri);
             $text = $textDocument->text;
 
-            // 入口の安価な事前判定。どちらのスキームも無ければ解析せず降りる。
-            if (!str_contains($text, 'app://') && !str_contains($text, 'page://')) {
-                return [];
-            }
-
             $document = TextDocumentBuilder::create($text)
                 ->uri($textDocument->uri)
                 ->language($textDocument->languageId)
                 ->build();
 
             $links = [];
-            foreach ($this->uriRanges($text) as [$start, $end]) {
-                try {
-                    $locations = $this->locator->locateDefinition($document, ByteOffset::fromInt($start));
-                } catch (CouldNotLocateDefinition) {
-                    // 解決できないURIにリンクは出さない。飛び先の無い下線は嘘になる。
-                    continue;
-                }
+            if (str_contains($text, 'app://') || str_contains($text, 'page://')) {
+                foreach ($this->uriRanges($text) as [$start, $end]) {
+                    try {
+                        $locations = $this->locator->locateDefinition($document, ByteOffset::fromInt($start));
+                    } catch (CouldNotLocateDefinition) {
+                        // 解決できないURIにリンクは出さない。飛び先の無い下線は嘘になる。
+                        continue;
+                    }
 
-                // TypeLocations は Countable ではないので配列にしてから数える。
-                // 曖昧なURI (候補が複数) にはリンクを出さない。定義ジャンプ側と揃える。
-                if (count(iterator_to_array($locations)) !== 1) {
-                    continue;
-                }
+                    // TypeLocations は Countable ではないので配列にしてから数える。
+                    // 曖昧なURI (候補が複数) にはリンクを出さない。定義ジャンプ側と揃える。
+                    if (count(iterator_to_array($locations)) !== 1) {
+                        continue;
+                    }
 
-                $links[] = new DocumentLink(
-                    new Range(
-                        PositionConverter::byteOffsetToPosition(ByteOffset::fromInt($start), $text),
-                        PositionConverter::byteOffsetToPosition(ByteOffset::fromInt($end), $text),
-                    ),
-                    $locations->first()->location()->uri()->__toString(),
-                );
+                    $links[] = new DocumentLink(
+                        new Range(
+                            PositionConverter::byteOffsetToPosition(ByteOffset::fromInt($start), $text),
+                            PositionConverter::byteOffsetToPosition(ByteOffset::fromInt($end), $text),
+                        ),
+                        $locations->first()->location()->uri()->__toString(),
+                    );
+                }
+            }
+
+            if ($this->templateLocator !== null) {
+                foreach ($this->templateLocator->references($document) as $reference) {
+                    try {
+                        $locations = $this->templateLocator->locateDefinition(
+                            $document,
+                            ByteOffset::fromInt($reference->start),
+                        );
+                    } catch (CouldNotLocateDefinition) {
+                        continue;
+                    }
+                    if (count(iterator_to_array($locations)) !== 1) {
+                        continue;
+                    }
+
+                    $links[] = new DocumentLink(
+                        new Range(
+                            PositionConverter::byteOffsetToPosition(ByteOffset::fromInt($reference->start), $text),
+                            PositionConverter::byteOffsetToPosition(ByteOffset::fromInt($reference->end), $text),
+                        ),
+                        $locations->first()->location()->uri()->__toString(),
+                    );
+                }
             }
 
             return $links;
