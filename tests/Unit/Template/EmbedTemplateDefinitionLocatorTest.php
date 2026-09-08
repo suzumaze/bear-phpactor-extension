@@ -58,6 +58,18 @@ final class EmbedTemplateDefinitionLocatorTest extends TestCase
         self::assertSame($this->uri('var/templates/App/User.html.twig'), $location->uri);
     }
 
+    public function testTwigEmbedVariableJumpsWhenVsCodeAssociatesTwigWithPhp(): void
+    {
+        $location = $this->requestDefinition(
+            'var/templates/App/Dashboard.html.twig',
+            'php',
+            'user|raw',
+        );
+
+        self::assertInstanceOf(LspLocation::class, $location);
+        self::assertSame($this->uri('var/templates/App/User.html.twig'), $location->uri);
+    }
+
     public function testQiqEmbedVariableJumpsToEmbeddedQiqTemplate(): void
     {
         $location = $this->requestDefinition(
