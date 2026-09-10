@@ -16,12 +16,13 @@ use Suzumaze\BearPhpactor\Config\PhpactorVersionConflictDetector;
  */
 
 $autoloadCandidates = [
+    $GLOBALS['_composer_autoload_path'] ?? null,
     __DIR__ . '/../vendor/autoload.php',
-    __DIR__ . '/../../autoload.php',
+    __DIR__ . '/../../../autoload.php',
 ];
 $autoload = null;
 foreach ($autoloadCandidates as $candidate) {
-    if (is_file($candidate)) {
+    if (is_string($candidate) && is_file($candidate)) {
         $autoload = $candidate;
         break;
     }
