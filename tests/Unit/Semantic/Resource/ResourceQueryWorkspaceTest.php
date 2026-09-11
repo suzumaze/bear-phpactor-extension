@@ -1,0 +1,121 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Suzumaze\BearPhpactor\Tests\Unit\Semantic\Resource;
+
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
+use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
+use PHPUnit\Framework\TestCase;
+
+final class ResourceQueryWorkspaceTest extends TestCase
+{
+    private string $temporaryRoot;
+    private string $workspace;
+    private string $outside;
+
+    protected function setUp(): void
+    {
+        $this->temporaryRoot = sys_get_temp_dir() . '/bear-resource-query-' . bin2hex(random_bytes(8));
+        $this->workspace = $this->temporaryRoot . '/workspace';
+        $this->outside = $this->temporaryRoot . '/outside';
+        self::assertTrue(mkdir($this->workspace . '/src/Resource/App', 0777, true));
+        self::assertTrue(mkdir($this->outside, 0777, true));
+
+        self::assertNotFalse(file_put_contents(
+            $this->workspace . '/composer.json',
+            <<<'JSON'
+{
+    "autoload": {
+        "psr-4": {
+            "Acme\\App\\": "src/"
+        }
+    }
+}
+JSON,
+        ));
+        self::assertNotFalse(file_put_contents($this->workspace . '/src/Client.php', '<?php'));
+        self::assertNotFalse(file_put_contents($this->workspace . '/src/Resource/App/User.php', '<?php'));
+        self::assertNotFalse(file_put_contents($this->outside . '/Escape.php', '<?php'));
+        self::assertTrue(symlink(
+            $this->outside . '/Escape.php',
+            $this->workspace . '/src/Resource/App/Escape.php',
+        ));
+    }
+
+    protected function tearDown(): void
+    {
+        $this->removeTree($this->temporaryRoot);
+    }
+
+    public function testResolvesResourceInsideExplicitWorkspace(): void
+    {
+        $result = (new ResourceQuery())->resolveInWorkspace(
+            $this->context(),
+            'app://self/user',
+            'src/Client.php',
+        );
+
+        self::assertSame(SemanticStatus::Ok, $result->status);
+        self::assertInstanceOf(ResourceResolution::class, $result->value);
+        self::assertSame(realpath($this->workspace . '/src/Resource/App/User.php'), $result->value->file);
+    }
+
+    public function testRejectsResourceWhoseSymlinkTargetEscapesWorkspace(): void
+    {
+        $result = (new ResourceQuery())->resolveInWorkspace(
+            $this->context(),
+            'app://self/escape',
+            'src/Client.php',
+        );
+
+        self::assertSame(SemanticStatus::OutsideWorkspace, $result->status);
+        self::assertNull($result->value);
+        self::assertSame([], $result->candidates);
+    }
+
+    public function testRejectsInvalidContextBeforeResolvingResource(): void
+    {
+        $result = (new ResourceQuery())->resolveInWorkspace(
+            $this->context(),
+            'app://self/user',
+            '../outside/Escape.php',
+        );
+
+        self::assertSame(SemanticStatus::InvalidInput, $result->status);
+        self::assertNull($result->value);
+    }
+
+    private function context(): WorkspaceContext
+    {
+        $result = WorkspaceContext::fromRoot($this->workspace);
+        self::assertInstanceOf(WorkspaceContext::class, $result->value);
+
+        return $result->value;
+    }
+
+    private function removeTree(string $path): void
+    {
+        if (is_link($path) || is_file($path)) {
+            unlink($path);
+
+            return;
+        }
+        if (!is_dir($path)) {
+            return;
+        }
+
+        $entries = scandir($path);
+        if ($entries !== false) {
+            foreach ($entries as $entry) {
+                if ($entry === '.' || $entry === '..') {
+                    continue;
+                }
+                $this->removeTree($path . '/' . $entry);
+            }
+        }
+        rmdir($path);
+    }
+}

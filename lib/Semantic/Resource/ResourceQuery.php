@@ -8,6 +8,9 @@ use Suzumaze\BearPhpactor\Resource\Model\ImportAppRegistry;
 use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
+use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceAccessPolicy;
+use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 
 /**
  * Resolves BEAR resource identities without depending on LSP positions or
@@ -15,6 +18,27 @@ use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
  */
 final class ResourceQuery
 {
+    /**
+     * Headless entry point with an explicit workspace and optional source
+     * context. Caller-supplied paths are always workspace-relative.
+     *
+     * @return SemanticResult<ResourceResolution|null>
+     */
+    public function resolveInWorkspace(
+        WorkspaceContext $workspace,
+        string $uri,
+        ?string $contextPath = null,
+    ): SemanticResult {
+        $project = $workspace->project($contextPath);
+        if ($project->value === null) {
+            return SemanticResult::failure($project->status);
+        }
+
+        $result = $this->resolveString($project->value, $uri);
+
+        return $this->enforceWorkspace($workspace->accessPolicy(), $result);
+    }
+
     /**
      * @return SemanticResult<ResourceResolution|null>
      */
@@ -90,5 +114,57 @@ final class ResourceQuery
         }
 
         return false;
+    }
+
+    /**
+     * @param SemanticResult<ResourceResolution|null> $result
+     * @return SemanticResult<ResourceResolution|null>
+     */
+    private function enforceWorkspace(
+        WorkspaceAccessPolicy $policy,
+        SemanticResult $result,
+    ): SemanticResult {
+        if ($result->status === SemanticStatus::Ok && $result->value !== null) {
+            $path = $policy->inspectExisting($result->value->file);
+            if ($path->value === null) {
+                return SemanticResult::failure($path->status);
+            }
+
+            return SemanticResult::ok(new ResourceResolution(
+                $result->value->uri,
+                $path->value->absolute,
+                $result->value->fqn,
+            ));
+        }
+
+        if ($result->status !== SemanticStatus::Ambiguous) {
+            return $result;
+        }
+
+        $candidates = [];
+        foreach ($result->candidates as $candidate) {
+            $path = $policy->inspectExisting($candidate->file);
+            if ($path->value === null) {
+                return SemanticResult::failure($path->status);
+            }
+
+            $key = $path->value->absolute;
+            $resolution = new ResourceResolution(
+                $candidate->uri,
+                $path->value->absolute,
+                $candidate->fqn,
+            );
+            if (!isset($candidates[$key]) || $resolution->fqn < $candidates[$key]->fqn) {
+                $candidates[$key] = $resolution;
+            }
+        }
+        ksort($candidates, SORT_STRING);
+        $candidates = array_values($candidates);
+
+        if (count($candidates) === 1) {
+            return SemanticResult::ok($candidates[0]);
+        }
+
+        return SemanticResult::ambiguous($candidates);
     }
 }

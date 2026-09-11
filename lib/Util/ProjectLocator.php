@@ -29,7 +29,52 @@ final class ProjectLocator
      */
     public static function locate(string $filePath): ?array
     {
-        $dir = dirname($filePath);
+        return self::locateFromDirectory(dirname($filePath));
+    }
+
+    /**
+     * Locate a project without reading composer.json above $workspaceRoot.
+     *
+     * @return array{root: string, psr4: array<string, list<string>>}|null
+     */
+    public static function locateWithin(string $filePath, string $workspaceRoot): ?array
+    {
+        $canonicalRoot = realpath($workspaceRoot);
+        if ($canonicalRoot === false || !is_dir($canonicalRoot)) {
+            return null;
+        }
+        $canonicalRoot = rtrim(str_replace('\\', '/', $canonicalRoot), '/');
+        $canonicalRoot = $canonicalRoot === '' ? '/' : $canonicalRoot;
+
+        $canonicalFile = realpath($filePath);
+        if ($canonicalFile === false) {
+            $canonicalParent = realpath(dirname($filePath));
+            if ($canonicalParent === false || !is_dir($canonicalParent)) {
+                return null;
+            }
+            $canonicalFile = rtrim(str_replace('\\', '/', $canonicalParent), '/')
+                . '/' . basename($filePath);
+        }
+        $canonicalFile = str_replace('\\', '/', $canonicalFile);
+        if (
+            $canonicalFile !== $canonicalRoot
+            && !str_starts_with($canonicalFile, $canonicalRoot . '/')
+        ) {
+            return null;
+        }
+
+        $dir = is_dir($canonicalFile) ? $canonicalFile : dirname($canonicalFile);
+
+        return self::locateFromDirectory($dir, $canonicalRoot);
+    }
+
+    /**
+     * @return array{root: string, psr4: array<string, list<string>>}|null
+     */
+    private static function locateFromDirectory(string $dir, ?string $boundary = null): ?array
+    {
+        $dir = rtrim(str_replace('\\', '/', $dir), '/');
+        $dir = $dir === '' ? '/' : $dir;
 
         while (true) {
             $composerJson = $dir . '/composer.json';
@@ -41,7 +86,7 @@ final class ProjectLocator
             }
 
             $parent = dirname($dir);
-            if ($parent === $dir) {
+            if ($parent === $dir || ($boundary !== null && $dir === $boundary)) {
                 return null;
             }
             $dir = $parent;

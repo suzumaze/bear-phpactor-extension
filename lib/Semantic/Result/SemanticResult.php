@@ -49,33 +49,47 @@ final readonly class SemanticResult
         return new self(SemanticStatus::Ambiguous, candidates: $candidates);
     }
 
+    /**
+     * Propagate a non-successful status across typed query boundaries.
+     *
+     * @return self<null>
+     */
+    public static function failure(SemanticStatus $status): self
+    {
+        if ($status === SemanticStatus::Ok || $status === SemanticStatus::Ambiguous) {
+            throw new LogicException(sprintf('Status "%s" requires semantic data.', $status->value));
+        }
+
+        return new self($status);
+    }
+
     /** @return self<null> */
     public static function notFound(): self
     {
-        return new self(SemanticStatus::NotFound);
+        return self::failure(SemanticStatus::NotFound);
     }
 
     /** @return self<null> */
     public static function invalidInput(): self
     {
-        return new self(SemanticStatus::InvalidInput);
+        return self::failure(SemanticStatus::InvalidInput);
     }
 
     /** @return self<null> */
     public static function unsupported(): self
     {
-        return new self(SemanticStatus::Unsupported);
+        return self::failure(SemanticStatus::Unsupported);
     }
 
     /** @return self<null> */
     public static function parseError(): self
     {
-        return new self(SemanticStatus::ParseError);
+        return self::failure(SemanticStatus::ParseError);
     }
 
     /** @return self<null> */
     public static function outsideWorkspace(): self
     {
-        return new self(SemanticStatus::OutsideWorkspace);
+        return self::failure(SemanticStatus::OutsideWorkspace);
     }
 }

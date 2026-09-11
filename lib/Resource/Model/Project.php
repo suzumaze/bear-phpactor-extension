@@ -50,6 +50,43 @@ final class Project
     }
 
     /**
+     * Locate a project around a file without walking above a workspace root.
+     */
+    public static function locateWithin(string $filePath, string $workspaceRoot): ?self
+    {
+        $found = ProjectLocator::locateWithin($filePath, $workspaceRoot);
+        if ($found === null) {
+            return null;
+        }
+
+        return new self($found['root'], $found['psr4'], $filePath);
+    }
+
+    /**
+     * Create a project only when the given directory itself is a PSR-4 root.
+     */
+    public static function fromRoot(string $root): ?self
+    {
+        $canonicalRoot = realpath($root);
+        if ($canonicalRoot === false) {
+            return null;
+        }
+        $canonicalRoot = rtrim(str_replace('\\', '/', $canonicalRoot), '/');
+        $canonicalRoot = $canonicalRoot === '' ? '/' : $canonicalRoot;
+
+        $composerJson = rtrim($canonicalRoot, '/') . '/composer.json';
+        if ($canonicalRoot === '/') {
+            $composerJson = '/composer.json';
+        }
+        $found = ProjectLocator::locateWithin($composerJson, $canonicalRoot);
+        if ($found === null || $found['root'] !== $canonicalRoot) {
+            return null;
+        }
+
+        return new self($found['root'], $found['psr4'], $composerJson);
+    }
+
+    /**
      * プロジェクトルート (composer.json のあるディレクトリ)。
      */
     public function root(): string
