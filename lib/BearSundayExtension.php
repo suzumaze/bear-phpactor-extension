@@ -20,6 +20,7 @@ use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
+use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateQuery;
 use Suzumaze\BearPhpactor\Sql\SqlDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\EmbedTemplateDefinitionLocator;
@@ -117,6 +118,12 @@ final class BearSundayExtension implements Extension
         $container->register('bear_sunday.semantic.template_query', function (): TemplateQuery {
             return new TemplateQuery();
         });
+        $container->register(
+            'bear_sunday.semantic.resource_template_query',
+            function (Container $container): ResourceTemplateQuery {
+                return new ResourceTemplateQuery($container->get('bear_sunday.semantic.resource_query'));
+            },
+        );
 
         $container->register(
             TemplateDefinitionLocator::class,
