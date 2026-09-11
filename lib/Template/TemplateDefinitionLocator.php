@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Suzumaze\BearPhpactor\Template;
 
-use Suzumaze\BearPhpactor\Util\ProjectLocator;
+use Suzumaze\BearPhpactor\Resource\Model\Project;
+use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Template\TemplateQuery;
 use Phpactor\ReferenceFinder\DefinitionLocator;
 use Phpactor\ReferenceFinder\Exception\CouldNotLocateDefinition;
 use Phpactor\ReferenceFinder\TypeLocation;
@@ -19,10 +21,14 @@ use Phpactor\WorseReflection\Core\TypeFactory;
  */
 final class TemplateDefinitionLocator implements DefinitionLocator
 {
+    private TemplateQuery $query;
+
     public function __construct(
         private TemplateReferenceScanner $scanner = new TemplateReferenceScanner(),
-        private TemplatePathResolver $resolver = new TemplatePathResolver(),
+        TemplatePathResolver $resolver = new TemplatePathResolver(),
+        ?TemplateQuery $query = null,
     ) {
+        $this->query = $query ?? new TemplateQuery($resolver);
     }
 
     public function locateDefinition(TextDocument $document, ByteOffset $byteOffset): TypeLocations
@@ -43,20 +49,20 @@ final class TemplateDefinitionLocator implements DefinitionLocator
             throw new CouldNotLocateDefinition('Document has no URI');
         }
 
-        $project = ProjectLocator::locate($uri->path());
+        $project = Project::locate($uri->path());
         if ($project === null) {
             throw new CouldNotLocateDefinition('No composer.json with autoload.psr-4 found above the document');
         }
 
-        $path = $this->resolver->resolve($reference, $project['root'], $uri->path());
-        if ($path === null) {
+        $result = $this->query->resolve($project, $reference->engine, $reference->name, $uri->path());
+        if ($result->status !== SemanticStatus::Ok || $result->value === null) {
             throw new CouldNotLocateDefinition(sprintf('Template could not be resolved: %s', $reference->name));
         }
 
         return new TypeLocations([
             new TypeLocation(
                 TypeFactory::stringLiteral($reference->name),
-                Location::fromPathAndOffsets($path, 0, 0),
+                Location::fromPathAndOffsets($result->value->file, 0, 0),
             ),
         ]);
     }

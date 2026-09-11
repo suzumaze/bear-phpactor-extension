@@ -19,6 +19,7 @@ use Suzumaze\BearPhpactor\Router\RouterDefinitionLocator;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
+use Suzumaze\BearPhpactor\Semantic\Template\TemplateQuery;
 use Suzumaze\BearPhpactor\Sql\SqlDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\EmbedTemplateDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\TemplateDefinitionLocator;
@@ -112,10 +113,16 @@ final class BearSundayExtension implements Extension
         // Twig/Qiqテンプレート内の静的なテンプレート参照を実ファイルへ解決する。
         // Twig: extends/include/include()/block()第2引数。
         // Qiq: setLayout()/render()/extends()（裸のQiq helperと$this->形式の両方）。
+        $container->register('bear_sunday.semantic.template_query', function (): TemplateQuery {
+            return new TemplateQuery();
+        });
+
         $container->register(
             TemplateDefinitionLocator::class,
             function (Container $container): TemplateDefinitionLocator {
-                return new TemplateDefinitionLocator();
+                return new TemplateDefinitionLocator(
+                    query: $container->get('bear_sunday.semantic.template_query'),
+                );
             },
             [ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => []]
         );
