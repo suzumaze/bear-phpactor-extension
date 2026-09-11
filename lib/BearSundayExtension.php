@@ -18,6 +18,7 @@ use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Router\RouterDefinitionLocator;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
+use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
 use Suzumaze\BearPhpactor\Sql\SqlDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\EmbedTemplateDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\TemplateDefinitionLocator;
@@ -134,9 +135,15 @@ final class BearSundayExtension implements Extension
             );
         }, [ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => []]);
 
+        $container->register('bear_sunday.semantic.sql_query', function (): SqlQuery {
+            return new SqlQuery();
+        });
+
         // SQL定義ジャンプ: #[DbQuery('...')] / @Query("...") → var/db/sql/<名前>.sql
         $container->register(SqlDefinitionLocator::class, function (Container $container): SqlDefinitionLocator {
-            return new SqlDefinitionLocator();
+            return new SqlDefinitionLocator(
+                sqlQuery: $container->get('bear_sunday.semantic.sql_query'),
+            );
         }, [
             ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => [],
         ]);

@@ -14,6 +14,7 @@ use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceReferenceFinder;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
+use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
 use Suzumaze\BearPhpactor\Template\EmbedTemplateDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\TemplateDefinitionLocator;
 use Phpactor\Container\PhpactorContainer;
@@ -41,6 +42,13 @@ final class BearSundayExtensionTest extends TestCase
         $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
 
         self::assertInstanceOf(RouteQuery::class, $container->get('bear_sunday.semantic.route_query'));
+    }
+
+    public function testRegistersTransportIndependentSqlQuery(): void
+    {
+        $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
+
+        self::assertInstanceOf(SqlQuery::class, $container->get('bear_sunday.semantic.sql_query'));
     }
 
     public function testRegistersDefinitionLocatorWithTag(): void

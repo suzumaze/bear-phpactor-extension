@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Suzumaze\BearPhpactor\Sql;
 
+use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
-use Suzumaze\BearPhpactor\Util\PathGuard;
-use Suzumaze\BearPhpactor\Util\ProjectLocator;
+use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
 use Microsoft\PhpParser\Node\Attribute;
 use Microsoft\PhpParser\Node\DelimitedList\ArgumentExpressionList;
 use Microsoft\PhpParser\Node\Expression\ArgumentExpression;
@@ -40,9 +41,6 @@ use Phpactor\WorseReflection\Core\Util\NodeUtil;
  */
 final class SqlDefinitionLocator implements DefinitionLocator
 {
-    /** プロジェクトルートからのSQL置き場（BEAR.Sunday規約） */
-    private const SQL_DIR = 'var/db/sql';
-
     /** Ray.MediaQueryのDbQuery属性（useでの短縮名） */
     private const DB_QUERY_SHORT_NAME = 'DbQuery';
 
@@ -51,6 +49,7 @@ final class SqlDefinitionLocator implements DefinitionLocator
 
     public function __construct(
         private StringLiteralAtOffset $stringLiteralAtOffset = new StringLiteralAtOffset(),
+        private SqlQuery $sqlQuery = new SqlQuery(),
     ) {
     }
 
@@ -75,17 +74,18 @@ final class SqlDefinitionLocator implements DefinitionLocator
             throw new CouldNotLocateDefinition('No BEAR.Sunday SQL query reference under the cursor');
         }
 
-        $root = $this->projectRoot($document);
-        if ($root === null) {
+        $uri = $document->uri();
+        $project = $uri === null ? null : Project::locate($uri->path());
+        if ($project === null) {
             throw new CouldNotLocateDefinition('No composer.json with autoload.psr-4 found above the document');
         }
 
-        $sqlFile = $this->resolveSqlFile($root, $queryName);
-        if ($sqlFile === null) {
+        $result = $this->sqlQuery->resolve($project, $queryName);
+        if ($result->status !== SemanticStatus::Ok || $result->value === null) {
             throw new CouldNotLocateDefinition(sprintf(
                 'SQL file does not exist: %s/%s/%s.sql',
-                $root,
-                self::SQL_DIR,
+                $project->root(),
+                'var/db/sql',
                 $queryName
             ));
         }
@@ -93,7 +93,7 @@ final class SqlDefinitionLocator implements DefinitionLocator
         return new TypeLocations([
             new TypeLocation(
                 TypeFactory::stringLiteral($queryName),
-                Location::fromPathAndOffsets($sqlFile, 0, 0)
+                Location::fromPathAndOffsets($result->value->file, 0, 0)
             ),
         ]);
     }
@@ -218,32 +218,5 @@ final class SqlDefinitionLocator implements DefinitionLocator
         }
 
         return null;
-    }
-
-    /**
-     * `<プロジェクトルート>/var/db/sql/<名前>.sql` を返す。クエリ名が SQL ディレクトリ
-     * の外へ出る場合やファイルが無ければ null。
-     */
-    private function resolveSqlFile(string $root, string $queryName): ?string
-    {
-        $sqlFile = PathGuard::resolveInside($root . '/' . self::SQL_DIR, $queryName . '.sql');
-
-        return $sqlFile === null ? null : (is_file($sqlFile) ? $sqlFile : null);
-    }
-
-    /**
-     * ドキュメントの置かれたディレクトリから上へ、psr-4 を持つ composer.json を辿って
-     * プロジェクトルートとする (5機能共通の ProjectLocator)。見つからなければ null。
-     */
-    private function projectRoot(TextDocument $document): ?string
-    {
-        $uri = $document->uri();
-        if ($uri === null) {
-            return null;
-        }
-
-        $found = ProjectLocator::locate($uri->path());
-
-        return $found === null ? null : $found['root'];
     }
 }
