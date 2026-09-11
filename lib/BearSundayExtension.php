@@ -16,6 +16,7 @@ use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceReferenceFinder;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Router\RouterDefinitionLocator;
+use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
@@ -182,11 +183,17 @@ final class BearSundayExtension implements Extension
             [ReferenceFinderExtension::TAG_TYPE_LOCATOR => []]
         );
 
+        $container->register('bear_sunday.semantic.alps_query', function (): AlpsQuery {
+            return new AlpsQuery();
+        });
+
         // ALPSプロファイル: #[Alps('doDeleteArticle')] 属性から profile.json の
         // 記述子定義へ定義ジャンプ。プロファイルの場所は固定の規約パスでは無く、
         // プロジェクトルート直下の apidoc.xml の <alps> 要素で指定される。
         $container->register(AlpsDefinitionLocator::class, function (Container $container): AlpsDefinitionLocator {
-            return new AlpsDefinitionLocator();
+            return new AlpsDefinitionLocator(
+                alpsQuery: $container->get('bear_sunday.semantic.alps_query'),
+            );
         }, [
             ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => [],
         ]);
