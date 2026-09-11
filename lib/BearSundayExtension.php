@@ -10,11 +10,13 @@ use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaDefinitionLocator;
 use Suzumaze\BearPhpactor\Resource\Completor\BodyPropertyCompletor;
 use Suzumaze\BearPhpactor\Resource\Completor\ResourceUriCompletor;
 use Suzumaze\BearPhpactor\Resource\LanguageServer\ResourceUriDocumentLinkHandler;
+use Suzumaze\BearPhpactor\Resource\Model\ResourceTargetResolver;
 use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceDefinitionLocator;
 use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceReferenceFinder;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Router\RouterDefinitionLocator;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
 use Suzumaze\BearPhpactor\Sql\SqlDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\EmbedTemplateDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\TemplateDefinitionLocator;
@@ -48,10 +50,30 @@ final class BearSundayExtension implements Extension
             }
         );
 
+        // BEAR semantics are resolved outside the LSP adapters. The legacy
+        // ResourceTargetResolver remains as a compatibility facade while
+        // existing locators migrate to the structured semantic result.
+        $container->register(
+            'bear_sunday.semantic.resource_query',
+            function (Container $container): ResourceQuery {
+                return new ResourceQuery();
+            }
+        );
+
+        $container->register(
+            'bear_sunday.resource.target_resolver',
+            function (Container $container): ResourceTargetResolver {
+                return new ResourceTargetResolver($container->get('bear_sunday.semantic.resource_query'));
+            }
+        );
+
         $container->register(
             'bear_sunday.resource.definition_locator',
             function (Container $container): ResourceDefinitionLocator {
-                return new ResourceDefinitionLocator($container->get('bear_sunday.resource.string_literal_at_offset'));
+                return new ResourceDefinitionLocator(
+                    $container->get('bear_sunday.resource.string_literal_at_offset'),
+                    $container->get('bear_sunday.resource.target_resolver'),
+                );
             },
             [
                 ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => [],
@@ -165,6 +187,7 @@ final class BearSundayExtension implements Extension
             function (Container $container): ResourceReferenceFinder {
                 return new ResourceReferenceFinder(
                     $container->get('bear_sunday.resource.string_literal_at_offset'),
+                    $container->get('bear_sunday.resource.target_resolver'),
                 );
             },
             [ReferenceFinderExtension::TAG_REFERENCE_FINDER => []]

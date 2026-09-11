@@ -8,6 +8,7 @@ use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Resource\Model\ResourceTargetResolver;
 use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
+use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Util\PhpClassDeclaration;
 use Phpactor\ReferenceFinder\DefinitionLocator;
 use Phpactor\ReferenceFinder\Exception\CouldNotLocateDefinition;
@@ -56,15 +57,16 @@ final class ResourceDefinitionLocator implements DefinitionLocator
             throw new CouldNotLocateDefinition(sprintf('Could not locate composer.json for "%s"', $uriObject->path()));
         }
 
-        $target = $this->resourceTargetResolver->resolve($project, $uri);
-        if ($target === null) {
+        $result = $this->resourceTargetResolver->resolveDetailed($project, $uri);
+        if ($result->status !== SemanticStatus::Ok || $result->value === null) {
             throw new CouldNotLocateDefinition(sprintf('Resource class for "%s" does not exist', $uri->uri()));
         }
+        $target = $result->value;
 
         return new TypeLocations([
             new TypeLocation(
-                TypeFactory::class($target['fqn']),
-                PhpClassDeclaration::location($target['file'])
+                TypeFactory::class($target->fqn),
+                PhpClassDeclaration::location($target->file)
             ),
         ]);
     }

@@ -8,6 +8,7 @@ use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Resource\Model\ResourceTargetResolver;
 use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
+use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Util\PathGuard;
 use Suzumaze\BearPhpactor\Util\PhpClassDeclaration;
 use Suzumaze\BearPhpactor\Util\ProjectLocator;
@@ -142,8 +143,12 @@ final class ResourceReferenceFinder implements ReferenceFinder
                         }
 
                         // そのファイルの位置から解決した先が対象Tと同じなら参照。
-                        $resolved = $this->resourceTargetResolver->resolve($project, $resourceUri);
-                        if ($resolved === null || realpath($resolved['file']) !== $targetRealPath) {
+                        $resolved = $this->resourceTargetResolver->resolveDetailed($project, $resourceUri);
+                        if (
+                            $resolved->status !== SemanticStatus::Ok
+                            || $resolved->value === null
+                            || realpath($resolved->value->file) !== $targetRealPath
+                        ) {
                             continue;
                         }
 
@@ -189,9 +194,9 @@ final class ResourceReferenceFinder implements ReferenceFinder
                 if ($uri !== null && $uri->scheme() === 'file') {
                     $project = Project::locate($uri->path());
                     if ($project !== null) {
-                        $target = $this->resourceTargetResolver->resolve($project, $resourceUri);
-                        if ($target !== null) {
-                            return $target['file'];
+                        $target = $this->resourceTargetResolver->resolveDetailed($project, $resourceUri);
+                        if ($target->status === SemanticStatus::Ok && $target->value !== null) {
+                            return $target->value->file;
                         }
                     }
                 }
