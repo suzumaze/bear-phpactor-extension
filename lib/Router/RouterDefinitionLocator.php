@@ -6,8 +6,9 @@ namespace Suzumaze\BearPhpactor\Router;
 
 use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Resource\Model\ResourceTargetResolver;
-use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
+use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
+use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Util\PhpClassDeclaration;
 use Microsoft\PhpParser\Node\DelimitedList\ArgumentExpressionList;
 use Microsoft\PhpParser\Node\Expression\ArgumentExpression;
@@ -58,11 +59,15 @@ final class RouterDefinitionLocator implements DefinitionLocator
      */
     private const ROUTE_METHOD_NAMES = ['route', 'get', 'post', 'put', 'patch', 'delete', 'head', 'options'];
 
+    private RouteQuery $routeQuery;
+
     public function __construct(
         private Parser $parser = new Parser(),
         private StringLiteralAtOffset $stringLiteralAtOffset = new StringLiteralAtOffset(),
-        private ResourceTargetResolver $resourceTargetResolver = new ResourceTargetResolver(),
+        ResourceTargetResolver $resourceTargetResolver = new ResourceTargetResolver(),
+        ?RouteQuery $routeQuery = null,
     ) {
+        $this->routeQuery = $routeQuery ?? new RouteQuery($resourceTargetResolver);
     }
 
     public function locateDefinition(TextDocument $document, ByteOffset $byteOffset): TypeLocations
@@ -84,24 +89,16 @@ final class RouterDefinitionLocator implements DefinitionLocator
             );
         }
 
-        // ルートパス ('/index') は page://self のパス部分とみなす。パスカルケース
-        // 変換 (既存の大文字は保つ) と文脈接頭辞の探索は ResourceUri / Project が
-        // 担う。'..' を含むルートパスは ResourceUri のパスとして不正になり、
-        // 解決先が Resource ディレクトリの外へ出るため PathGuard が拒否する。
-        $resourceUri = ResourceUri::fromString('page://self' . $path);
-        if ($resourceUri === null) {
-            throw new CouldNotLocateDefinition(sprintf('Route path "%s" is not a valid resource path', $path));
-        }
-
-        $target = $this->resourceTargetResolver->resolve($project, $resourceUri);
-        if ($target === null) {
+        $result = $this->routeQuery->resolve($project, $path);
+        if ($result->status !== SemanticStatus::Ok || $result->value === null) {
             throw new CouldNotLocateDefinition(sprintf('No Page resource class for route path "%s"', $path));
         }
+        $target = $result->value->resource;
 
         return new TypeLocations([
             new TypeLocation(
-                TypeFactory::class($target['fqn']),
-                PhpClassDeclaration::location($target['file'], $this->parser)
+                TypeFactory::class($target->fqn),
+                PhpClassDeclaration::location($target->file, $this->parser)
             ),
         ]);
     }

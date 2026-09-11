@@ -17,6 +17,7 @@ use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Router\RouterDefinitionLocator;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
+use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
 use Suzumaze\BearPhpactor\Sql\SqlDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\EmbedTemplateDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\TemplateDefinitionLocator;
@@ -118,9 +119,19 @@ final class BearSundayExtension implements Extension
             [ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => []]
         );
 
-        // Aura.Router: aura.route.php のルートパスから Page リソースクラスへの定義ジャンプ。
+        $container->register('bear_sunday.semantic.route_query', function (Container $container): RouteQuery {
+            return new RouteQuery(
+                $container->get('bear_sunday.resource.target_resolver'),
+                $container->get('bear_sunday.semantic.resource_query'),
+            );
+        });
+
+        // Aura.Router: aura.route.php のルート名から Page リソースクラスへの定義ジャンプ。
         $container->register(RouterDefinitionLocator::class, function (Container $container) {
-            return new RouterDefinitionLocator();
+            return new RouterDefinitionLocator(
+                resourceTargetResolver: $container->get('bear_sunday.resource.target_resolver'),
+                routeQuery: $container->get('bear_sunday.semantic.route_query'),
+            );
         }, [ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => []]);
 
         // SQL定義ジャンプ: #[DbQuery('...')] / @Query("...") → var/db/sql/<名前>.sql
