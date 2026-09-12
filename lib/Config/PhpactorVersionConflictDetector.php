@@ -49,14 +49,19 @@ final class PhpactorVersionConflictDetector
         }
 
         [$languageServer, $protocol] = $versions;
-        if (!version_compare($languageServer, self::BROKEN_LANGUAGE_SERVER, '<=')) {
-            return null;
-        }
-        if (!version_compare($protocol, self::BROKEN_PROTOCOL, '>=')) {
+        if (!self::isBrokenCombination($languageServer, $protocol)) {
             return null;
         }
 
         return ['language_server' => $languageServer, 'protocol' => $protocol];
+    }
+
+    public static function isBrokenCombination(string $languageServer, string $protocol): bool
+    {
+        return self::isComparable($languageServer)
+            && self::isComparable($protocol)
+            && version_compare($languageServer, self::BROKEN_LANGUAGE_SERVER, '<=')
+            && version_compare($protocol, self::BROKEN_PROTOCOL, '>=');
     }
 
     /**
@@ -110,7 +115,7 @@ final class PhpactorVersionConflictDetector
      * v3.17.4). Dev branches (dev-master, 1.0.x-dev) are not: their content
      * is unknown, so no verdict.
      */
-    private function isComparable(string $version): bool
+    private static function isComparable(string $version): bool
     {
         return (bool) preg_match('/^v?\d+(\.\d+)*$/', $version);
     }

@@ -14,6 +14,7 @@
 declare(strict_types=1);
 
 const METHODS = [
+    'bear/project/info',
     'bear/resource/resolve',
     'bear/resource/list',
     'bear/resource/describe',

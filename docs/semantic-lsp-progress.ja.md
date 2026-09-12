@@ -37,10 +37,11 @@ flowchart TD
     p4["Headless custom LSP と CLI client\n完了"]
     p5["Resource inventory と outgoing Link / Embed facts\n完了"]
     p6["Incoming Link / Embed と Resource describe 集約\n完了"]
-    p7["Project info・cache / freshness\n未着手"]
+    p7["Project info\n完了"]
+    p75["Cache / freshness\n次フェーズ"]
     p8["別 repository の薄い MCP-LSP adapter\n将来"]
 
-    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p8
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p8
 ```
 
 ## 現在利用できる入口
@@ -55,6 +56,7 @@ flowchart TD
 
 ### BEAR custom LSP request
 
+- `bear/project/info`
 - `bear/resource/resolve`
 - `bear/resource/list`
 - `bear/resource/describe`

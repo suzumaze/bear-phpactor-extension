@@ -11,6 +11,26 @@ use function Amp\Promise\wait;
 
 final class SemanticQueryHandlerTest extends TestCase
 {
+    public function testDescribesProjectWithoutAbsolutePaths(): void
+    {
+        $response = wait((new SemanticQueryHandler(self::fixtureDir()))->describeProject());
+
+        self::assertSame('ok', $response['status']);
+        self::assertSame('Resource', $response['data']['workspaceName']);
+        self::assertSame('.', $response['data']['projectPath']);
+        self::assertSame('composer.json', $response['data']['composerPath']);
+        self::assertSame([
+            ['namespace' => 'Acme\\Blog\\', 'path' => 'src'],
+        ], $response['data']['psr4Roots']);
+        self::assertSame(0, $response['data']['excludedPsr4Roots']);
+        self::assertGreaterThan(0, $response['data']['resourceCount']);
+        self::assertContains('resourceDescription', $response['data']['capabilities']);
+        self::assertStringNotContainsString(
+            self::fixtureDir(),
+            json_encode($response['data'], JSON_THROW_ON_ERROR),
+        );
+    }
+
     public function testReturnsWorkspaceRelativeResourceFact(): void
     {
         $response = wait((new SemanticQueryHandler(self::fixtureDir()))->resolveResource(
@@ -214,6 +234,7 @@ final class SemanticQueryHandlerTest extends TestCase
     public function testListsOnlyReadOnlySemanticMethods(): void
     {
         self::assertSame([
+            'bear/project/info' => 'describeProject',
             'bear/resource/resolve' => 'resolveResource',
             'bear/resource/list' => 'listResources',
             'bear/resource/describe' => 'describeResource',

@@ -23,10 +23,18 @@ in responses are also workspace-relative. Every response has this envelope:
 `status` is one of `ok`, `not_found`, `ambiguous`, `invalid_input`, `unsupported`,
 `parse_error`, or `outside_workspace`. `data` is non-null only for `ok`.
 
+`bear/project/info` is the connection and capability check for headless clients. It
+reports only workspace-relative project and PSR-4 paths. Missing, invalid, symlinked,
+or otherwise outside-workspace PSR-4 roots are counted in `excludedPsr4Roots` and are
+not exposed. `versions` contains only runtime packages whose versions can be detected;
+`compatibilityIssues` is empty unless a known, safely comparable incompatibility is
+present.
+
 ## Methods
 
 | Method | Params | Successful data |
 |---|---|---|
+| `bear/project/info` | `{contextPath?}` | `{workspaceName, projectPath, composerPath, psr4Roots, excludedPsr4Roots, resourceCount, capabilities, versions, compatibilityIssues}` |
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
 | `bear/resource/list` | `{scheme?, prefix?, limit?}` | `{resources, total, truncated}` |
 | `bear/resource/describe` | `{uri, contextPath?, incomingLimit?}` | `{resource, methods, relationsOut, relationsIn, templates, schemas}` |

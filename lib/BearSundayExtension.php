@@ -18,6 +18,7 @@ use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Router\RouterDefinitionLocator;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
+use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescriptionQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
@@ -108,6 +109,13 @@ final class BearSundayExtension implements Extension
         );
 
         $container->register(
+            'bear_sunday.semantic.project_info_query',
+            function (): ProjectInfoQuery {
+                return new ProjectInfoQuery();
+            },
+        );
+
+        $container->register(
             'bear_sunday.resource.target_resolver',
             function (Container $container): ResourceTargetResolver {
                 return new ResourceTargetResolver($container->get('bear_sunday.semantic.resource_query'));
@@ -185,6 +193,7 @@ final class BearSundayExtension implements Extension
                     $container->get('bear_sunday.semantic.resource_facts_query'),
                     $container->get('bear_sunday.semantic.resource_incoming_relations_query'),
                     $container->get('bear_sunday.semantic.resource_description_query'),
+                    $container->get('bear_sunday.semantic.project_info_query'),
                 );
             },
             [LanguageServerExtension::TAG_METHOD_HANDLER => []],

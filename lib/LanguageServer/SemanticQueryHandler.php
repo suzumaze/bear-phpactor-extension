@@ -8,6 +8,8 @@ use Amp\Promise;
 use Amp\Success;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorResolution;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
+use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfo;
+use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescription;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescriptionQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFacts;
@@ -57,6 +59,7 @@ final class SemanticQueryHandler implements Handler
         ResourceFactsQuery $resourceFactsQuery = new ResourceFactsQuery(),
         private ResourceIncomingRelationsQuery $resourceIncomingRelationsQuery = new ResourceIncomingRelationsQuery(),
         ?ResourceDescriptionQuery $resourceDescriptionQuery = null,
+        private ProjectInfoQuery $projectInfoQuery = new ProjectInfoQuery(),
     ) {
         $this->workspace = WorkspaceContext::fromRoot($workspaceRoot);
         $this->resourceDescriptionQuery = $resourceDescriptionQuery ?? new ResourceDescriptionQuery(
@@ -69,6 +72,7 @@ final class SemanticQueryHandler implements Handler
     public function methods(): array
     {
         return [
+            'bear/project/info' => 'describeProject',
             'bear/resource/resolve' => 'resolveResource',
             'bear/resource/list' => 'listResources',
             'bear/resource/describe' => 'describeResource',
@@ -81,6 +85,38 @@ final class SemanticQueryHandler implements Handler
             'bear/schema/resolveNamed' => 'resolveNamedSchema',
             'bear/schema/forResource' => 'resolveResourceSchema',
         ];
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function describeProject(?string $contextPath = null): Promise
+    {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->projectInfoQuery->describeInWorkspace($workspace, $contextPath),
+            fn (ProjectInfo $info): array => [
+                'workspaceName' => $info->workspaceName,
+                'projectPath' => $info->projectPath,
+                'composerPath' => $info->composerPath,
+                'psr4Roots' => array_map(
+                    static fn ($root): array => [
+                        'namespace' => $root->namespace,
+                        'path' => $root->path,
+                    ],
+                    $info->psr4Roots,
+                ),
+                'excludedPsr4Roots' => $info->excludedPsr4Roots,
+                'resourceCount' => $info->resourceCount,
+                'capabilities' => $info->capabilities,
+                'versions' => $info->versions,
+                'compatibilityIssues' => array_map(
+                    static fn ($issue): array => [
+                        'code' => $issue->code,
+                        'packages' => $issue->packages,
+                    ],
+                    $info->compatibilityIssues,
+                ),
+            ],
+        ));
     }
 
     /** @return Promise<array<string,mixed>> */
