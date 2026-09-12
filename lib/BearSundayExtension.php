@@ -6,6 +6,7 @@ namespace Suzumaze\BearPhpactor;
 
 use Suzumaze\BearPhpactor\Alps\AlpsDefinitionLocator;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaConventionTypeLocator;
+use Suzumaze\BearPhpactor\LanguageServer\BearHoverMiddleware;
 use Suzumaze\BearPhpactor\LanguageServer\SemanticQueryHandler;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaDefinitionLocator;
 use Suzumaze\BearPhpactor\Resource\Completor\BodyPropertyCompletor;
@@ -202,6 +203,21 @@ final class BearSundayExtension implements Extension
                 );
             },
             [LanguageServerExtension::TAG_METHOD_HANDLER => []],
+        );
+
+        $container->register(
+            'bear_sunday.language_server.hover_middleware',
+            function (Container $container): BearHoverMiddleware {
+                $pathResolver = $container->get(FilePathResolverExtension::SERVICE_FILE_PATH_RESOLVER);
+
+                return new BearHoverMiddleware(
+                    $container->get(LanguageServerExtension::SERVICE_SESSION_WORKSPACE),
+                    $pathResolver->resolve('%project_root%'),
+                    $container->get('bear_sunday.resource.string_literal_at_offset'),
+                    $container->get('bear_sunday.semantic.resource_facts_query'),
+                );
+            },
+            [LanguageServerExtension::TAG_MIDDLEWARE => []],
         );
 
         $container->register(

@@ -39,10 +39,10 @@ use Phpactor\WorseReflection\Core\Util\NodeUtil;
  * - `<alps>` のパスが `..` や絶対パスを含む（PathGuardが弾く）
  * - プロファイルJSONが存在しない / `alps.descriptor` に該当する記述子が無い
  *
- * 記述子は `alps.descriptor` 配列のトップレベルにフラットに並び、ネストした
- * `descriptor` の `{"href": "#id"}` は参照に過ぎない。着地位置は該当記述子の
+ * addressable な記述子は `alps.descriptor` 以下を再帰的に検索する。ネストした
+ * `descriptor` の `{"href": "#id"}` は参照として扱う。着地位置は該当記述子の
  * `"id"` キーの値の位置（JSON Schemaジャンプが `"title"` キーに着地させる
- * のと同じ流儀で、テキスト走査で求める）。
+ * のと同じ流儀で、共有ALPS parserが求める）。
  */
 final class AlpsDefinitionLocator implements DefinitionLocator
 {

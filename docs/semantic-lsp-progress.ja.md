@@ -12,7 +12,7 @@ flowchart LR
     project["BEAR.Sunday project"]
     core["Semantic core\nParser / Model / Query"]
     phpactor["Phpactor Language Server"]
-    standard["Standard LSP\ndefinition / references / completion\ntypeDefinition / documentLink"]
+    standard["Standard LSP\ndefinition / references / hover / completion\ntypeDefinition / documentLink"]
     custom["Read-only BEAR LSP requests\nresource / route / SQL / template\nALPS / schema"]
     clients["IDE / editor / CLI / AI LSP client"]
     mcp["Future thin MCP-LSP adapter"]
@@ -42,10 +42,11 @@ flowchart TD
     p76["Schema Facts\n完了"]
     p77["ALPS descriptor facts・明示関係\n完了"]
     p78["ALPS / Schema parse cache・freshness\n完了"]
-    p79["Inventory index / watcher連携\n将来候補"]
+    p79["Resource URI Hover\n完了"]
+    p80["Inventory index / watcher連携\n将来候補"]
     p8["別 repository の薄い MCP-LSP adapter\n将来"]
 
-    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p8
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p8
 ```
 
 ## 現在利用できる入口
@@ -55,8 +56,14 @@ flowchart TD
 - `textDocument/definition`: Resource URI、Route、SQL、ALPS、Template、明示 Schema
 - `textDocument/typeDefinition`: Resource 規約の response Schema
 - `textDocument/references`: Resource URI の参照元
+- `textDocument/hover`: Resource URI のクラス、パス、public `on*` method、外向き関係数
 - `textDocument/completion`: Resource URI と body Schema property
 - `textDocument/documentLink`: Resource URI と Template 参照
+
+Resource URI Hover は Phpactor の単一 Hover handler を置き換えず、その手前の middleware で
+認識済み URI だけを処理する。通常の PHP symbol は既存 Phpactor Hover へ委譲するため、拡張の
+読込順と Definition locator の優先順位を変更しない。妥当だが未解決の Resource URI は、PHPの
+単なる文字列型へフォールバックせず空結果を返す。
 
 ### BEAR custom LSP request
 

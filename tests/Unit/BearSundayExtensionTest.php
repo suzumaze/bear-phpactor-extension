@@ -59,6 +59,16 @@ final class BearSundayExtensionTest extends TestCase
         );
     }
 
+    public function testRegistersResourceHoverMiddleware(): void
+    {
+        $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
+
+        self::assertArrayHasKey(
+            'bear_sunday.language_server.hover_middleware',
+            $container->getServiceIdsForTag(LanguageServerExtension::TAG_MIDDLEWARE),
+        );
+    }
+
     public function testRegistersTransportIndependentResourceQuery(): void
     {
         $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);

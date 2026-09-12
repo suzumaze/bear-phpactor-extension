@@ -43,6 +43,7 @@ final class StdioLanguageServerTest extends TestCase
             ], 20.0);
             self::assertArrayNotHasKey('error', $initialize, $client->stderr());
             self::assertTrue($initialize['result']['capabilities']['definitionProvider'] ?? false);
+            self::assertTrue($initialize['result']['capabilities']['hoverProvider'] ?? false);
 
             $client->notify('initialized');
 
@@ -139,6 +140,32 @@ final class StdioLanguageServerTest extends TestCase
                     'text' => $source,
                 ],
             ]);
+
+            $hover = $client->request('textDocument/hover', [
+                'textDocument' => ['uri' => $this->fileUri($clientFile)],
+                'position' => $position,
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $hover, $client->stderr());
+            self::assertSame('markdown', $hover['result']['contents']['kind'] ?? null);
+            self::assertStringContainsString(
+                '**BEAR Resource** `app://self/user`',
+                $hover['result']['contents']['value'] ?? '',
+            );
+            self::assertStringContainsString(
+                '`Acme\\Blog\\Resource\\App\\User`',
+                $hover['result']['contents']['value'] ?? '',
+            );
+
+            $phpHover = $client->request('textDocument/hover', [
+                'textDocument' => ['uri' => $this->fileUri($clientFile)],
+                'position' => $this->positionOf('fixtureUris', $source),
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $phpHover, $client->stderr());
+            self::assertNotNull($phpHover['result'] ?? null);
+            self::assertStringNotContainsString(
+                '**BEAR Resource**',
+                $phpHover['result']['contents']['value'] ?? '',
+            );
 
             $completionNeedle = "uri('app://self/u";
             $completionOffset = strpos($source, $completionNeedle);

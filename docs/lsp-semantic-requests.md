@@ -1,13 +1,20 @@
 # BEAR semantic LSP requests
 
 Position-based navigation continues to use the standard LSP methods
-`textDocument/definition`, `textDocument/references`, `textDocument/completion`, and
-`textDocument/documentLink`.
+`textDocument/definition`, `textDocument/references`, `textDocument/hover`,
+`textDocument/completion`, and `textDocument/documentLink`.
 
 The requests below are read-only custom requests for queries that start with a BEAR
 identifier instead of a text-document position. A client should not create a fake
 document merely to call a standard positional method. These methods are not a
 replacement for standard LSP navigation.
+
+For standard `textDocument/hover`, a recognized Resource URI literal returns its
+resolved class, workspace-relative path, public `on*` methods, and outgoing
+Link/Embed count. Non-BEAR positions continue through Phpactor's built-in PHP Hover.
+A valid but unresolved or unsafe Resource URI returns an empty Hover instead of a
+generic PHP string description. This is implemented as a narrow middleware because
+the supported Phpactor version exposes one Hover handler rather than a provider chain.
 
 All paths supplied by a caller are relative to the workspace root. Successful paths
 in responses are also workspace-relative. Every response has this envelope:
