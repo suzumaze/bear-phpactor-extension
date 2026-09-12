@@ -67,6 +67,41 @@ final readonly class ResourceTemplateQuery
     }
 
     /**
+     * Resolve a template for a Resource already selected by another semantic
+     * query. The physical Resource path remains the identity when its URI is
+     * otherwise ambiguous.
+     *
+     * @return SemanticResult<ResourceTemplateResolution|null>
+     */
+    public function resolveForResolutionInWorkspace(
+        WorkspaceContext $workspace,
+        ResourceResolution $resource,
+        string $engine,
+    ): SemanticResult {
+        if (!$this->supports($engine)) {
+            return SemanticResult::unsupported();
+        }
+
+        $path = $workspace->accessPolicy()->inspectExisting($resource->file);
+        if ($path->value === null) {
+            return SemanticResult::failure($path->status);
+        }
+        $project = $workspace->project($path->value->relative);
+        if ($project->value === null) {
+            return SemanticResult::failure($project->status);
+        }
+
+        return $this->enforceWorkspace(
+            $workspace,
+            $this->templateFor(
+                $project->value,
+                new ResourceResolution($resource->uri, $path->value->absolute, $resource->fqn),
+                $engine,
+            ),
+        );
+    }
+
+    /**
      * @param SemanticResult<ResourceResolution|null> $resource
      * @return SemanticResult<ResourceTemplateResolution|null>
      */

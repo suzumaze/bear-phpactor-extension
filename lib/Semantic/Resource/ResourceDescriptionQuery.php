@@ -6,7 +6,10 @@ namespace Suzumaze\BearPhpactor\Semantic\Resource;
 
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
+use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateQuery;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
+use Suzumaze\BearPhpactor\Template\TemplateReference;
 
 /**
  * Builds a reusable Resource description independently of an LSP transport.
@@ -16,6 +19,8 @@ final class ResourceDescriptionQuery
     public function __construct(
         private ResourceFactsQuery $resourceFactsQuery = new ResourceFactsQuery(),
         private ResourceIncomingRelationsQuery $incomingRelationsQuery = new ResourceIncomingRelationsQuery(),
+        private ResourceTemplateQuery $resourceTemplateQuery = new ResourceTemplateQuery(),
+        private SchemaQuery $schemaQuery = new SchemaQuery(),
     ) {
     }
 
@@ -26,6 +31,10 @@ final class ResourceDescriptionQuery
         ?string $contextPath = null,
         int $incomingLimit = ResourceIncomingRelationsQuery::DEFAULT_LIMIT,
     ): SemanticResult {
+        if ($incomingLimit < 1 || $incomingLimit > ResourceIncomingRelationsQuery::MAX_LIMIT) {
+            return SemanticResult::invalidInput();
+        }
+
         $facts = $this->resourceFactsQuery->describeInWorkspace($workspace, $uri, $contextPath);
         if ($facts->status === SemanticStatus::Ok && $facts->value !== null) {
             $incoming = $this->incomingRelationsQuery->findForResolutionInWorkspace(
@@ -38,18 +47,67 @@ final class ResourceDescriptionQuery
                 return SemanticResult::failure($incoming->status);
             }
 
-            return SemanticResult::ok(new ResourceDescription($facts->value, $incoming->value));
+            return $this->description($workspace, $facts->value, $incoming->value);
         }
         if ($facts->status !== SemanticStatus::Ambiguous) {
             return SemanticResult::failure($facts->status);
         }
 
-        return SemanticResult::ambiguous(array_map(
-            static fn (ResourceFacts $candidate): ResourceDescription => new ResourceDescription(
+        $candidates = [];
+        foreach ($facts->candidates as $candidate) {
+            $description = $this->description(
+                $workspace,
                 $candidate,
                 ResourceIncomingRelations::unavailable($candidate->resource),
-            ),
-            $facts->candidates,
+            );
+            if ($description->value === null) {
+                return SemanticResult::failure($description->status);
+            }
+            $candidates[] = $description->value;
+        }
+
+        return SemanticResult::ambiguous($candidates);
+    }
+
+    /** @return SemanticResult<ResourceDescription|null> */
+    private function description(
+        WorkspaceContext $workspace,
+        ResourceFacts $facts,
+        ResourceIncomingRelations $incoming,
+    ): SemanticResult {
+        $templates = [];
+        foreach ([TemplateReference::ENGINE_QIQ, TemplateReference::ENGINE_TWIG] as $engine) {
+            $template = $this->resourceTemplateQuery->resolveForResolutionInWorkspace(
+                $workspace,
+                $facts->resource,
+                $engine,
+            );
+            if ($template->status === SemanticStatus::Ok && $template->value !== null) {
+                $templates[] = $template->value;
+                continue;
+            }
+            if ($template->status !== SemanticStatus::NotFound) {
+                return SemanticResult::failure($template->status);
+            }
+        }
+
+        $schema = $this->schemaQuery->resolveForResolutionInWorkspace(
+            $workspace,
+            $facts->resource,
+        );
+        if ($schema->status === SemanticStatus::Ok && $schema->value !== null) {
+            $responseSchema = $schema->value;
+        } elseif ($schema->status === SemanticStatus::NotFound || $schema->status === SemanticStatus::Unsupported) {
+            $responseSchema = null;
+        } else {
+            return SemanticResult::failure($schema->status);
+        }
+
+        return SemanticResult::ok(new ResourceDescription(
+            $facts,
+            $incoming,
+            $templates,
+            $responseSchema,
         ));
     }
 }

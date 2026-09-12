@@ -29,7 +29,7 @@ in responses are also workspace-relative. Every response has this envelope:
 |---|---|---|
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
 | `bear/resource/list` | `{scheme?, prefix?, limit?}` | `{resources, total, truncated}` |
-| `bear/resource/describe` | `{uri, contextPath?, incomingLimit?}` | `{resource, methods, relationsOut, relationsIn}` |
+| `bear/resource/describe` | `{uri, contextPath?, incomingLimit?}` | `{resource, methods, relationsOut, relationsIn, templates, schemas}` |
 | `bear/resource/incomingRelations` | `{uri, contextPath?, limit?}` | `{resource, available, items, total, truncated}` |
 | `bear/route/resolve` | `{route, contextPath?}` | `{route, resource}` |
 | `bear/sql/resolve` | `{queryId, contextPath?}` | `{queryId, path}` |
@@ -62,6 +62,10 @@ For a Link with a dynamic explicit method, `targetMethod` is `null`; an omitted
 method uses BEAR.Resource's `get` default. Relation byte offsets refer to the saved
 PHP file. Incoming results default to 50 items and accept at most 200; the complete
 workspace Resource inventory is scanned before `total` and `truncated` are reported.
+`templates` lists existing Qiq and Twig convention paths in deterministic engine
+order. `schemas` lists the convention response Schema when present and is empty when
+the Resource has no matching Schema. Request Schema inference is not guessed because
+it requires an explicit `#[JsonSchema(params: ...)]` declaration.
 
 Example JSON-RPC request:
 

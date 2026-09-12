@@ -36,7 +36,7 @@ flowchart TD
     p3["標準 LSP の回帰・stdio 統合テスト\n完了"]
     p4["Headless custom LSP と CLI client\n完了"]
     p5["Resource inventory と outgoing Link / Embed facts\n完了"]
-    p6["Incoming Link / Embed と Resource describe 集約\n進行中"]
+    p6["Incoming Link / Embed と Resource describe 集約\n完了"]
     p7["Project info・cache / freshness\n未着手"]
     p8["別 repository の薄い MCP-LSP adapter\n将来"]
 
@@ -69,6 +69,10 @@ flowchart TD
 
 custom request は、文書内 Position を起点にできない BEAR identifier 問い合わせのための
 read-only API である。標準 LSP で自然に表現できる操作の代替にはしない。
+
+`bear/resource/describe` は、Resource class と public `on*` method、外向き・内向きの
+Link/Embed、既存の Qiq/Twig template、規約で解決できる response Schema を1回の
+問い合わせに集約する。内向き関係は件数上限と切り捨て状態を明示する。
 
 ## AI からの利用
 

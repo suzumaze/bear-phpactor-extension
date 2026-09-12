@@ -322,6 +322,18 @@ final class SemanticQueryHandler implements Handler
         return [
             ...$this->resourceFactsData($description->facts),
             'relationsIn' => $this->incomingRelationsData($description->incomingRelations),
+            'templates' => array_map(
+                fn (ResourceTemplateResolution $template): array => [
+                    'engine' => $template->engine,
+                    'path' => $template->templateFile === null
+                        ? null
+                        : $this->relativePath($template->templateFile),
+                ],
+                $description->templates,
+            ),
+            'schemas' => $description->responseSchema === null
+                ? []
+                : [$this->schemaData($description->responseSchema)],
         ];
     }
 

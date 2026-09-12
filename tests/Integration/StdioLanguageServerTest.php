@@ -94,6 +94,8 @@ final class StdioLanguageServerTest extends TestCase
                 'app://self/article',
                 $description['result']['data']['relationsIn']['items'][0]['sourceUri'] ?? null,
             );
+            self::assertSame([], $description['result']['data']['templates'] ?? null);
+            self::assertSame([], $description['result']['data']['schemas'] ?? null);
 
             $incoming = $client->request('bear/resource/incomingRelations', [
                 'uri' => 'app://self/user',

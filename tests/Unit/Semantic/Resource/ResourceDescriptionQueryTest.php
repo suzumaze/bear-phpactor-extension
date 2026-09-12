@@ -31,6 +31,11 @@ final class ResourceDescriptionQueryTest extends TestCase
             ['user', 'relativeUser', 'duplicate'],
             array_map(static fn ($relation): string => $relation->rel, $result->value->incomingRelations->relations),
         );
+        self::assertSame(
+            ['qiq', 'twig'],
+            array_map(static fn ($template): string => $template->engine, $result->value->templates),
+        );
+        self::assertNull($result->value->responseSchema);
     }
 
     public function testDoesNotClaimIncomingRelationsForAmbiguousResource(): void
@@ -46,6 +51,37 @@ final class ResourceDescriptionQueryTest extends TestCase
         self::assertFalse($result->candidates[1]->incomingRelations->available);
     }
 
+    public function testIncludesConventionResponseSchemaWhenItExists(): void
+    {
+        $workspace = WorkspaceContext::fromRoot(self::bodyFixture());
+        self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
+
+        $result = (new ResourceDescriptionQuery())->describeInWorkspace($workspace->value, 'app://self/user');
+
+        self::assertSame(SemanticStatus::Ok, $result->status);
+        self::assertInstanceOf(ResourceDescription::class, $result->value);
+        self::assertSame([], $result->value->templates);
+        self::assertNotNull($result->value->responseSchema);
+        self::assertSame(
+            self::bodyFixture() . '/var/json_schema/user.json',
+            $result->value->responseSchema->file,
+        );
+    }
+
+    public function testRejectsInvalidIncomingLimitBeforeResolvingResource(): void
+    {
+        $workspace = WorkspaceContext::fromRoot(self::templateFixture());
+        self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
+
+        $result = (new ResourceDescriptionQuery())->describeInWorkspace(
+            $workspace->value,
+            'app://self/missing',
+            incomingLimit: 0,
+        );
+
+        self::assertSame(SemanticStatus::InvalidInput, $result->status);
+    }
+
     private static function templateFixture(): string
     {
         $fixture = realpath(dirname(__DIR__, 3) . '/Fixture/Template/basic');
@@ -57,6 +93,14 @@ final class ResourceDescriptionQueryTest extends TestCase
     private static function resourceFixture(): string
     {
         $fixture = realpath(dirname(__DIR__, 3) . '/Fixture/Resource');
+        self::assertNotFalse($fixture);
+
+        return $fixture;
+    }
+
+    private static function bodyFixture(): string
+    {
+        $fixture = realpath(dirname(__DIR__, 3) . '/Fixture/Body/basic');
         self::assertNotFalse($fixture);
 
         return $fixture;

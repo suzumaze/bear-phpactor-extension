@@ -84,6 +84,11 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame([], $response['data']['relationsIn']['items']);
         self::assertSame(0, $response['data']['relationsIn']['total']);
         self::assertFalse($response['data']['relationsIn']['truncated']);
+        self::assertSame([
+            ['engine' => 'qiq', 'path' => 'var/qiq/template/App/Dashboard.php'],
+            ['engine' => 'twig', 'path' => 'var/templates/App/Dashboard.html.twig'],
+        ], $response['data']['templates']);
+        self::assertSame([], $response['data']['schemas']);
     }
 
     public function testFindsIncomingResourceRelations(): void
@@ -103,6 +108,20 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertCount(2, $response['data']['items']);
         self::assertSame('app://self/dashboard', $response['data']['items'][0]['sourceUri']);
         self::assertSame('src/Resource/App/Dashboard.php', $response['data']['items'][0]['sourcePath']);
+    }
+
+    public function testResourceDescriptionIncludesConventionSchema(): void
+    {
+        $response = wait((new SemanticQueryHandler($this->fixture('Body/basic')))->describeResource(
+            'app://self/user',
+            'src/Resource/App/User.php',
+        ));
+
+        self::assertSame('ok', $response['status']);
+        self::assertSame([], $response['data']['templates']);
+        self::assertSame('response', $response['data']['schemas'][0]['kind']);
+        self::assertSame('convention', $response['data']['schemas'][0]['source']);
+        self::assertSame('var/json_schema/user.json', $response['data']['schemas'][0]['path']);
     }
 
     public function testResolvesRouteFact(): void

@@ -179,6 +179,42 @@ final readonly class SchemaQuery
         );
     }
 
+    /**
+     * Resolve a convention schema for a Resource already selected by another
+     * semantic query, retaining the physical Resource identity on ambiguity.
+     *
+     * @return SemanticResult<SchemaResolution|null>
+     */
+    public function resolveForResolutionInWorkspace(
+        WorkspaceContext $workspace,
+        ResourceResolution $resource,
+        string $kind = self::KIND_RESPONSE,
+    ): SemanticResult {
+        if (!$this->supportsKind($kind)) {
+            return SemanticResult::unsupported();
+        }
+        if ($kind === self::KIND_REQUEST) {
+            return SemanticResult::unsupported();
+        }
+
+        $path = $workspace->accessPolicy()->inspectExisting($resource->file);
+        if ($path->value === null) {
+            return SemanticResult::failure($path->status);
+        }
+        $project = $workspace->project($path->value->relative);
+        if ($project->value === null) {
+            return SemanticResult::failure($project->status);
+        }
+
+        return $this->enforceWorkspace(
+            $workspace,
+            $this->conventionForResource(
+                $project->value,
+                new ResourceResolution($resource->uri, $path->value->absolute, $resource->fqn),
+            ),
+        );
+    }
+
     /** @return SemanticResult<SchemaResolution|null> */
     private function conventionForResource(Project $project, ResourceResolution $resource): SemanticResult
     {

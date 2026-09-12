@@ -101,6 +101,8 @@ final class BearSundayExtension implements Extension
                 return new ResourceDescriptionQuery(
                     $container->get('bear_sunday.semantic.resource_facts_query'),
                     $container->get('bear_sunday.semantic.resource_incoming_relations_query'),
+                    $container->get('bear_sunday.semantic.resource_template_query'),
+                    $container->get('bear_sunday.semantic.schema_query'),
                 );
             },
         );
