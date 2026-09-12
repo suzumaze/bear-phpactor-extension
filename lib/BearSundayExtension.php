@@ -25,6 +25,7 @@ use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceIncomingRelationsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateQuery;
@@ -194,6 +195,7 @@ final class BearSundayExtension implements Extension
                     $container->get('bear_sunday.semantic.resource_incoming_relations_query'),
                     $container->get('bear_sunday.semantic.resource_description_query'),
                     $container->get('bear_sunday.semantic.project_info_query'),
+                    $container->get('bear_sunday.semantic.schema_facts_query'),
                 );
             },
             [LanguageServerExtension::TAG_METHOD_HANDLER => []],
@@ -242,6 +244,13 @@ final class BearSundayExtension implements Extension
                 resourceQuery: $container->get('bear_sunday.semantic.resource_query'),
             );
         });
+
+        $container->register(
+            'bear_sunday.semantic.schema_facts_query',
+            function (Container $container): SchemaFactsQuery {
+                return new SchemaFactsQuery($container->get('bear_sunday.semantic.schema_query'));
+            },
+        );
 
         // JsonSchema: #[JsonSchema('user.json')] 属性からスキーマファイルへ定義ジャンプ。
         // プロジェクトルートは他の3機能と同じく「ドキュメントの位置から上へ composer.json を辿る」方式

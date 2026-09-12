@@ -21,6 +21,7 @@ use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceIncomingRelationsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateQuery;
@@ -124,6 +125,16 @@ final class BearSundayExtensionTest extends TestCase
         $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
 
         self::assertInstanceOf(SchemaQuery::class, $container->get('bear_sunday.semantic.schema_query'));
+    }
+
+    public function testRegistersTransportIndependentSchemaFactsQuery(): void
+    {
+        $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
+
+        self::assertInstanceOf(
+            SchemaFactsQuery::class,
+            $container->get('bear_sunday.semantic.schema_facts_query'),
+        );
     }
 
     public function testRegistersTransportIndependentTemplateQuery(): void

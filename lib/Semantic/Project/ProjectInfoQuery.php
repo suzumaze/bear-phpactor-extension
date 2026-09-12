@@ -110,6 +110,7 @@ final class ProjectInfoQuery
             'resourceInventory',
             'resourceResolution',
             'routeResolution',
+            'schemaFacts',
             'schemaResolution',
             'sqlResolution',
             'templateResolution',

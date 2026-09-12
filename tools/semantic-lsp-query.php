@@ -26,6 +26,8 @@ const METHODS = [
     'bear/alps/resolveDescriptor',
     'bear/schema/resolveNamed',
     'bear/schema/forResource',
+    'bear/schema/describeNamed',
+    'bear/schema/describeForResource',
 ];
 
 $arguments = $_SERVER['argv'] ?? [];

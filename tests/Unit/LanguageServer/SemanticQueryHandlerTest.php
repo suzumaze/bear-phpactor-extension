@@ -229,6 +229,28 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame('convention', $resource['data']['source']);
         self::assertSame('var/json_schema/body-type-demo.json', $resource['data']['path']);
         self::assertSame('app://self/bodyTypeDemo', $resource['data']['resource']['uri']);
+
+        $namedFacts = wait($handler->describeNamedSchema(
+            'user-params.json',
+            'request',
+            'src/Resource/App/SchemaDemo.php',
+        ));
+        self::assertSame('ok', $namedFacts['status']);
+        self::assertTrue($namedFacts['data']['available']);
+        self::assertSame(['object'], $namedFacts['data']['types']);
+        self::assertSame([
+            ['name' => 'id', 'required' => false, 'types' => ['integer']],
+        ], $namedFacts['data']['properties']);
+
+        $resourceFacts = wait($handler->describeResourceSchema(
+            'app://self/bodyTypeDemo',
+            contextPath: 'src/Resource/App/BodyTypeDemo.php',
+        ));
+        self::assertSame('ok', $resourceFacts['status']);
+        self::assertSame('var/json_schema/body-type-demo.json', $resourceFacts['data']['path']);
+        self::assertSame([
+            ['name' => 'name', 'required' => false, 'types' => ['string']],
+        ], $resourceFacts['data']['properties']);
     }
 
     public function testListsOnlyReadOnlySemanticMethods(): void
@@ -246,6 +268,8 @@ final class SemanticQueryHandlerTest extends TestCase
             'bear/alps/resolveDescriptor' => 'resolveAlpsDescriptor',
             'bear/schema/resolveNamed' => 'resolveNamedSchema',
             'bear/schema/forResource' => 'resolveResourceSchema',
+            'bear/schema/describeNamed' => 'describeNamedSchema',
+            'bear/schema/describeForResource' => 'describeResourceSchema',
         ], (new SemanticQueryHandler(self::fixtureDir()))->methods());
     }
 

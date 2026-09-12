@@ -46,6 +46,8 @@ present.
 | `bear/alps/resolveDescriptor` | `{descriptorId, contextPath?}` | `{descriptorId, profilePath, byteOffset}` |
 | `bear/schema/resolveNamed` | `{fileName, kind, contextPath?}` | `{kind, source, path, titleByteOffset, resource}` |
 | `bear/schema/forResource` | `{uri, kind?, contextPath?}` | `{kind, source, path, titleByteOffset, resource}` |
+| `bear/schema/describeNamed` | `{fileName, kind, contextPath?}` | `{kind, source, path, titleByteOffset, resource, available, types, properties}` |
+| `bear/schema/describeForResource` | `{uri, kind?, contextPath?}` | `{kind, source, path, titleByteOffset, resource, available, types, properties}` |
 
 `engine` is `twig` or `qiq`. A relative Qiq name requires `contextPath`. The ALPS
 offset is a byte offset in the saved JSON profile; positional standard LSP methods
@@ -53,6 +55,9 @@ continue to use UTF-16 line/character positions.
 
 Schema `kind` is `request` or `response`. Resource convention lookup supports only
 `response`; request schemas require the explicit name recorded by `#[JsonSchema(params: ...)]`.
+Schema description returns sorted top-level properties with `required` and statically
+declared `types`. It does not return raw JSON or expand `$ref`. JSON input is limited
+to 1 MiB and a decode depth of 64; malformed or over-limit input returns `parse_error`.
 
 Resource listing accepts `app` or `page` as `scheme`. `limit` defaults to 50 and
 has a maximum of 200. Duplicate URIs from different PSR-4 roots remain separate,

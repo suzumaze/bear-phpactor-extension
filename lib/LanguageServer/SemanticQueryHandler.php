@@ -25,6 +25,8 @@ use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteResolution;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFacts;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaResolution;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
@@ -60,6 +62,7 @@ final class SemanticQueryHandler implements Handler
         private ResourceIncomingRelationsQuery $resourceIncomingRelationsQuery = new ResourceIncomingRelationsQuery(),
         ?ResourceDescriptionQuery $resourceDescriptionQuery = null,
         private ProjectInfoQuery $projectInfoQuery = new ProjectInfoQuery(),
+        private SchemaFactsQuery $schemaFactsQuery = new SchemaFactsQuery(),
     ) {
         $this->workspace = WorkspaceContext::fromRoot($workspaceRoot);
         $this->resourceDescriptionQuery = $resourceDescriptionQuery ?? new ResourceDescriptionQuery(
@@ -84,6 +87,8 @@ final class SemanticQueryHandler implements Handler
             'bear/alps/resolveDescriptor' => 'resolveAlpsDescriptor',
             'bear/schema/resolveNamed' => 'resolveNamedSchema',
             'bear/schema/forResource' => 'resolveResourceSchema',
+            'bear/schema/describeNamed' => 'describeNamedSchema',
+            'bear/schema/describeForResource' => 'describeResourceSchema',
         ];
     }
 
@@ -282,6 +287,32 @@ final class SemanticQueryHandler implements Handler
         ));
     }
 
+    /** @return Promise<array<string,mixed>> */
+    public function describeNamedSchema(
+        string $fileName,
+        string $kind,
+        ?string $contextPath = null,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->schemaFactsQuery->describeNamedInWorkspace($workspace, $fileName, $kind, $contextPath),
+            fn (SchemaFacts $facts): array => $this->schemaFactsData($facts),
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function describeResourceSchema(
+        string $uri,
+        string $kind = SchemaQuery::KIND_RESPONSE,
+        ?string $contextPath = null,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->schemaFactsQuery->describeForResourceInWorkspace($workspace, $uri, $kind, $contextPath),
+            fn (SchemaFacts $facts): array => $this->schemaFactsData($facts),
+        ));
+    }
+
     /**
      * @template TValue
      * @param callable(WorkspaceContext): SemanticResult<TValue|null> $query
@@ -408,6 +439,24 @@ final class SemanticQueryHandler implements Handler
             'path' => $resolution->file === null ? null : $this->relativePath($resolution->file),
             'titleByteOffset' => $resolution->titleOffset,
             'resource' => $resolution->resource === null ? null : $this->resourceData($resolution->resource),
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function schemaFactsData(SchemaFacts $facts): array
+    {
+        return [
+            ...$this->schemaData($facts->schema),
+            'available' => $facts->available,
+            'types' => $facts->types,
+            'properties' => array_map(
+                static fn ($property): array => [
+                    'name' => $property->name,
+                    'required' => $property->required,
+                    'types' => $property->types,
+                ],
+                $facts->properties,
+            ),
         ];
     }
 

@@ -229,6 +229,21 @@ final class StdioLanguageServerTest extends TestCase
             self::assertArrayNotHasKey('error', $initialize, $client->stderr());
             self::assertTrue($initialize['result']['capabilities']['typeDefinitionProvider'] ?? false);
             $client->notify('initialized');
+
+            $schemaFacts = $client->request('bear/schema/describeForResource', [
+                'uri' => 'app://self/bodyTypeDemo',
+                'contextPath' => 'src/Resource/App/BodyTypeDemo.php',
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $schemaFacts, $client->stderr());
+            self::assertSame('ok', $schemaFacts['result']['status'] ?? null);
+            self::assertSame(
+                'var/json_schema/body-type-demo.json',
+                $schemaFacts['result']['data']['path'] ?? null,
+            );
+            self::assertSame([
+                ['name' => 'name', 'required' => false, 'types' => ['string']],
+            ], $schemaFacts['result']['data']['properties'] ?? null);
+
             $client->notify('textDocument/didOpen', [
                 'textDocument' => [
                     'uri' => $this->fileUri($resourceFile),

@@ -74,6 +74,7 @@ final class ProjectInfoQueryTest extends TestCase
             'resourceInventory',
             'resourceResolution',
             'routeResolution',
+            'schemaFacts',
             'schemaResolution',
             'sqlResolution',
             'templateResolution',

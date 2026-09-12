@@ -39,10 +39,11 @@ flowchart TD
     p6["Incoming Link / Embed と Resource describe 集約\n完了"]
     p7["Project info\n完了"]
     p75["Resource Facts parse cache\n完了"]
-    p76["Inventory / JSON / ALPS cache・freshness\n次フェーズ"]
+    p76["Schema Facts\n完了"]
+    p77["Inventory / JSON / ALPS cache・freshness\n次フェーズ"]
     p8["別 repository の薄い MCP-LSP adapter\n将来"]
 
-    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p8
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p8
 ```
 
 ## 現在利用できる入口
@@ -69,6 +70,8 @@ flowchart TD
 - `bear/alps/resolveDescriptor`
 - `bear/schema/resolveNamed`
 - `bear/schema/forResource`
+- `bear/schema/describeNamed`
+- `bear/schema/describeForResource`
 
 custom request は、文書内 Position を起点にできない BEAR identifier 問い合わせのための
 read-only API である。標準 LSP で自然に表現できる操作の代替にはしない。
