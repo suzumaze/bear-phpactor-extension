@@ -14,6 +14,8 @@ use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceDefinitionLocator;
 use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceReferenceFinder;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
+use Suzumaze\BearPhpactor\Semantic\Alps\AlpsFactsQuery;
+use Suzumaze\BearPhpactor\Semantic\Alps\AlpsProfileQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescriptionQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
@@ -47,6 +49,14 @@ final class BearSundayExtensionTest extends TestCase
         $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
 
         self::assertInstanceOf(AlpsQuery::class, $container->get('bear_sunday.semantic.alps_query'));
+        self::assertInstanceOf(
+            AlpsProfileQuery::class,
+            $container->get('bear_sunday.semantic.alps_profile_query'),
+        );
+        self::assertInstanceOf(
+            AlpsFactsQuery::class,
+            $container->get('bear_sunday.semantic.alps_facts_query'),
+        );
     }
 
     public function testRegistersTransportIndependentResourceQuery(): void

@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace Suzumaze\BearPhpactor\Semantic\Alps;
 
-use SimpleXMLElement;
 use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
-use Suzumaze\BearPhpactor\Util\PathGuard;
 
 /**
  * Resolves an ALPS semantic descriptor through apidoc.xml without booting the app.
  */
 final class AlpsQuery
 {
-    private const MAX_INPUT_BYTES = 1048576;
-    private const MAX_STRUCTURE_DEPTH = 64;
+    public function __construct(
+        private AlpsProfileQuery $profileQuery = new AlpsProfileQuery(),
+    ) {
+    }
 
     /**
      * @return SemanticResult<AlpsDescriptorResolution|null>
@@ -28,50 +28,28 @@ final class AlpsQuery
             return SemanticResult::invalidInput();
         }
 
-        $profile = $this->profilePath($project);
+        $profile = $this->profileQuery->load($project);
         if ($profile->value === null) {
             return SemanticResult::failure($profile->status);
         }
-
-        $profileContents = $this->readInput($profile->value);
-        if ($profileContents->value === null) {
-            return SemanticResult::failure($profileContents->status);
-        }
-        $contents = $profileContents->value;
-
-        $data = json_decode($contents, true, self::MAX_STRUCTURE_DEPTH);
-        if (!is_array($data)) {
-            return SemanticResult::parseError();
-        }
-        $descriptors = $data['alps']['descriptor'] ?? null;
-        if (!is_array($descriptors)) {
+        $descriptors = $profile->value->descriptorsById($descriptorId);
+        if ($descriptors === []) {
             return SemanticResult::notFound();
         }
 
-        $count = 0;
+        $resolutions = [];
         foreach ($descriptors as $descriptor) {
-            if (is_array($descriptor) && ($descriptor['id'] ?? null) === $descriptorId) {
-                ++$count;
+            if ($descriptor->offset === null) {
+                return SemanticResult::parseError();
             }
-        }
-        if ($count === 0) {
-            return SemanticResult::notFound();
-        }
-
-        $offsets = $this->idValueOffsets($contents, $descriptorId);
-        if (count($offsets) < $count) {
-            return SemanticResult::parseError();
-        }
-        $resolutions = array_map(
-            static fn (int $offset): AlpsDescriptorResolution => new AlpsDescriptorResolution(
+            $resolutions[] = new AlpsDescriptorResolution(
                 $descriptorId,
-                $profile->value,
-                $offset,
-            ),
-            array_slice($offsets, 0, $count),
-        );
+                $profile->value->file,
+                $descriptor->offset,
+            );
+        }
 
-        return $count === 1
+        return count($resolutions) === 1
             ? SemanticResult::ok($resolutions[0])
             : SemanticResult::ambiguous($resolutions);
     }
@@ -109,211 +87,6 @@ final class AlpsQuery
         return SemanticResult::ambiguous($candidates);
     }
 
-    /**
-     * @return SemanticResult<string|null>
-     */
-    private function profilePath(Project $project): SemanticResult
-    {
-        $root = realpath($project->root());
-        if ($root === false) {
-            return SemanticResult::notFound();
-        }
-        $root = $this->normalize($root);
-
-        $apidocPath = realpath($root . '/apidoc.xml');
-        if ($apidocPath === false || !is_file($apidocPath)) {
-            return SemanticResult::notFound();
-        }
-        $apidocPath = $this->normalize($apidocPath);
-        if (!$this->contains($root, $apidocPath)) {
-            return SemanticResult::outsideWorkspace();
-        }
-
-        $apidocContents = $this->readInput($apidocPath);
-        if ($apidocContents->value === null) {
-            return SemanticResult::failure($apidocContents->status);
-        }
-        $contents = $apidocContents->value;
-        if ($this->containsForbiddenXmlDeclaration($contents)) {
-            return SemanticResult::parseError();
-        }
-        $xml = @simplexml_load_string($contents, SimpleXMLElement::class, LIBXML_NONET);
-        if ($xml === false || $this->exceedsXmlDepth($xml)) {
-            return SemanticResult::parseError();
-        }
-
-        $relativePath = trim((string) $xml->alps);
-        if ($relativePath === '') {
-            return SemanticResult::notFound();
-        }
-        if (!$this->isSafeRelativePath($relativePath)) {
-            return SemanticResult::outsideWorkspace();
-        }
-
-        $profilePath = realpath($root . '/' . $relativePath);
-        if ($profilePath === false || !is_file($profilePath)) {
-            return SemanticResult::notFound();
-        }
-        $profilePath = $this->normalize($profilePath);
-        if (!$this->contains($root, $profilePath)) {
-            return SemanticResult::outsideWorkspace();
-        }
-
-        return SemanticResult::ok($profilePath);
-    }
-
-    /** @return SemanticResult<string|null> */
-    private function readInput(string $path): SemanticResult
-    {
-        $contents = @file_get_contents($path, false, null, 0, self::MAX_INPUT_BYTES + 1);
-        if ($contents === false) {
-            return SemanticResult::notFound();
-        }
-        if (strlen($contents) > self::MAX_INPUT_BYTES) {
-            return SemanticResult::parseError();
-        }
-
-        return SemanticResult::ok($contents);
-    }
-
-    private function containsForbiddenXmlDeclaration(string $contents): bool
-    {
-        return stripos($contents, '<!DOCTYPE') !== false
-            || stripos($contents, '<!ENTITY') !== false;
-    }
-
-    private function exceedsXmlDepth(SimpleXMLElement $element, int $depth = 1): bool
-    {
-        if ($depth > self::MAX_STRUCTURE_DEPTH) {
-            return true;
-        }
-
-        foreach ($element->children() as $child) {
-            if ($this->exceedsXmlDepth($child, $depth + 1)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function isSafeRelativePath(string $path): bool
-    {
-        if (
-            str_contains($path, "\0")
-            || str_contains($path, '\\')
-            || PathGuard::isAbsolutePath($path)
-        ) {
-            return false;
-        }
-        foreach (explode('/', $path) as $segment) {
-            if ($segment === '' || $segment === '.' || $segment === '..') {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /** @return list<int> */
-    private function idValueOffsets(string $contents, string $descriptorId): array
-    {
-        $expected = json_encode($descriptorId);
-        if ($expected === false) {
-            return [];
-        }
-
-        $offsets = [];
-        $length = strlen($contents);
-        for ($i = 0; $i < $length; ++$i) {
-            $char = $contents[$i];
-            if ($char === '/' && ($contents[$i + 1] ?? '') === '/') {
-                $newline = strpos($contents, "\n", $i);
-                $i = $newline === false ? $length : $newline;
-
-                continue;
-            }
-            if ($char === '/' && ($contents[$i + 1] ?? '') === '*') {
-                $end = strpos($contents, '*/', $i + 2);
-                $i = $end === false ? $length : $end + 1;
-
-                continue;
-            }
-            if ($char !== '"') {
-                continue;
-            }
-
-            $key = $this->rawJsonString($contents, $i);
-            if ($key === null) {
-                return [];
-            }
-            if ($key !== '"id"') {
-                $i += strlen($key) - 1;
-
-                continue;
-            }
-
-            $valueStart = $this->valueStart($contents, $i + strlen($key));
-            if ($valueStart === null) {
-                $i += strlen($key) - 1;
-
-                continue;
-            }
-            $value = $this->rawJsonString($contents, $valueStart);
-            if ($value === $expected) {
-                $offsets[] = $valueStart;
-            }
-            $i += strlen($key) - 1;
-        }
-
-        return $offsets;
-    }
-
-    private function valueStart(string $contents, int $offset): ?int
-    {
-        $length = strlen($contents);
-        while ($offset < $length && $this->isWhitespace($contents[$offset])) {
-            ++$offset;
-        }
-        if (($contents[$offset] ?? '') !== ':') {
-            return null;
-        }
-        ++$offset;
-        while ($offset < $length && $this->isWhitespace($contents[$offset])) {
-            ++$offset;
-        }
-
-        return ($contents[$offset] ?? '') === '"' ? $offset : null;
-    }
-
-    private function isWhitespace(string $character): bool
-    {
-        return $character === ' ' || $character === "\t" || $character === "\n" || $character === "\r";
-    }
-
-    private function rawJsonString(string $contents, int $start): ?string
-    {
-        $length = strlen($contents);
-        if (($contents[$start] ?? '') !== '"') {
-            return null;
-        }
-
-        $end = $start + 1;
-        while ($end < $length) {
-            if ($contents[$end] === '\\') {
-                $end += 2;
-
-                continue;
-            }
-            if ($contents[$end] === '"') {
-                return substr($contents, $start, $end - $start + 1);
-            }
-            ++$end;
-        }
-
-        return null;
-    }
-
     /** @return SemanticResult<AlpsDescriptorResolution|null> */
     private function enforceWorkspace(
         WorkspaceContext $workspace,
@@ -337,19 +110,5 @@ final class AlpsQuery
             $path->value->absolute,
             $resolution->offset,
         ));
-    }
-
-    private function contains(string $root, string $path): bool
-    {
-        return $root === '/'
-            ? str_starts_with($path, '/')
-            : $path === $root || str_starts_with($path, $root . '/');
-    }
-
-    private function normalize(string $path): string
-    {
-        $normalized = rtrim(str_replace('\\', '/', $path), '/');
-
-        return $normalized === '' ? '/' : $normalized;
     }
 }

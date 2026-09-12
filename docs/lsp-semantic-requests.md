@@ -44,6 +44,7 @@ present.
 | `bear/template/resolve` | `{engine, name, contextPath?}` | `{engine, name, path}` |
 | `bear/template/forResource` | `{uri, engine, contextPath?}` | `{resource, engine, path}` |
 | `bear/alps/resolveDescriptor` | `{descriptorId, contextPath?}` | `{descriptorId, profilePath, byteOffset}` |
+| `bear/alps/describeDescriptor` | `{descriptorId, contextPath?}` | `{descriptorId, profilePath, byteOffset, type, name, rt, href, rel, doc, def, tag, title, relationsOut, relationsIn}` |
 | `bear/schema/resolveNamed` | `{fileName, kind, contextPath?}` | `{kind, source, path, titleByteOffset, resource}` |
 | `bear/schema/forResource` | `{uri, kind?, contextPath?}` | `{kind, source, path, titleByteOffset, resource}` |
 | `bear/schema/describeNamed` | `{fileName, kind, contextPath?}` | `{kind, source, path, titleByteOffset, resource, available, types, properties}` |
@@ -52,6 +53,17 @@ present.
 `engine` is `twig` or `qiq`. A relative Qiq name requires `contextPath`. The ALPS
 offset is a byte offset in the saved JSON profile; positional standard LSP methods
 continue to use UTF-16 line/character positions.
+
+ALPS description follows nested descriptors recursively and reports only explicit
+relationships in the workspace-local profile: `contains`, a descriptor's local-fragment
+`href`, and a transition's local-fragment `rt`. Each relation contains `sourceId`,
+`targetId`, `sourceByteOffset`, `targetByteOffset`, and a `targetStatus` of `ok`,
+`not_found`, or `ambiguous`. A missing `type` on an addressable descriptor is normalized
+to the ALPS default `semantic`. External `href` and `rt` values remain visible as scalar
+descriptor fields but are never fetched or converted into local relation edges. The
+server does not infer a BEAR Resource relation from ALPS naming similarity or `rel`.
+ALPS JSON and `apidoc.xml` input are each limited to 1 MiB and a structure depth of 64.
+Optional descriptor scalar fields are absent from the serialized response when unspecified.
 
 Schema `kind` is `request` or `response`. Resource convention lookup supports only
 `response`; request schemas require the explicit name recorded by `#[JsonSchema(params: ...)]`.

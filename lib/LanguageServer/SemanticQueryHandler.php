@@ -6,7 +6,10 @@ namespace Suzumaze\BearPhpactor\LanguageServer;
 
 use Amp\Promise;
 use Amp\Success;
+use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorFacts;
+use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorRelationFact;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorResolution;
+use Suzumaze\BearPhpactor\Semantic\Alps\AlpsFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfo;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
@@ -63,6 +66,7 @@ final class SemanticQueryHandler implements Handler
         ?ResourceDescriptionQuery $resourceDescriptionQuery = null,
         private ProjectInfoQuery $projectInfoQuery = new ProjectInfoQuery(),
         private SchemaFactsQuery $schemaFactsQuery = new SchemaFactsQuery(),
+        private AlpsFactsQuery $alpsFactsQuery = new AlpsFactsQuery(),
     ) {
         $this->workspace = WorkspaceContext::fromRoot($workspaceRoot);
         $this->resourceDescriptionQuery = $resourceDescriptionQuery ?? new ResourceDescriptionQuery(
@@ -85,6 +89,7 @@ final class SemanticQueryHandler implements Handler
             'bear/template/resolve' => 'resolveTemplate',
             'bear/template/forResource' => 'resolveResourceTemplate',
             'bear/alps/resolveDescriptor' => 'resolveAlpsDescriptor',
+            'bear/alps/describeDescriptor' => 'describeAlpsDescriptor',
             'bear/schema/resolveNamed' => 'resolveNamedSchema',
             'bear/schema/forResource' => 'resolveResourceSchema',
             'bear/schema/describeNamed' => 'describeNamedSchema',
@@ -258,6 +263,16 @@ final class SemanticQueryHandler implements Handler
                 'profilePath' => $this->relativePath($resolution->profileFile),
                 'byteOffset' => $resolution->offset,
             ],
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function describeAlpsDescriptor(string $descriptorId, ?string $contextPath = null): Promise
+    {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->alpsFactsQuery->describeInWorkspace($workspace, $descriptorId, $contextPath),
+            fn (AlpsDescriptorFacts $facts): array => $this->alpsDescriptorFactsData($facts),
         ));
     }
 
@@ -457,6 +472,42 @@ final class SemanticQueryHandler implements Handler
                 ],
                 $facts->properties,
             ),
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function alpsDescriptorFactsData(AlpsDescriptorFacts $facts): array
+    {
+        $descriptor = $facts->descriptor;
+
+        return [
+            'descriptorId' => $descriptor->resolution->descriptorId,
+            'profilePath' => $this->relativePath($descriptor->resolution->profileFile),
+            'byteOffset' => $descriptor->resolution->offset,
+            'type' => $descriptor->type,
+            'name' => $descriptor->name,
+            'rt' => $descriptor->rt,
+            'href' => $descriptor->href,
+            'rel' => $descriptor->rel,
+            'doc' => $descriptor->doc,
+            'def' => $descriptor->def,
+            'tag' => $descriptor->tag,
+            'title' => $descriptor->title,
+            'relationsOut' => array_map($this->alpsRelationData(...), $facts->outgoingRelations),
+            'relationsIn' => array_map($this->alpsRelationData(...), $facts->incomingRelations),
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function alpsRelationData(AlpsDescriptorRelationFact $relation): array
+    {
+        return [
+            'kind' => $relation->kind,
+            'sourceId' => $relation->sourceId,
+            'targetId' => $relation->targetId,
+            'targetStatus' => $relation->targetStatus->value,
+            'sourceByteOffset' => $relation->sourceOffset,
+            'targetByteOffset' => $relation->targetOffset,
         ];
     }
 

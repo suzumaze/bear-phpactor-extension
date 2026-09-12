@@ -272,6 +272,45 @@ final class StdioLanguageServerTest extends TestCase
         }
     }
 
+    public function testRealPhpactorStdioServerDescribesAlpsRelationships(): void
+    {
+        $fixture = dirname(__DIR__) . '/Fixture/Alps/App1';
+        $client = StdioLspClient::start(
+            $this->command($fixture),
+            $fixture,
+            $this->environment(),
+        );
+
+        try {
+            $initialize = $client->request('initialize', [
+                'processId' => getmypid(),
+                'rootUri' => $this->fileUri($fixture),
+                'capabilities' => (object) [],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $initialize, $client->stderr());
+            $client->notify('initialized');
+
+            $facts = $client->request('bear/alps/describeDescriptor', [
+                'descriptorId' => 'goArticle',
+                'contextPath' => 'src/Resource/App/AlpsDemo.php',
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $facts, $client->stderr());
+            self::assertSame('ok', $facts['result']['status'] ?? null);
+            self::assertSame('var/alps/profile.json', $facts['result']['data']['profilePath'] ?? null);
+            self::assertSame('safe', $facts['result']['data']['type'] ?? null);
+            self::assertSame('rt', $facts['result']['data']['relationsOut'][0]['kind'] ?? null);
+            self::assertSame('Article', $facts['result']['data']['relationsOut'][0]['targetId'] ?? null);
+            self::assertSame('href', $facts['result']['data']['relationsIn'][0]['kind'] ?? null);
+            self::assertSame('Article', $facts['result']['data']['relationsIn'][0]['sourceId'] ?? null);
+
+            $shutdown = $client->request('shutdown', [], 10.0);
+            self::assertArrayNotHasKey('error', $shutdown, $client->stderr());
+            $client->notify('exit');
+        } finally {
+            $client->close();
+        }
+    }
+
     /** @return list<string> */
     private function command(string $fixture): array
     {

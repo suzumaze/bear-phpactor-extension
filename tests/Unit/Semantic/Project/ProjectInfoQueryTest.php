@@ -67,6 +67,7 @@ final class ProjectInfoQueryTest extends TestCase
         self::assertSame(2, $result->value->excludedPsr4Roots);
         self::assertSame(1, $result->value->resourceCount);
         self::assertSame([
+            'alpsDescriptorFacts',
             'alpsDescriptorResolution',
             'incomingResourceRelations',
             'projectInfo',

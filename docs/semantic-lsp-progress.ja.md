@@ -40,10 +40,11 @@ flowchart TD
     p7["Project info\n完了"]
     p75["Resource Facts parse cache\n完了"]
     p76["Schema Facts\n完了"]
-    p77["Inventory / JSON / ALPS cache・freshness\n次フェーズ"]
+    p77["ALPS descriptor facts・明示関係\n完了"]
+    p78["Inventory / JSON / ALPS cache・freshness\n次フェーズ"]
     p8["別 repository の薄い MCP-LSP adapter\n将来"]
 
-    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p8
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p8
 ```
 
 ## 現在利用できる入口
@@ -68,6 +69,7 @@ flowchart TD
 - `bear/template/resolve`
 - `bear/template/forResource`
 - `bear/alps/resolveDescriptor`
+- `bear/alps/describeDescriptor`
 - `bear/schema/resolveNamed`
 - `bear/schema/forResource`
 - `bear/schema/describeNamed`
@@ -79,6 +81,11 @@ read-only API である。標準 LSP で自然に表現できる操作の代替�
 `bear/resource/describe` は、Resource class と public `on*` method、外向き・内向きの
 Link/Embed、既存の Qiq/Twig template、規約で解決できる response Schema を1回の
 問い合わせに集約する。内向き関係は件数上限と切り捨て状態を明示する。
+
+`bear/alps/describeDescriptor` は、ALPS descriptor の型・表示情報と、同一profile内で
+明示された親子 (`contains`)、ローカル `href`、ローカル `rt` の入出力関係を返す。
+外部参照は取得せず、名前の類似からResourceとの対応を推測しない。未解決・重複した
+参照先は `targetStatus` で区別できる。
 
 ## AI からの利用
 

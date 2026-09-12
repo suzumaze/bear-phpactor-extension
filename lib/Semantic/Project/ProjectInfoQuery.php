@@ -103,6 +103,7 @@ final class ProjectInfoQuery
     private static function capabilities(): array
     {
         return [
+            'alpsDescriptorFacts',
             'alpsDescriptorResolution',
             'incomingResourceRelations',
             'projectInfo',

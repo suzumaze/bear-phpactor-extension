@@ -116,6 +116,20 @@ JSON,
         );
     }
 
+    public function testResolvesNestedDescriptor(): void
+    {
+        self::assertNotFalse(file_put_contents(
+            $this->workspace . '/var/alps/profile.json',
+            '{"alps":{"descriptor":{"id":"parent","descriptor":{"id":"child"}}}}',
+        ));
+
+        $result = $this->resolve('child');
+
+        self::assertSame(SemanticStatus::Ok, $result->status);
+        self::assertInstanceOf(AlpsDescriptorResolution::class, $result->value);
+        self::assertSame(56, $result->value->offset);
+    }
+
     public function testRejectsProfileSymlinkOutsideProject(): void
     {
         $outside = $this->temporaryRoot . '/outside.json';

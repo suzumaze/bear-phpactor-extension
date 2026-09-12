@@ -17,6 +17,8 @@ use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceReferenceFinder;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Router\RouterDefinitionLocator;
+use Suzumaze\BearPhpactor\Semantic\Alps\AlpsFactsQuery;
+use Suzumaze\BearPhpactor\Semantic\Alps\AlpsProfileQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescriptionQuery;
@@ -196,6 +198,7 @@ final class BearSundayExtension implements Extension
                     $container->get('bear_sunday.semantic.resource_description_query'),
                     $container->get('bear_sunday.semantic.project_info_query'),
                     $container->get('bear_sunday.semantic.schema_facts_query'),
+                    $container->get('bear_sunday.semantic.alps_facts_query'),
                 );
             },
             [LanguageServerExtension::TAG_METHOD_HANDLER => []],
@@ -282,8 +285,14 @@ final class BearSundayExtension implements Extension
             [ReferenceFinderExtension::TAG_TYPE_LOCATOR => []]
         );
 
-        $container->register('bear_sunday.semantic.alps_query', function (): AlpsQuery {
-            return new AlpsQuery();
+        $container->register('bear_sunday.semantic.alps_profile_query', function (): AlpsProfileQuery {
+            return new AlpsProfileQuery();
+        });
+        $container->register('bear_sunday.semantic.alps_query', function (Container $container): AlpsQuery {
+            return new AlpsQuery($container->get('bear_sunday.semantic.alps_profile_query'));
+        });
+        $container->register('bear_sunday.semantic.alps_facts_query', function (Container $container): AlpsFactsQuery {
+            return new AlpsFactsQuery($container->get('bear_sunday.semantic.alps_profile_query'));
         });
 
         // ALPSプロファイル: #[Alps('doDeleteArticle')] 属性から profile.json の

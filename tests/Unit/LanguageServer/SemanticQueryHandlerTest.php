@@ -208,6 +208,24 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame(333, $response['data']['byteOffset']);
     }
 
+    public function testDescribesAlpsDescriptorRelationships(): void
+    {
+        $response = wait((new SemanticQueryHandler($this->fixture('Alps/App1')))->describeAlpsDescriptor(
+            'goArticle',
+            'src/Resource/App/AlpsDemo.php',
+        ));
+
+        self::assertSame('ok', $response['status']);
+        self::assertSame('var/alps/profile.json', $response['data']['profilePath']);
+        self::assertSame('safe', $response['data']['type']);
+        self::assertSame('#Article', $response['data']['rt']);
+        self::assertSame('Article', $response['data']['relationsOut'][0]['targetId']);
+        self::assertSame('rt', $response['data']['relationsOut'][0]['kind']);
+        self::assertSame('ok', $response['data']['relationsOut'][0]['targetStatus']);
+        self::assertSame('Article', $response['data']['relationsIn'][0]['sourceId']);
+        self::assertSame('href', $response['data']['relationsIn'][0]['kind']);
+    }
+
     public function testResolvesNamedAndResourceSchemaFacts(): void
     {
         $handler = new SemanticQueryHandler($this->fixture('JsonSchema/basic'));
@@ -266,6 +284,7 @@ final class SemanticQueryHandlerTest extends TestCase
             'bear/template/resolve' => 'resolveTemplate',
             'bear/template/forResource' => 'resolveResourceTemplate',
             'bear/alps/resolveDescriptor' => 'resolveAlpsDescriptor',
+            'bear/alps/describeDescriptor' => 'describeAlpsDescriptor',
             'bear/schema/resolveNamed' => 'resolveNamedSchema',
             'bear/schema/forResource' => 'resolveResourceSchema',
             'bear/schema/describeNamed' => 'describeNamedSchema',

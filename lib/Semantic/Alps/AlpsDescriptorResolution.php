@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Suzumaze\BearPhpactor\Semantic\Alps;
 
 /**
- * Location of a top-level ALPS semantic descriptor.
+ * Location of an ALPS semantic descriptor.
  */
 final readonly class AlpsDescriptorResolution
 {

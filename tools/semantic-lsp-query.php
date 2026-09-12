@@ -24,6 +24,7 @@ const METHODS = [
     'bear/template/resolve',
     'bear/template/forResource',
     'bear/alps/resolveDescriptor',
+    'bear/alps/describeDescriptor',
     'bear/schema/resolveNamed',
     'bear/schema/forResource',
     'bear/schema/describeNamed',
