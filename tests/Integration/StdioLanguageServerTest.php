@@ -61,6 +61,20 @@ final class StdioLanguageServerTest extends TestCase
                 'candidates' => [],
             ], $semantic['result'] ?? null);
 
+            $inventory = $client->request('bear/resource/list', [
+                'scheme' => 'app',
+                'prefix' => 'user',
+                'limit' => 1,
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $inventory, $client->stderr());
+            self::assertSame('ok', $inventory['result']['status'] ?? null);
+            self::assertSame(1, $inventory['result']['data']['total'] ?? null);
+            self::assertFalse($inventory['result']['data']['truncated'] ?? true);
+            self::assertSame(
+                'src/Resource/App/User.php',
+                $inventory['result']['data']['resources'][0]['path'] ?? null,
+            );
+
             $invalidSemantic = $client->request('bear/resource/resolve', [
                 'uri' => 'app://self/user',
                 'contextPath' => '../outside.php',
@@ -101,7 +115,6 @@ final class StdioLanguageServerTest extends TestCase
                 $references,
                 json_encode($references, JSON_UNESCAPED_SLASHES) . "\n" . $client->stderr(),
             );
-            self::assertIsArray($references['result'] ?? null);
             $referenceUris = array_column($references['result'], 'uri');
             self::assertContains($this->fileUri($clientFile), $referenceUris);
             self::assertContains(
@@ -149,7 +162,6 @@ final class StdioLanguageServerTest extends TestCase
     private function environment(): array
     {
         $environment = getenv();
-        self::assertIsArray($environment);
         $environment['XDG_CACHE_HOME'] = $this->runtimeDirectory . '/cache';
         $environment['XDG_CONFIG_HOME'] = $this->runtimeDirectory . '/config';
 

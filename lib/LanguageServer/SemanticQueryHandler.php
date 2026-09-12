@@ -9,6 +9,8 @@ use Amp\Success;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorResolution;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventory;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
@@ -43,6 +45,7 @@ final class SemanticQueryHandler implements Handler
         private ResourceTemplateQuery $resourceTemplateQuery = new ResourceTemplateQuery(),
         private AlpsQuery $alpsQuery = new AlpsQuery(),
         private SchemaQuery $schemaQuery = new SchemaQuery(),
+        private ResourceInventoryQuery $resourceInventoryQuery = new ResourceInventoryQuery(),
     ) {
         $this->workspace = WorkspaceContext::fromRoot($workspaceRoot);
     }
@@ -52,6 +55,7 @@ final class SemanticQueryHandler implements Handler
     {
         return [
             'bear/resource/resolve' => 'resolveResource',
+            'bear/resource/list' => 'listResources',
             'bear/route/resolve' => 'resolveRoute',
             'bear/sql/resolve' => 'resolveSql',
             'bear/template/resolve' => 'resolveTemplate',
@@ -69,6 +73,23 @@ final class SemanticQueryHandler implements Handler
             fn (WorkspaceContext $workspace): SemanticResult =>
                 $this->resourceQuery->resolveInWorkspace($workspace, $uri, $contextPath),
             fn (ResourceResolution $resolution): array => $this->resourceData($resolution),
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function listResources(
+        ?string $scheme = null,
+        string $prefix = '',
+        int $limit = ResourceInventoryQuery::DEFAULT_LIMIT,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->resourceInventoryQuery->listInWorkspace($workspace, $scheme, $prefix, $limit),
+            fn (ResourceInventory $inventory): array => [
+                'resources' => array_map($this->resourceData(...), $inventory->resources),
+                'total' => $inventory->total,
+                'truncated' => $inventory->truncated,
+            ],
         ));
     }
 

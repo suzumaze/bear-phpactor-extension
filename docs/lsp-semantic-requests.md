@@ -28,6 +28,7 @@ in responses are also workspace-relative. Every response has this envelope:
 | Method | Params | Successful data |
 |---|---|---|
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
+| `bear/resource/list` | `{scheme?, prefix?, limit?}` | `{resources, total, truncated}` |
 | `bear/route/resolve` | `{route, contextPath?}` | `{route, resource}` |
 | `bear/sql/resolve` | `{queryId, contextPath?}` | `{queryId, path}` |
 | `bear/template/resolve` | `{engine, name, contextPath?}` | `{engine, name, path}` |
@@ -42,6 +43,12 @@ continue to use UTF-16 line/character positions.
 
 Schema `kind` is `request` or `response`. Resource convention lookup supports only
 `response`; request schemas require the explicit name recorded by `#[JsonSchema(params: ...)]`.
+
+Resource listing accepts `app` or `page` as `scheme`. `limit` defaults to 50 and
+has a maximum of 200. Duplicate URIs from different PSR-4 roots remain separate,
+and results are ordered by URI, path, then FQN. The supported Phpactor version does
+not expose a provider chain for `workspace/symbol`, so this identifier-based request
+is kept separate instead of replacing Phpactor's PHP symbol search.
 
 Example JSON-RPC request:
 

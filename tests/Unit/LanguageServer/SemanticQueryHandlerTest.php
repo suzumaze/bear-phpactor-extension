@@ -47,6 +47,25 @@ final class SemanticQueryHandlerTest extends TestCase
         );
     }
 
+    public function testListsWorkspaceRelativeResourceFacts(): void
+    {
+        $response = wait((new SemanticQueryHandler(self::fixtureDir()))->listResources('app', 'user', 1));
+
+        self::assertSame([
+            'status' => 'ok',
+            'data' => [
+                'resources' => [[
+                    'uri' => 'app://self/user',
+                    'fqn' => 'Acme\\Blog\\Resource\\App\\User',
+                    'path' => 'src/Resource/App/User.php',
+                ]],
+                'total' => 1,
+                'truncated' => false,
+            ],
+            'candidates' => [],
+        ], $response);
+    }
+
     public function testResolvesRouteFact(): void
     {
         $response = wait((new SemanticQueryHandler($this->fixture('Router')))->resolveRoute(
@@ -138,6 +157,7 @@ final class SemanticQueryHandlerTest extends TestCase
     {
         self::assertSame([
             'bear/resource/resolve' => 'resolveResource',
+            'bear/resource/list' => 'listResources',
             'bear/route/resolve' => 'resolveRoute',
             'bear/sql/resolve' => 'resolveSql',
             'bear/template/resolve' => 'resolveTemplate',
