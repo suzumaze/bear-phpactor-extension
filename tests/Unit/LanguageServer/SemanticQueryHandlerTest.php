@@ -66,6 +66,22 @@ final class SemanticQueryHandlerTest extends TestCase
         ], $response);
     }
 
+    public function testDescribesResourceMethodsAndRelations(): void
+    {
+        $response = wait((new SemanticQueryHandler($this->fixture('Template/basic')))->describeResource(
+            'app://self/dashboard',
+            'src/Resource/App/Dashboard.php',
+        ));
+
+        self::assertSame('ok', $response['status']);
+        self::assertSame('src/Resource/App/Dashboard.php', $response['data']['resource']['path']);
+        self::assertSame('onGet', $response['data']['methods'][0]['name']);
+        self::assertSame([], $response['data']['methods'][0]['parameters']);
+        self::assertSame('embed', $response['data']['relationsOut'][0]['kind']);
+        self::assertSame('app://self/missing', $response['data']['relationsOut'][0]['targetUri']);
+        self::assertSame('src/Resource/App/Dashboard.php', $response['data']['relationsOut'][0]['sourcePath']);
+    }
+
     public function testResolvesRouteFact(): void
     {
         $response = wait((new SemanticQueryHandler($this->fixture('Router')))->resolveRoute(
@@ -158,6 +174,7 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame([
             'bear/resource/resolve' => 'resolveResource',
             'bear/resource/list' => 'listResources',
+            'bear/resource/describe' => 'describeResource',
             'bear/route/resolve' => 'resolveRoute',
             'bear/sql/resolve' => 'resolveSql',
             'bear/template/resolve' => 'resolveTemplate',

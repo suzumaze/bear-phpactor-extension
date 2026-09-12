@@ -9,6 +9,8 @@ use Amp\Success;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorResolution;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFacts;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventory;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
@@ -46,6 +48,7 @@ final class SemanticQueryHandler implements Handler
         private AlpsQuery $alpsQuery = new AlpsQuery(),
         private SchemaQuery $schemaQuery = new SchemaQuery(),
         private ResourceInventoryQuery $resourceInventoryQuery = new ResourceInventoryQuery(),
+        private ResourceFactsQuery $resourceFactsQuery = new ResourceFactsQuery(),
     ) {
         $this->workspace = WorkspaceContext::fromRoot($workspaceRoot);
     }
@@ -56,6 +59,7 @@ final class SemanticQueryHandler implements Handler
         return [
             'bear/resource/resolve' => 'resolveResource',
             'bear/resource/list' => 'listResources',
+            'bear/resource/describe' => 'describeResource',
             'bear/route/resolve' => 'resolveRoute',
             'bear/sql/resolve' => 'resolveSql',
             'bear/template/resolve' => 'resolveTemplate',
@@ -90,6 +94,16 @@ final class SemanticQueryHandler implements Handler
                 'total' => $inventory->total,
                 'truncated' => $inventory->truncated,
             ],
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function describeResource(string $uri, ?string $contextPath = null): Promise
+    {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->resourceFactsQuery->describeInWorkspace($workspace, $uri, $contextPath),
+            fn (ResourceFacts $facts): array => $this->resourceFactsData($facts),
         ));
     }
 
@@ -237,6 +251,40 @@ final class SemanticQueryHandler implements Handler
             'uri' => $resolution->uri->uri(),
             'fqn' => $resolution->fqn,
             'path' => $this->relativePath($resolution->file),
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function resourceFactsData(ResourceFacts $facts): array
+    {
+        return [
+            'resource' => $this->resourceData($facts->resource),
+            'methods' => array_map(
+                static fn ($method): array => [
+                    'name' => $method->name,
+                    'parameters' => array_map(
+                        static fn ($parameter): array => [
+                            'name' => $parameter->name,
+                            'type' => $parameter->type,
+                        ],
+                        $method->parameters,
+                    ),
+                ],
+                $facts->methods,
+            ),
+            'relationsOut' => array_map(
+                fn ($relation): array => [
+                    'kind' => $relation->kind,
+                    'rel' => $relation->rel,
+                    'sourceUri' => $relation->sourceUri->uri(),
+                    'sourceMethod' => $relation->sourceMethod,
+                    'targetUri' => $relation->targetUri->uri(),
+                    'targetMethod' => $relation->targetMethod,
+                    'sourcePath' => $this->relativePath($relation->sourceFile),
+                    'byteOffset' => $relation->byteOffset,
+                ],
+                $facts->outgoingRelations,
+            ),
         ];
     }
 

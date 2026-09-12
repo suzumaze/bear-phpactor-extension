@@ -75,6 +75,19 @@ final class StdioLanguageServerTest extends TestCase
                 $inventory['result']['data']['resources'][0]['path'] ?? null,
             );
 
+            $description = $client->request('bear/resource/describe', [
+                'uri' => 'app://self/user',
+                'contextPath' => 'src/Client.php',
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $description, $client->stderr());
+            self::assertSame('ok', $description['result']['status'] ?? null);
+            self::assertSame(
+                'Acme\Blog\Resource\App\User',
+                $description['result']['data']['resource']['fqn'] ?? null,
+            );
+            self::assertSame('onGet', $description['result']['data']['methods'][0]['name'] ?? null);
+            self::assertSame([], $description['result']['data']['relationsOut'] ?? null);
+
             $invalidSemantic = $client->request('bear/resource/resolve', [
                 'uri' => 'app://self/user',
                 'contextPath' => '../outside.php',

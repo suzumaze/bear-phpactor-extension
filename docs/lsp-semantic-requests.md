@@ -29,6 +29,7 @@ in responses are also workspace-relative. Every response has this envelope:
 |---|---|---|
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
 | `bear/resource/list` | `{scheme?, prefix?, limit?}` | `{resources, total, truncated}` |
+| `bear/resource/describe` | `{uri, contextPath?}` | `{resource, methods, relationsOut}` |
 | `bear/route/resolve` | `{route, contextPath?}` | `{route, resource}` |
 | `bear/sql/resolve` | `{queryId, contextPath?}` | `{queryId, path}` |
 | `bear/template/resolve` | `{engine, name, contextPath?}` | `{engine, name, path}` |
@@ -49,6 +50,13 @@ has a maximum of 200. Duplicate URIs from different PSR-4 roots remain separate,
 and results are ordered by URI, path, then FQN. The supported Phpactor version does
 not expose a provider chain for `workspace/symbol`, so this identifier-based request
 is kept separate instead of replacing Phpactor's PHP symbol search.
+
+Resource description reports public `on*` methods, declared parameter types, and
+statically resolvable method-level `BEAR\\Resource\\Annotation\\Link` and `Embed`
+relations. Dynamic target expressions and invalid resource URIs are not guessed.
+For a Link with a dynamic explicit method, `targetMethod` is `null`; an omitted
+method uses BEAR.Resource's `get` default. Relation byte offsets refer to the saved
+PHP file.
 
 Example JSON-RPC request:
 
