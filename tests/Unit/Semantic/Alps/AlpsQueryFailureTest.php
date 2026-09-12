@@ -6,6 +6,7 @@ namespace Suzumaze\BearPhpactor\Tests\Unit\Semantic\Alps;
 
 use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorResolution;
+use Suzumaze\BearPhpactor\Semantic\Alps\AlpsProfileQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
@@ -128,6 +129,52 @@ JSON,
         self::assertSame(SemanticStatus::Ok, $result->status);
         self::assertInstanceOf(AlpsDescriptorResolution::class, $result->value);
         self::assertSame(56, $result->value->offset);
+    }
+
+    public function testCachesParsedProfileAndInvalidatesSameSizeSameTimestampChange(): void
+    {
+        $file = $this->workspace . '/var/alps/profile.json';
+        self::assertNotFalse(file_put_contents(
+            $file,
+            '{"alps":{"descriptor":{"id":"item"}}}',
+        ));
+        $modified = filemtime($file);
+        self::assertIsInt($modified);
+        $project = Project::fromRoot($this->workspace);
+        self::assertNotNull($project);
+        $profileQuery = new AlpsProfileQuery();
+
+        $first = $profileQuery->load($project);
+        $second = $profileQuery->load($project);
+        self::assertSame(SemanticStatus::Ok, $first->status);
+        self::assertSame($first->value, $second->value);
+
+        self::assertNotFalse(file_put_contents(
+            $file,
+            '{"alps":{"descriptor":{"id":"unit"}}}',
+        ));
+        self::assertTrue(touch($file, $modified));
+
+        $third = $profileQuery->load($project);
+        self::assertSame(SemanticStatus::Ok, $third->status);
+        self::assertNotSame($first->value, $third->value);
+        self::assertSame([], $third->value->descriptorsById('item'));
+        self::assertCount(1, $third->value->descriptorsById('unit'));
+    }
+
+    public function testCachesParseErrorUntilProfileContentChanges(): void
+    {
+        $file = $this->workspace . '/var/alps/profile.json';
+        self::assertNotFalse(file_put_contents($file, '{'));
+        $project = Project::fromRoot($this->workspace);
+        self::assertNotNull($project);
+        $profileQuery = new AlpsProfileQuery();
+
+        $first = $profileQuery->load($project);
+        $second = $profileQuery->load($project);
+
+        self::assertSame(SemanticStatus::ParseError, $first->status);
+        self::assertSame($first, $second);
     }
 
     public function testRejectsProfileSymlinkOutsideProject(): void

@@ -9,33 +9,36 @@ namespace Suzumaze\BearPhpactor\Semantic\Alps;
  */
 final readonly class AlpsProfile
 {
+    /** @var array<string,list<AlpsProfileDescriptor>> */
+    private array $descriptorsById;
+
     /** @param list<AlpsProfileDescriptor> $descriptors */
     public function __construct(
         public string $file,
         public array $descriptors,
     ) {
+        $descriptorsById = [];
+        $this->indexDescriptors($descriptors, $descriptorsById);
+        $this->descriptorsById = $descriptorsById;
     }
 
     /** @return list<AlpsProfileDescriptor> */
     public function descriptorsById(string $descriptorId): array
     {
-        $matches = [];
-        $this->collectById($this->descriptors, $descriptorId, $matches);
-
-        return $matches;
+        return $this->descriptorsById[$descriptorId] ?? [];
     }
 
     /**
      * @param list<AlpsProfileDescriptor> $descriptors
-     * @param list<AlpsProfileDescriptor> $matches
+     * @param array<string,list<AlpsProfileDescriptor>> $descriptorsById
      */
-    private function collectById(array $descriptors, string $descriptorId, array &$matches): void
+    private function indexDescriptors(array $descriptors, array &$descriptorsById): void
     {
         foreach ($descriptors as $descriptor) {
-            if ($descriptor->id === $descriptorId) {
-                $matches[] = $descriptor;
+            if ($descriptor->id !== null) {
+                $descriptorsById[$descriptor->id][] = $descriptor;
             }
-            $this->collectById($descriptor->children, $descriptorId, $matches);
+            $this->indexDescriptors($descriptor->children, $descriptorsById);
         }
     }
 }

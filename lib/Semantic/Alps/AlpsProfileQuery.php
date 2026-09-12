@@ -17,6 +17,12 @@ final class AlpsProfileQuery
 {
     private const MAX_INPUT_BYTES = 1048576;
     private const MAX_STRUCTURE_DEPTH = 64;
+    private const MAX_CACHE_ENTRIES = 8;
+
+    /**
+     * @var array<string,array{fingerprint:string,result:SemanticResult<AlpsProfile|null>}>
+     */
+    private array $cache = [];
 
     /** @return SemanticResult<AlpsProfile|null> */
     public function load(Project $project): SemanticResult
@@ -32,6 +38,33 @@ final class AlpsProfileQuery
         }
         $contents = $profileContents->value;
 
+        $fingerprint = hash('sha256', $contents) . ':' . strlen($contents);
+        $cached = $this->cache[$profilePath->value] ?? null;
+        if ($cached !== null && $cached['fingerprint'] === $fingerprint) {
+            return $cached['result'];
+        }
+
+        $result = $this->parseProfile($profilePath->value, $contents);
+        $this->cacheResult($profilePath->value, $fingerprint, $result);
+
+        return $result;
+    }
+
+    /** @param SemanticResult<AlpsProfile|null> $result */
+    private function cacheResult(string $path, string $fingerprint, SemanticResult $result): void
+    {
+        if (!isset($this->cache[$path]) && count($this->cache) >= self::MAX_CACHE_ENTRIES) {
+            array_shift($this->cache);
+        }
+        $this->cache[$path] = [
+            'fingerprint' => $fingerprint,
+            'result' => $result,
+        ];
+    }
+
+    /** @return SemanticResult<AlpsProfile|null> */
+    private function parseProfile(string $profilePath, string $contents): SemanticResult
+    {
         try {
             $data = json_decode($contents, true, self::MAX_STRUCTURE_DEPTH, JSON_THROW_ON_ERROR);
         } catch (JsonException) {
@@ -51,7 +84,7 @@ final class AlpsProfileQuery
             return SemanticResult::parseError();
         }
 
-        return SemanticResult::ok(new AlpsProfile($profilePath->value, $descriptors));
+        return SemanticResult::ok(new AlpsProfile($profilePath, $descriptors));
     }
 
     /** @return SemanticResult<string|null> */

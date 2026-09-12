@@ -14,10 +14,16 @@ use stdClass;
  * Extracts bounded, statically knowable facts from a resolved JSON Schema.
  * External references are not fetched or expanded.
  */
-final readonly class SchemaFactsQuery
+final class SchemaFactsQuery
 {
     private const MAX_JSON_BYTES = 1048576;
     private const MAX_JSON_DEPTH = 64;
+    private const MAX_CACHE_ENTRIES = 128;
+
+    /**
+     * @var array<string,array{fingerprint:string,result:SemanticResult<SchemaDocumentFacts|null>}>
+     */
+    private array $cache = [];
 
     public function __construct(
         private SchemaQuery $schemaQuery = new SchemaQuery(),
@@ -103,10 +109,41 @@ final readonly class SchemaFactsQuery
             return SemanticResult::parseError();
         }
 
+        $document = $this->documentFacts($path->value->absolute, $source);
+        if ($document->value === null) {
+            return SemanticResult::failure($document->status);
+        }
+
+        return SemanticResult::ok(new SchemaFacts(
+            new SchemaResolution(
+                $schema->kind,
+                $schema->source,
+                $path->value->absolute,
+                $schema->titleOffset,
+                $schema->resource,
+            ),
+            true,
+            $document->value->types,
+            $document->value->properties,
+        ));
+    }
+
+    /** @return SemanticResult<SchemaDocumentFacts|null> */
+    private function documentFacts(string $path, string $source): SemanticResult
+    {
+        $fingerprint = hash('sha256', $source) . ':' . strlen($source);
+        $cached = $this->cache[$path] ?? null;
+        if ($cached !== null && $cached['fingerprint'] === $fingerprint) {
+            return $cached['result'];
+        }
+
         try {
             $decoded = json_decode($source, false, self::MAX_JSON_DEPTH, JSON_THROW_ON_ERROR);
         } catch (JsonException) {
-            return SemanticResult::parseError();
+            $result = SemanticResult::parseError();
+            $this->cacheResult($path, $fingerprint, $result);
+
+            return $result;
         }
 
         $types = $decoded instanceof stdClass ? $this->types($decoded->type ?? null) : [];
@@ -138,18 +175,22 @@ final readonly class SchemaFactsQuery
             static fn (SchemaPropertyFact $left, SchemaPropertyFact $right): int => $left->name <=> $right->name,
         );
 
-        return SemanticResult::ok(new SchemaFacts(
-            new SchemaResolution(
-                $schema->kind,
-                $schema->source,
-                $path->value->absolute,
-                $schema->titleOffset,
-                $schema->resource,
-            ),
-            true,
-            $types,
-            $properties,
-        ));
+        $result = SemanticResult::ok(new SchemaDocumentFacts($types, $properties));
+        $this->cacheResult($path, $fingerprint, $result);
+
+        return $result;
+    }
+
+    /** @param SemanticResult<SchemaDocumentFacts|null> $result */
+    private function cacheResult(string $path, string $fingerprint, SemanticResult $result): void
+    {
+        if (!isset($this->cache[$path]) && count($this->cache) >= self::MAX_CACHE_ENTRIES) {
+            array_shift($this->cache);
+        }
+        $this->cache[$path] = [
+            'fingerprint' => $fingerprint,
+            'result' => $result,
+        ];
     }
 
     /** @return list<string> */

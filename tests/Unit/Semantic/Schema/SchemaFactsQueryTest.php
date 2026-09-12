@@ -142,6 +142,47 @@ final class SchemaFactsQueryTest extends TestCase
         self::assertFalse($result->candidates[1]->available);
     }
 
+    public function testCachesParsedDocumentAndInvalidatesSameSizeSameTimestampChange(): void
+    {
+        $file = $this->workspace . '/var/json_schema/cache.json';
+        self::assertNotFalse(file_put_contents(
+            $file,
+            '{"type":"object","properties":{"value":{"type":"string"}}}',
+        ));
+        $modified = filemtime($file);
+        self::assertIsInt($modified);
+        $query = new SchemaFactsQuery();
+
+        $first = $query->describeNamedInWorkspace(
+            $this->workspace(),
+            'cache.json',
+            SchemaQuery::KIND_RESPONSE,
+        );
+        $second = $query->describeNamedInWorkspace(
+            $this->workspace(),
+            'cache.json',
+            SchemaQuery::KIND_RESPONSE,
+        );
+        self::assertInstanceOf(SchemaFacts::class, $first->value);
+        self::assertInstanceOf(SchemaFacts::class, $second->value);
+        self::assertSame($first->value->properties[0], $second->value->properties[0]);
+
+        self::assertNotFalse(file_put_contents(
+            $file,
+            '{"type":"object","properties":{"value":{"type":"number"}}}',
+        ));
+        self::assertTrue(touch($file, $modified));
+
+        $third = $query->describeNamedInWorkspace(
+            $this->workspace(),
+            'cache.json',
+            SchemaQuery::KIND_RESPONSE,
+        );
+        self::assertInstanceOf(SchemaFacts::class, $third->value);
+        self::assertSame(['number'], $third->value->properties[0]->types);
+        self::assertNotSame($first->value->properties[0], $third->value->properties[0]);
+    }
+
     private function workspace(): WorkspaceContext
     {
         $result = WorkspaceContext::fromRoot($this->workspace);

@@ -41,10 +41,11 @@ flowchart TD
     p75["Resource Facts parse cache\n完了"]
     p76["Schema Facts\n完了"]
     p77["ALPS descriptor facts・明示関係\n完了"]
-    p78["Inventory / JSON / ALPS cache・freshness\n次フェーズ"]
+    p78["ALPS / Schema parse cache・freshness\n完了"]
+    p79["Inventory index / watcher連携\n将来候補"]
     p8["別 repository の薄い MCP-LSP adapter\n将来"]
 
-    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p8
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p8
 ```
 
 ## 現在利用できる入口
@@ -86,6 +87,11 @@ Link/Embed、既存の Qiq/Twig template、規約で解決できる response Sch
 明示された親子 (`contains`)、ローカル `href`、ローカル `rt` の入出力関係を返す。
 外部参照は取得せず、名前の類似からResourceとの対応を推測しない。未解決・重複した
 参照先は `targetStatus` で区別できる。
+
+ALPS profileとSchema factsの解析結果は、件数上限付きのprocess-lifetime cacheで再利用する。
+各問い合わせで保存済みファイルを読みcontent hashを比較するため、mtimeとサイズが同じ編集も
+即座に反映する。Resource inventoryは、watcher/indexの無効化通知なしでは追加・削除・継承変更を
+正しく検出するために結局全走査が必要なので、現段階ではキャッシュしていない。
 
 ## AI からの利用
 

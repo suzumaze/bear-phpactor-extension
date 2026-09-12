@@ -65,6 +65,13 @@ server does not infer a BEAR Resource relation from ALPS naming similarity or `r
 ALPS JSON and `apidoc.xml` input are each limited to 1 MiB and a structure depth of 64.
 Optional descriptor scalar fields are absent from the serialized response when unspecified.
 
+Normalized ALPS profiles and parsed Schema facts use bounded process-lifetime caches. The
+saved file is still read and content-hashed for every query, so edits with unchanged size
+and modification time cannot return stale semantic data. Parse errors are reused only while
+the file content is unchanged. Resource inventory is deliberately not cached here: without
+a filesystem watcher or Phpactor index invalidation event, detecting added, removed, or
+inheritance-changing PHP files would require a complete freshness scan anyway.
+
 Schema `kind` is `request` or `response`. Resource convention lookup supports only
 `response`; request schemas require the explicit name recorded by `#[JsonSchema(params: ...)]`.
 Schema description returns sorted top-level properties with `required` and statically
