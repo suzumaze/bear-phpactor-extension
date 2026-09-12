@@ -29,7 +29,8 @@ in responses are also workspace-relative. Every response has this envelope:
 |---|---|---|
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
 | `bear/resource/list` | `{scheme?, prefix?, limit?}` | `{resources, total, truncated}` |
-| `bear/resource/describe` | `{uri, contextPath?}` | `{resource, methods, relationsOut}` |
+| `bear/resource/describe` | `{uri, contextPath?, incomingLimit?}` | `{resource, methods, relationsOut, relationsIn}` |
+| `bear/resource/incomingRelations` | `{uri, contextPath?, limit?}` | `{resource, available, items, total, truncated}` |
 | `bear/route/resolve` | `{route, contextPath?}` | `{route, resource}` |
 | `bear/sql/resolve` | `{queryId, contextPath?}` | `{queryId, path}` |
 | `bear/template/resolve` | `{engine, name, contextPath?}` | `{engine, name, path}` |
@@ -53,10 +54,14 @@ is kept separate instead of replacing Phpactor's PHP symbol search.
 
 Resource description reports public `on*` methods, declared parameter types, and
 statically resolvable method-level `BEAR\\Resource\\Annotation\\Link` and `Embed`
-relations. Dynamic target expressions and invalid resource URIs are not guessed.
+relations. `relationsIn` contains the bounded incoming relation set with `available`,
+`items`, `total`, and `truncated`. It is unavailable for an ambiguous Resource URI;
+the server does not claim that a URI-only relation belongs to one physical candidate.
+Dynamic target expressions and invalid resource URIs are not guessed.
 For a Link with a dynamic explicit method, `targetMethod` is `null`; an omitted
 method uses BEAR.Resource's `get` default. Relation byte offsets refer to the saved
-PHP file.
+PHP file. Incoming results default to 50 items and accept at most 200; the complete
+workspace Resource inventory is scanned before `total` and `truncated` are reported.
 
 Example JSON-RPC request:
 

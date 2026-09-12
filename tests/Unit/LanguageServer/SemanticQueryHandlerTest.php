@@ -80,6 +80,29 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame('embed', $response['data']['relationsOut'][0]['kind']);
         self::assertSame('app://self/missing', $response['data']['relationsOut'][0]['targetUri']);
         self::assertSame('src/Resource/App/Dashboard.php', $response['data']['relationsOut'][0]['sourcePath']);
+        self::assertTrue($response['data']['relationsIn']['available']);
+        self::assertSame([], $response['data']['relationsIn']['items']);
+        self::assertSame(0, $response['data']['relationsIn']['total']);
+        self::assertFalse($response['data']['relationsIn']['truncated']);
+    }
+
+    public function testFindsIncomingResourceRelations(): void
+    {
+        $handler = new SemanticQueryHandler($this->fixture('Template/basic'));
+        $response = wait($handler->findIncomingResourceRelations(
+            'app://self/user',
+            'src/Resource/App/User.php',
+            2,
+        ));
+
+        self::assertSame('ok', $response['status']);
+        self::assertSame('app://self/user', $response['data']['resource']['uri']);
+        self::assertTrue($response['data']['available']);
+        self::assertSame(3, $response['data']['total']);
+        self::assertTrue($response['data']['truncated']);
+        self::assertCount(2, $response['data']['items']);
+        self::assertSame('app://self/dashboard', $response['data']['items'][0]['sourceUri']);
+        self::assertSame('src/Resource/App/Dashboard.php', $response['data']['items'][0]['sourcePath']);
     }
 
     public function testResolvesRouteFact(): void
@@ -175,6 +198,7 @@ final class SemanticQueryHandlerTest extends TestCase
             'bear/resource/resolve' => 'resolveResource',
             'bear/resource/list' => 'listResources',
             'bear/resource/describe' => 'describeResource',
+            'bear/resource/incomingRelations' => 'findIncomingResourceRelations',
             'bear/route/resolve' => 'resolveRoute',
             'bear/sql/resolve' => 'resolveSql',
             'bear/template/resolve' => 'resolveTemplate',

@@ -14,9 +14,11 @@ use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceDefinitionLocator;
 use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceReferenceFinder;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescriptionQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
-use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceIncomingRelationsQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
@@ -69,6 +71,26 @@ final class BearSundayExtensionTest extends TestCase
         self::assertInstanceOf(
             ResourceFactsQuery::class,
             $container->get('bear_sunday.semantic.resource_facts_query'),
+        );
+    }
+
+    public function testRegistersTransportIndependentResourceIncomingRelationsQuery(): void
+    {
+        $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
+
+        self::assertInstanceOf(
+            ResourceIncomingRelationsQuery::class,
+            $container->get('bear_sunday.semantic.resource_incoming_relations_query'),
+        );
+    }
+
+    public function testRegistersTransportIndependentResourceDescriptionQuery(): void
+    {
+        $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
+
+        self::assertInstanceOf(
+            ResourceDescriptionQuery::class,
+            $container->get('bear_sunday.semantic.resource_description_query'),
         );
     }
 

@@ -8,6 +8,7 @@ use BEAR\Resource\ResourceObject;
 
 final class Article extends ResourceObject
 {
+    #[\BEAR\Resource\Annotation\Link(rel: 'author', href: 'app://self/user')]
     public function onGet(): static
     {
         $this->body = [

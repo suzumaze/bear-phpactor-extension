@@ -63,6 +63,20 @@ final class ResourceFactsQuery
         return SemanticResult::ambiguous($candidates);
     }
 
+    /**
+     * Parse facts for a Resource that has already been resolved by another
+     * semantic query. This avoids resolving duplicate URI identities again
+     * while building workspace-wide relationship indexes.
+     *
+     * @return SemanticResult<ResourceFacts|null>
+     */
+    public function describeResolutionInWorkspace(
+        WorkspaceContext $workspace,
+        ResourceResolution $resource,
+    ): SemanticResult {
+        return $this->facts($workspace, $resource);
+    }
+
     /** @return SemanticResult<ResourceFacts|null> */
     private function facts(WorkspaceContext $workspace, ResourceResolution $resource): SemanticResult
     {

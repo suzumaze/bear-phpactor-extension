@@ -17,6 +17,7 @@ const METHODS = [
     'bear/resource/resolve',
     'bear/resource/list',
     'bear/resource/describe',
+    'bear/resource/incomingRelations',
     'bear/route/resolve',
     'bear/sql/resolve',
     'bear/template/resolve',

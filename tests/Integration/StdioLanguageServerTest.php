@@ -87,6 +87,28 @@ final class StdioLanguageServerTest extends TestCase
             );
             self::assertSame('onGet', $description['result']['data']['methods'][0]['name'] ?? null);
             self::assertSame([], $description['result']['data']['relationsOut'] ?? null);
+            self::assertTrue($description['result']['data']['relationsIn']['available'] ?? false);
+            self::assertSame(1, $description['result']['data']['relationsIn']['total'] ?? null);
+            self::assertFalse($description['result']['data']['relationsIn']['truncated'] ?? true);
+            self::assertSame(
+                'app://self/article',
+                $description['result']['data']['relationsIn']['items'][0]['sourceUri'] ?? null,
+            );
+
+            $incoming = $client->request('bear/resource/incomingRelations', [
+                'uri' => 'app://self/user',
+                'contextPath' => 'src/Client.php',
+                'limit' => 1,
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $incoming, $client->stderr());
+            self::assertSame('ok', $incoming['result']['status'] ?? null);
+            self::assertSame('app://self/user', $incoming['result']['data']['resource']['uri'] ?? null);
+            self::assertSame(1, $incoming['result']['data']['total'] ?? null);
+            self::assertFalse($incoming['result']['data']['truncated'] ?? true);
+            self::assertSame(
+                'src/Resource/App/Article.php',
+                $incoming['result']['data']['items'][0]['sourcePath'] ?? null,
+            );
 
             $invalidSemantic = $client->request('bear/resource/resolve', [
                 'uri' => 'app://self/user',

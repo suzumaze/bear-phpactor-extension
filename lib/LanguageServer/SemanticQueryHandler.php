@@ -8,11 +8,16 @@ use Amp\Promise;
 use Amp\Success;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorResolution;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
-use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescription;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescriptionQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFacts;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceIncomingRelations;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceIncomingRelationsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventory;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceRelationFact;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
@@ -37,6 +42,7 @@ final class SemanticQueryHandler implements Handler
 {
     /** @var SemanticResult<WorkspaceContext|null> */
     private SemanticResult $workspace;
+    private ResourceDescriptionQuery $resourceDescriptionQuery;
 
     public function __construct(
         string $workspaceRoot,
@@ -48,9 +54,15 @@ final class SemanticQueryHandler implements Handler
         private AlpsQuery $alpsQuery = new AlpsQuery(),
         private SchemaQuery $schemaQuery = new SchemaQuery(),
         private ResourceInventoryQuery $resourceInventoryQuery = new ResourceInventoryQuery(),
-        private ResourceFactsQuery $resourceFactsQuery = new ResourceFactsQuery(),
+        ResourceFactsQuery $resourceFactsQuery = new ResourceFactsQuery(),
+        private ResourceIncomingRelationsQuery $resourceIncomingRelationsQuery = new ResourceIncomingRelationsQuery(),
+        ?ResourceDescriptionQuery $resourceDescriptionQuery = null,
     ) {
         $this->workspace = WorkspaceContext::fromRoot($workspaceRoot);
+        $this->resourceDescriptionQuery = $resourceDescriptionQuery ?? new ResourceDescriptionQuery(
+            $resourceFactsQuery,
+            $this->resourceIncomingRelationsQuery,
+        );
     }
 
     /** @return array<string,string> */
@@ -60,6 +72,7 @@ final class SemanticQueryHandler implements Handler
             'bear/resource/resolve' => 'resolveResource',
             'bear/resource/list' => 'listResources',
             'bear/resource/describe' => 'describeResource',
+            'bear/resource/incomingRelations' => 'findIncomingResourceRelations',
             'bear/route/resolve' => 'resolveRoute',
             'bear/sql/resolve' => 'resolveSql',
             'bear/template/resolve' => 'resolveTemplate',
@@ -98,12 +111,36 @@ final class SemanticQueryHandler implements Handler
     }
 
     /** @return Promise<array<string,mixed>> */
-    public function describeResource(string $uri, ?string $contextPath = null): Promise
-    {
+    public function describeResource(
+        string $uri,
+        ?string $contextPath = null,
+        int $incomingLimit = ResourceIncomingRelationsQuery::DEFAULT_LIMIT,
+    ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
-                $this->resourceFactsQuery->describeInWorkspace($workspace, $uri, $contextPath),
-            fn (ResourceFacts $facts): array => $this->resourceFactsData($facts),
+                $this->resourceDescriptionQuery->describeInWorkspace(
+                    $workspace,
+                    $uri,
+                    $contextPath,
+                    $incomingLimit,
+                ),
+            fn (ResourceDescription $description): array => $this->resourceDescriptionData($description),
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function findIncomingResourceRelations(
+        string $uri,
+        ?string $contextPath = null,
+        int $limit = ResourceIncomingRelationsQuery::DEFAULT_LIMIT,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->resourceIncomingRelationsQuery->findInWorkspace($workspace, $uri, $contextPath, $limit),
+            fn (ResourceIncomingRelations $relations): array => [
+                'resource' => $this->resourceData($relations->resource),
+                ...$this->incomingRelationsData($relations),
+            ],
         ));
     }
 
@@ -273,18 +310,44 @@ final class SemanticQueryHandler implements Handler
                 $facts->methods,
             ),
             'relationsOut' => array_map(
-                fn ($relation): array => [
-                    'kind' => $relation->kind,
-                    'rel' => $relation->rel,
-                    'sourceUri' => $relation->sourceUri->uri(),
-                    'sourceMethod' => $relation->sourceMethod,
-                    'targetUri' => $relation->targetUri->uri(),
-                    'targetMethod' => $relation->targetMethod,
-                    'sourcePath' => $this->relativePath($relation->sourceFile),
-                    'byteOffset' => $relation->byteOffset,
-                ],
+                $this->relationData(...),
                 $facts->outgoingRelations,
             ),
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function resourceDescriptionData(ResourceDescription $description): array
+    {
+        return [
+            ...$this->resourceFactsData($description->facts),
+            'relationsIn' => $this->incomingRelationsData($description->incomingRelations),
+        ];
+    }
+
+    /** @return array{available:bool,items:list<array<string,mixed>>,total:int,truncated:bool} */
+    private function incomingRelationsData(ResourceIncomingRelations $incoming): array
+    {
+        return [
+            'available' => $incoming->available,
+            'items' => array_map($this->relationData(...), $incoming->relations),
+            'total' => $incoming->total,
+            'truncated' => $incoming->truncated,
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function relationData(ResourceRelationFact $relation): array
+    {
+        return [
+            'kind' => $relation->kind,
+            'rel' => $relation->rel,
+            'sourceUri' => $relation->sourceUri->uri(),
+            'sourceMethod' => $relation->sourceMethod,
+            'targetUri' => $relation->targetUri->uri(),
+            'targetMethod' => $relation->targetMethod,
+            'sourcePath' => $this->relativePath($relation->sourceFile),
+            'byteOffset' => $relation->byteOffset,
         ];
     }
 

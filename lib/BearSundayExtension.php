@@ -18,9 +18,11 @@ use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Router\RouterDefinitionLocator;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescriptionQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
-use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceIncomingRelationsQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
@@ -80,6 +82,26 @@ final class BearSundayExtension implements Extension
             'bear_sunday.semantic.resource_facts_query',
             function (Container $container): ResourceFactsQuery {
                 return new ResourceFactsQuery($container->get('bear_sunday.semantic.resource_query'));
+            },
+        );
+
+        $container->register(
+            'bear_sunday.semantic.resource_incoming_relations_query',
+            function (Container $container): ResourceIncomingRelationsQuery {
+                return new ResourceIncomingRelationsQuery(
+                    $container->get('bear_sunday.semantic.resource_query'),
+                    $container->get('bear_sunday.semantic.resource_facts_query'),
+                );
+            },
+        );
+
+        $container->register(
+            'bear_sunday.semantic.resource_description_query',
+            function (Container $container): ResourceDescriptionQuery {
+                return new ResourceDescriptionQuery(
+                    $container->get('bear_sunday.semantic.resource_facts_query'),
+                    $container->get('bear_sunday.semantic.resource_incoming_relations_query'),
+                );
             },
         );
 
@@ -159,6 +181,8 @@ final class BearSundayExtension implements Extension
                     $container->get('bear_sunday.semantic.schema_query'),
                     $container->get('bear_sunday.semantic.resource_inventory_query'),
                     $container->get('bear_sunday.semantic.resource_facts_query'),
+                    $container->get('bear_sunday.semantic.resource_incoming_relations_query'),
+                    $container->get('bear_sunday.semantic.resource_description_query'),
                 );
             },
             [LanguageServerExtension::TAG_METHOD_HANDLER => []],

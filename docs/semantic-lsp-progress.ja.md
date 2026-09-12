@@ -1,0 +1,77 @@
+# BEAR.Sunday Semantic LSP 進捗
+
+最終更新: 2026-09-12
+
+この文書は、BEAR.Sunday 固有セマンティクスを Phpactor Language Server から
+IDE と AI の双方へ提供する作業の現在地を示す。実装が進んだら、この図と一覧も更新する。
+
+## 全体像
+
+```mermaid
+flowchart LR
+    project["BEAR.Sunday project"]
+    core["Semantic core\nParser / Model / Query"]
+    phpactor["Phpactor Language Server"]
+    standard["Standard LSP\ndefinition / references / completion\ntypeDefinition / documentLink"]
+    custom["Read-only BEAR LSP requests\nresource / route / SQL / template\nALPS / schema"]
+    clients["IDE / editor / CLI / AI LSP client"]
+    mcp["Future thin MCP-LSP adapter"]
+
+    project --> core --> phpactor
+    phpactor --> standard --> clients
+    phpactor --> custom --> clients
+    clients -. future .-> mcp
+```
+
+BEAR 固有の解決規則は LSP handler に置かず、transport-independent な Query 層へ
+置く。LSP handler は workspace 相対パスへ正規化する薄い adapter とする。
+
+## フェーズ別の現在地
+
+```mermaid
+flowchart TD
+    p0["調査・設計\n完了"]
+    p1["Workspace 境界と構造化 result\n完了"]
+    p2["Resource / Route / SQL / Template / ALPS / Schema Query\n完了"]
+    p3["標準 LSP の回帰・stdio 統合テスト\n完了"]
+    p4["Headless custom LSP と CLI client\n完了"]
+    p5["Resource inventory と outgoing Link / Embed facts\n完了"]
+    p6["Incoming Link / Embed と Resource describe 集約\n進行中"]
+    p7["Project info・cache / freshness\n未着手"]
+    p8["別 repository の薄い MCP-LSP adapter\n将来"]
+
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p8
+```
+
+## 現在利用できる入口
+
+### 標準 LSP
+
+- `textDocument/definition`: Resource URI、Route、SQL、ALPS、Template、明示 Schema
+- `textDocument/typeDefinition`: Resource 規約の response Schema
+- `textDocument/references`: Resource URI の参照元
+- `textDocument/completion`: Resource URI と body Schema property
+- `textDocument/documentLink`: Resource URI と Template 参照
+
+### BEAR custom LSP request
+
+- `bear/resource/resolve`
+- `bear/resource/list`
+- `bear/resource/describe`
+- `bear/resource/incomingRelations`
+- `bear/route/resolve`
+- `bear/sql/resolve`
+- `bear/template/resolve`
+- `bear/template/forResource`
+- `bear/alps/resolveDescriptor`
+- `bear/schema/resolveNamed`
+- `bear/schema/forResource`
+
+custom request は、文書内 Position を起点にできない BEAR identifier 問い合わせのための
+read-only API である。標準 LSP で自然に表現できる操作の代替にはしない。
+
+## AI からの利用
+
+現時点でも LSP client または `tools/semantic-lsp-query.php` を使えば、IDE を起動せずに
+実際の Phpactor stdio process へ問い合わせられる。MCP server はまだ作成していない。
+将来の MCP adapter は、この LSP API を呼び出して schema を変換するだけの薄い層にする。
