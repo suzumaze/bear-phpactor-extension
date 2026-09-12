@@ -8,9 +8,6 @@ use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
-use Microsoft\PhpParser\Node\Attribute;
-use Microsoft\PhpParser\Node\DelimitedList\ArgumentExpressionList;
-use Microsoft\PhpParser\Node\Expression\ArgumentExpression;
 use Phpactor\ReferenceFinder\DefinitionLocator;
 use Phpactor\ReferenceFinder\Exception\CouldNotLocateDefinition;
 use Phpactor\ReferenceFinder\Exception\UnsupportedDocument;
@@ -20,7 +17,6 @@ use Phpactor\TextDocument\ByteOffset;
 use Phpactor\TextDocument\Location;
 use Phpactor\TextDocument\TextDocument;
 use Phpactor\WorseReflection\Core\TypeFactory;
-use Phpactor\WorseReflection\Core\Util\NodeUtil;
 
 /**
  * ALPSプロファイルへの定義ジャンプ（`#[Alps('doDeleteArticle')]` 属性）。
@@ -46,16 +42,14 @@ use Phpactor\WorseReflection\Core\Util\NodeUtil;
  */
 final class AlpsDefinitionLocator implements DefinitionLocator
 {
-    /** `bear/api-doc` の Alps 属性（useでの短縮名） */
-    private const ALPS_SHORT_NAME = 'Alps';
-
-    /** `bear/api-doc` の Alps 属性（完全修飾名） */
-    private const ALPS_FQN = 'BEAR\ApiDoc\Annotation\Alps';
+    private AlpsDescriptorAtOffset $descriptorAtOffset;
 
     public function __construct(
-        private StringLiteralAtOffset $stringLiteralAtOffset = new StringLiteralAtOffset(),
+        StringLiteralAtOffset $stringLiteralAtOffset = new StringLiteralAtOffset(),
         private AlpsQuery $alpsQuery = new AlpsQuery(),
+        ?AlpsDescriptorAtOffset $descriptorAtOffset = null,
     ) {
+        $this->descriptorAtOffset = $descriptorAtOffset ?? new AlpsDescriptorAtOffset($stringLiteralAtOffset);
     }
 
     public function locateDefinition(TextDocument $document, ByteOffset $byteOffset): TypeLocations
@@ -67,17 +61,11 @@ final class AlpsDefinitionLocator implements DefinitionLocator
             ));
         }
 
-        // 入口の安価な事前判定: ドキュメント全体に属性名が現れなければ、どの書き方
-        // でも記述子IDは取れない。構文解析より先に降りる（誤検出は許容）。
-        $text = $document->__toString();
-        if (!str_contains($text, self::ALPS_SHORT_NAME)) {
+        $descriptor = ($this->descriptorAtOffset)($document, $byteOffset->toInt());
+        if ($descriptor === null) {
             throw new CouldNotLocateDefinition('No BEAR.Sunday Alps attribute reference under the cursor');
         }
-
-        $descriptorId = $this->descriptorIdAtOffset($document, $byteOffset->toInt());
-        if ($descriptorId === null) {
-            throw new CouldNotLocateDefinition('No BEAR.Sunday Alps attribute reference under the cursor');
-        }
+        [, $descriptorId] = $descriptor;
 
         $uri = $document->uri();
         if ($uri === null) {
@@ -109,51 +97,5 @@ final class AlpsDefinitionLocator implements DefinitionLocator
                 )
             ),
         ]);
-    }
-
-    /**
-     * `#[Alps('...')]` 属性の第1引数文字列上にカーソルがあれば記述子IDを返す。
-     *
-     * 文字列リテラルの引き当ては共通部品 StringLiteralAtOffset に委ね（カーソルが
-     * 文字列の内側にある場合のみ発火する）、そのノードから親を辿ってAlps属性の第1
-     * 引数であることを確かめる。SQLジャンプの DbQuery と同じ構造。
-     */
-    private function descriptorIdAtOffset(TextDocument $document, int $offset): ?string
-    {
-        $literal = $this->stringLiteralAtOffset->literal($document, $offset);
-        if ($literal === null) {
-            return null;
-        }
-
-        $argument = $literal->getParent();
-        if (!$argument instanceof ArgumentExpression || $argument->expression !== $literal) {
-            return null;
-        }
-
-        $argumentList = $argument->getParent();
-        if (!$argumentList instanceof ArgumentExpressionList) {
-            return null;
-        }
-
-        // 記述子IDは第1引数。後続引数ではジャンプしない。
-        if (!isset($argumentList->children[0]) || $argumentList->children[0] !== $argument) {
-            return null;
-        }
-
-        $attribute = $argumentList->getParent();
-        if (!$attribute instanceof Attribute || !$this->isAlpsAttribute($attribute)) {
-            return null;
-        }
-
-        return $literal->getStringContentsText();
-    }
-
-    private function isAlpsAttribute(Attribute $attribute): bool
-    {
-        $name = NodeUtil::nameFromTokenOrQualifiedName($attribute, $attribute->name);
-        // 先頭の \ は同じ名前の別表記（use なし完全修飾の書き方）なので落とす
-        $name = ltrim((string) $name, '\\');
-
-        return $name === self::ALPS_SHORT_NAME || $name === self::ALPS_FQN;
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Suzumaze\BearPhpactor;
 
 use Suzumaze\BearPhpactor\Alps\AlpsDefinitionLocator;
+use Suzumaze\BearPhpactor\Alps\AlpsDescriptorAtOffset;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaConventionTypeLocator;
 use Suzumaze\BearPhpactor\LanguageServer\BearHoverMiddleware;
 use Suzumaze\BearPhpactor\LanguageServer\SemanticQueryHandler;
@@ -215,9 +216,14 @@ final class BearSundayExtension implements Extension
                     $pathResolver->resolve('%project_root%'),
                     $container->get('bear_sunday.resource.string_literal_at_offset'),
                     $container->get('bear_sunday.semantic.resource_facts_query'),
+                    $container->get('bear_sunday.alps.descriptor_at_offset'),
+                    $container->get('bear_sunday.semantic.alps_facts_query'),
                 );
             },
-            [LanguageServerExtension::TAG_MIDDLEWARE => []],
+            [
+                LanguageServerExtension::TAG_MIDDLEWARE => [],
+                LanguageServerExtension::TAG_METHOD_HANDLER => [],
+            ],
         );
 
         $container->register(
@@ -310,13 +316,23 @@ final class BearSundayExtension implements Extension
         $container->register('bear_sunday.semantic.alps_facts_query', function (Container $container): AlpsFactsQuery {
             return new AlpsFactsQuery($container->get('bear_sunday.semantic.alps_profile_query'));
         });
+        $container->register(
+            'bear_sunday.alps.descriptor_at_offset',
+            function (Container $container): AlpsDescriptorAtOffset {
+                return new AlpsDescriptorAtOffset(
+                    $container->get('bear_sunday.resource.string_literal_at_offset'),
+                );
+            },
+        );
 
         // ALPSプロファイル: #[Alps('doDeleteArticle')] 属性から profile.json の
         // 記述子定義へ定義ジャンプ。プロファイルの場所は固定の規約パスでは無く、
         // プロジェクトルート直下の apidoc.xml の <alps> 要素で指定される。
         $container->register(AlpsDefinitionLocator::class, function (Container $container): AlpsDefinitionLocator {
             return new AlpsDefinitionLocator(
+                stringLiteralAtOffset: $container->get('bear_sunday.resource.string_literal_at_offset'),
                 alpsQuery: $container->get('bear_sunday.semantic.alps_query'),
+                descriptorAtOffset: $container->get('bear_sunday.alps.descriptor_at_offset'),
             );
         }, [
             ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => [],

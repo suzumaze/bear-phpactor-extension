@@ -302,6 +302,12 @@ final class StdioLanguageServerTest extends TestCase
     public function testRealPhpactorStdioServerDescribesAlpsRelationships(): void
     {
         $fixture = dirname(__DIR__) . '/Fixture/Alps/App1';
+        $resourceFile = $fixture . '/src/Resource/App/AlpsDemo.php';
+        $source = str_replace(
+            ['<caret-1>', '<caret-2>', '<caret-3>', '<caret-4>'],
+            '',
+            (string) file_get_contents($resourceFile),
+        );
         $client = StdioLspClient::start(
             $this->command($fixture),
             $fixture,
@@ -330,8 +336,60 @@ final class StdioLanguageServerTest extends TestCase
             self::assertSame('href', $facts['result']['data']['relationsIn'][0]['kind'] ?? null);
             self::assertSame('Article', $facts['result']['data']['relationsIn'][0]['sourceId'] ?? null);
 
+            $client->notify('textDocument/didOpen', [
+                'textDocument' => [
+                    'uri' => $this->fileUri($resourceFile),
+                    'languageId' => 'php',
+                    'version' => 1,
+                    'text' => $source,
+                ],
+            ]);
+
+            $hover = $client->request('textDocument/hover', [
+                'textDocument' => ['uri' => $this->fileUri($resourceFile)],
+                'position' => $this->positionOf('goArticle', $source),
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $hover, $client->stderr());
+            self::assertSame('markdown', $hover['result']['contents']['kind'] ?? null);
+            self::assertStringContainsString(
+                '**ALPS descriptor** `goArticle`',
+                $hover['result']['contents']['value'] ?? '',
+            );
+            self::assertStringContainsString(
+                '- `rt` → `Article` (ok)',
+                $hover['result']['contents']['value'] ?? '',
+            );
+            self::assertStringContainsString(
+                '- `href` ← `Article` (ok)',
+                $hover['result']['contents']['value'] ?? '',
+            );
+
+            $unresolvedHover = $client->request('textDocument/hover', [
+                'textDocument' => ['uri' => $this->fileUri($resourceFile)],
+                'position' => $this->positionOf('noSuchDescriptor', $source),
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $unresolvedHover, $client->stderr());
+            self::assertNull($unresolvedHover['result'] ?? null);
+
+            $phpHover = $client->request('textDocument/hover', [
+                'textDocument' => ['uri' => $this->fileUri($resourceFile)],
+                'position' => $this->positionOf('onGet', $source),
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $phpHover, $client->stderr());
+            self::assertNotNull($phpHover['result'] ?? null);
+            self::assertStringNotContainsString(
+                '**ALPS descriptor**',
+                $phpHover['result']['contents']['value'] ?? '',
+            );
+
             $shutdown = $client->request('shutdown', [], 10.0);
             self::assertArrayNotHasKey('error', $shutdown, $client->stderr());
+
+            $afterShutdown = $client->request('textDocument/hover', [
+                'textDocument' => ['uri' => $this->fileUri($resourceFile)],
+                'position' => $this->positionOf('goArticle', $source),
+            ], 10.0);
+            self::assertSame(-32600, $afterShutdown['error']['code'] ?? null);
             $client->notify('exit');
         } finally {
             $client->close();

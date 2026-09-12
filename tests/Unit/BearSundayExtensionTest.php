@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Suzumaze\BearPhpactor\Tests\Unit;
 
 use Suzumaze\BearPhpactor\Alps\AlpsDefinitionLocator;
+use Suzumaze\BearPhpactor\Alps\AlpsDescriptorAtOffset;
 use Suzumaze\BearPhpactor\BearSundayExtension;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaConventionTypeLocator;
 use Suzumaze\BearPhpactor\LanguageServer\SemanticQueryHandler;
@@ -57,15 +58,23 @@ final class BearSundayExtensionTest extends TestCase
             AlpsFactsQuery::class,
             $container->get('bear_sunday.semantic.alps_facts_query'),
         );
+        self::assertInstanceOf(
+            AlpsDescriptorAtOffset::class,
+            $container->get('bear_sunday.alps.descriptor_at_offset'),
+        );
     }
 
-    public function testRegistersResourceHoverMiddleware(): void
+    public function testRegistersSemanticHoverMiddleware(): void
     {
         $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
 
         self::assertArrayHasKey(
             'bear_sunday.language_server.hover_middleware',
             $container->getServiceIdsForTag(LanguageServerExtension::TAG_MIDDLEWARE),
+        );
+        self::assertArrayHasKey(
+            'bear_sunday.language_server.hover_middleware',
+            $container->getServiceIdsForTag(LanguageServerExtension::TAG_METHOD_HANDLER),
         );
     }
 

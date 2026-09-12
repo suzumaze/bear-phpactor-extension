@@ -16,6 +16,23 @@ A valid but unresolved or unsafe Resource URI returns an empty Hover instead of 
 generic PHP string description. This is implemented as a narrow middleware because
 the supported Phpactor version exposes one Hover handler rather than a provider chain.
 
+The same standard Hover method recognizes only the first string argument of
+`#[Alps('descriptorId')]` (including the supported fully-qualified spellings). It
+returns the workspace-relative profile, bounded descriptor fields, and up to 20
+deterministically ordered incoming and outgoing explicit local relationships:
+`contains`, local-fragment `href`, and local-fragment `rt`. It never fetches external
+references or infers a Resource from descriptor names. An unresolved or unsafe ALPS
+descriptor returns an empty Hover; other attribute arguments and ordinary PHP
+positions continue to Phpactor.
+
+Compatibility note: in the supported Phpactor release, extension middleware runs
+before the built-in trace, shutdown, and cancellation middleware, and there is no
+Hover provider chain. The BEAR middleware therefore performs only syntactic
+recognition there and remaps a recognized request to a registered internal handler;
+semantic querying and response creation still pass through Phpactor's lifecycle
+middleware. Recognition itself is consequently outside cancellation and trace timing.
+This shim should move to an upstream Hover provider chain when Phpactor exposes one.
+
 All paths supplied by a caller are relative to the workspace root. Successful paths
 in responses are also workspace-relative. Every response has this envelope:
 
