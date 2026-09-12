@@ -111,6 +111,29 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame(333, $response['data']['byteOffset']);
     }
 
+    public function testResolvesNamedAndResourceSchemaFacts(): void
+    {
+        $handler = new SemanticQueryHandler($this->fixture('JsonSchema/basic'));
+
+        $named = wait($handler->resolveNamedSchema(
+            'user-params.json',
+            'request',
+            'src/Resource/App/SchemaDemo.php',
+        ));
+        self::assertSame('ok', $named['status']);
+        self::assertSame('attribute', $named['data']['source']);
+        self::assertSame('var/json_validate/user-params.json', $named['data']['path']);
+
+        $resource = wait($handler->resolveResourceSchema(
+            'app://self/bodyTypeDemo',
+            contextPath: 'src/Resource/App/BodyTypeDemo.php',
+        ));
+        self::assertSame('ok', $resource['status']);
+        self::assertSame('convention', $resource['data']['source']);
+        self::assertSame('var/json_schema/body-type-demo.json', $resource['data']['path']);
+        self::assertSame('app://self/bodyTypeDemo', $resource['data']['resource']['uri']);
+    }
+
     public function testListsOnlyReadOnlySemanticMethods(): void
     {
         self::assertSame([
@@ -120,6 +143,8 @@ final class SemanticQueryHandlerTest extends TestCase
             'bear/template/resolve' => 'resolveTemplate',
             'bear/template/forResource' => 'resolveResourceTemplate',
             'bear/alps/resolveDescriptor' => 'resolveAlpsDescriptor',
+            'bear/schema/resolveNamed' => 'resolveNamedSchema',
+            'bear/schema/forResource' => 'resolveResourceSchema',
         ], (new SemanticQueryHandler(self::fixtureDir()))->methods());
     }
 

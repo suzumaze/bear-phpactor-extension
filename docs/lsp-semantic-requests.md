@@ -33,10 +33,15 @@ in responses are also workspace-relative. Every response has this envelope:
 | `bear/template/resolve` | `{engine, name, contextPath?}` | `{engine, name, path}` |
 | `bear/template/forResource` | `{uri, engine, contextPath?}` | `{resource, engine, path}` |
 | `bear/alps/resolveDescriptor` | `{descriptorId, contextPath?}` | `{descriptorId, profilePath, byteOffset}` |
+| `bear/schema/resolveNamed` | `{fileName, kind, contextPath?}` | `{kind, source, path, titleByteOffset, resource}` |
+| `bear/schema/forResource` | `{uri, kind?, contextPath?}` | `{kind, source, path, titleByteOffset, resource}` |
 
 `engine` is `twig` or `qiq`. A relative Qiq name requires `contextPath`. The ALPS
 offset is a byte offset in the saved JSON profile; positional standard LSP methods
 continue to use UTF-16 line/character positions.
+
+Schema `kind` is `request` or `response`. Resource convention lookup supports only
+`response`; request schemas require the explicit name recorded by `#[JsonSchema(params: ...)]`.
 
 Example JSON-RPC request:
 

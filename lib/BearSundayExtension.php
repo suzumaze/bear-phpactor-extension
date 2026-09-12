@@ -140,6 +140,7 @@ final class BearSundayExtension implements Extension
                     $container->get('bear_sunday.semantic.template_query'),
                     $container->get('bear_sunday.semantic.resource_template_query'),
                     $container->get('bear_sunday.semantic.alps_query'),
+                    $container->get('bear_sunday.semantic.schema_query'),
                 );
             },
             [LanguageServerExtension::TAG_METHOD_HANDLER => []],
