@@ -51,3 +51,15 @@ Example JSON-RPC request:
   }
 }
 ```
+
+From this repository, the same request can be checked against a real Phpactor
+stdio process without an IDE:
+
+```console
+php tools/semantic-lsp-query.php /path/to/bear-project \
+  bear/resource/resolve \
+  '{"uri":"app://self/user","contextPath":"src/Resource/App/Dashboard.php"}'
+```
+
+The target project must already have Phpactor and this extension configured. Set
+`PHPACTOR_BIN` if Phpactor is not available in the target project or this repository.
