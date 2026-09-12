@@ -104,6 +104,31 @@ final class StdioLanguageServerTest extends TestCase
                 ],
             ]);
 
+            $completionNeedle = "uri('app://self/u";
+            $completionOffset = strpos($source, $completionNeedle);
+            self::assertNotFalse($completionOffset);
+            $completion = $client->request('textDocument/completion', [
+                'textDocument' => ['uri' => $this->fileUri($clientFile)],
+                'position' => $this->positionAtOffset(
+                    $completionOffset + strlen($completionNeedle),
+                    $source,
+                ),
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $completion, $client->stderr());
+            self::assertContains(
+                'app://self/user',
+                array_column($completion['result']['items'] ?? [], 'label'),
+            );
+
+            $documentLinks = $client->request('textDocument/documentLink', [
+                'textDocument' => ['uri' => $this->fileUri($clientFile)],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $documentLinks, $client->stderr());
+            self::assertContains(
+                $this->fileUri($fixture . '/src/Resource/App/User.php'),
+                array_column($documentLinks['result'] ?? [], 'target'),
+            );
+
             $definition = $client->request('textDocument/definition', [
                 'textDocument' => ['uri' => $this->fileUri($clientFile)],
                 'position' => $position,
@@ -139,6 +164,57 @@ final class StdioLanguageServerTest extends TestCase
             self::assertArrayNotHasKey('error', $shutdown, $client->stderr());
             self::assertArrayHasKey('result', $shutdown);
             self::assertNull($shutdown['result']);
+            $client->notify('exit');
+        } finally {
+            $client->close();
+        }
+    }
+
+    public function testRealPhpactorStdioServerResolvesSchemaTypeDefinition(): void
+    {
+        $fixture = dirname(__DIR__) . '/Fixture/JsonSchema/basic';
+        $resourceFile = $fixture . '/src/Resource/App/BodyTypeDemo.php';
+        $sourceWithCaret = (string) file_get_contents($resourceFile);
+        $offset = strpos($sourceWithCaret, '<caret>');
+        self::assertNotFalse($offset);
+        $source = str_replace('<caret>', '', $sourceWithCaret);
+        $client = StdioLspClient::start(
+            $this->command($fixture),
+            $fixture,
+            $this->environment(),
+        );
+
+        try {
+            $initialize = $client->request('initialize', [
+                'processId' => getmypid(),
+                'rootUri' => $this->fileUri($fixture),
+                'capabilities' => (object) [],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $initialize, $client->stderr());
+            self::assertTrue($initialize['result']['capabilities']['typeDefinitionProvider'] ?? false);
+            $client->notify('initialized');
+            $client->notify('textDocument/didOpen', [
+                'textDocument' => [
+                    'uri' => $this->fileUri($resourceFile),
+                    'languageId' => 'php',
+                    'version' => 1,
+                    'text' => $source,
+                ],
+            ]);
+
+            $typeDefinition = $client->request('textDocument/typeDefinition', [
+                'textDocument' => ['uri' => $this->fileUri($resourceFile)],
+                'position' => $this->positionAtOffset($offset, $source),
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $typeDefinition, $client->stderr());
+            self::assertSame(
+                $this->fileUri($fixture . '/var/json_schema/body-type-demo.json'),
+                $typeDefinition['result']['uri'] ?? null,
+                json_encode($typeDefinition, JSON_UNESCAPED_SLASHES) . "\n" . $client->stderr(),
+            );
+
+            $shutdown = $client->request('shutdown', [], 10.0);
+            self::assertArrayNotHasKey('error', $shutdown, $client->stderr());
             $client->notify('exit');
         } finally {
             $client->close();
@@ -188,6 +264,15 @@ final class StdioLanguageServerTest extends TestCase
     {
         $offset = strpos($source, $needle);
         self::assertNotFalse($offset);
+
+        return $this->positionAtOffset($offset, $source);
+    }
+
+    /**
+     * @return array{line: int, character: int}
+     */
+    private function positionAtOffset(int $offset, string $source): array
+    {
         $before = substr($source, 0, $offset);
         $lastNewline = strrpos($before, "\n");
 
