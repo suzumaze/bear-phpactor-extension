@@ -6,6 +6,7 @@ namespace Suzumaze\BearPhpactor;
 
 use Suzumaze\BearPhpactor\Alps\AlpsDefinitionLocator;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaConventionTypeLocator;
+use Suzumaze\BearPhpactor\LanguageServer\SemanticQueryHandler;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaDefinitionLocator;
 use Suzumaze\BearPhpactor\Resource\Completor\BodyPropertyCompletor;
 use Suzumaze\BearPhpactor\Resource\Completor\ResourceUriCompletor;
@@ -123,6 +124,24 @@ final class BearSundayExtension implements Extension
             function (Container $container): ResourceTemplateQuery {
                 return new ResourceTemplateQuery($container->get('bear_sunday.semantic.resource_query'));
             },
+        );
+
+        $container->register(
+            'bear_sunday.language_server.semantic_query_handler',
+            function (Container $container): SemanticQueryHandler {
+                $pathResolver = $container->get(FilePathResolverExtension::SERVICE_FILE_PATH_RESOLVER);
+
+                return new SemanticQueryHandler(
+                    $pathResolver->resolve('%project_root%'),
+                    $container->get('bear_sunday.semantic.resource_query'),
+                    $container->get('bear_sunday.semantic.route_query'),
+                    $container->get('bear_sunday.semantic.sql_query'),
+                    $container->get('bear_sunday.semantic.template_query'),
+                    $container->get('bear_sunday.semantic.resource_template_query'),
+                    $container->get('bear_sunday.semantic.alps_query'),
+                );
+            },
+            [LanguageServerExtension::TAG_METHOD_HANDLER => []],
         );
 
         $container->register(

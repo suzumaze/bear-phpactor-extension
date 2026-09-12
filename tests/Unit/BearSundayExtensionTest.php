@@ -7,6 +7,7 @@ namespace Suzumaze\BearPhpactor\Tests\Unit;
 use Suzumaze\BearPhpactor\Alps\AlpsDefinitionLocator;
 use Suzumaze\BearPhpactor\BearSundayExtension;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaConventionTypeLocator;
+use Suzumaze\BearPhpactor\LanguageServer\SemanticQueryHandler;
 use Suzumaze\BearPhpactor\Resource\Completor\BodyPropertyCompletor;
 use Suzumaze\BearPhpactor\Resource\Completor\ResourceUriCompletor;
 use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceDefinitionLocator;
@@ -24,6 +25,7 @@ use Phpactor\Container\PhpactorContainer;
 use Phpactor\Extension\Completion\CompletionExtension;
 use Phpactor\Extension\FilePathResolver\FilePathResolverExtension;
 use Phpactor\Extension\Logger\LoggingExtension;
+use Phpactor\Extension\LanguageServer\LanguageServerExtension;
 use Phpactor\Extension\ReferenceFinder\ReferenceFinderExtension;
 use Phpactor\Extension\WorseReflection\WorseReflectionExtension;
 use PHPUnit\Framework\TestCase;
@@ -189,6 +191,16 @@ final class BearSundayExtensionTest extends TestCase
         self::assertArrayHasKey(
             'bear_sunday.worse_reflection.resource_client_type_resolver',
             $container->getServiceIdsForTag(WorseReflectionExtension::TAG_MEMBER_TYPE_RESOLVER),
+        );
+    }
+
+    public function testRegistersSemanticQueryLspHandlerWithTag(): void
+    {
+        $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
+
+        self::assertArrayHasKey(
+            'bear_sunday.language_server.semantic_query_handler',
+            $container->getServiceIdsForTag(LanguageServerExtension::TAG_METHOD_HANDLER),
         );
     }
 }

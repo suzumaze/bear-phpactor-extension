@@ -45,6 +45,29 @@ final class StdioLanguageServerTest extends TestCase
             self::assertTrue($initialize['result']['capabilities']['definitionProvider'] ?? false);
 
             $client->notify('initialized');
+
+            $semantic = $client->request('bear/resource/resolve', [
+                'uri' => 'app://self/user',
+                'contextPath' => 'src/Client.php',
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $semantic, $client->stderr());
+            self::assertSame([
+                'status' => 'ok',
+                'data' => [
+                    'uri' => 'app://self/user',
+                    'fqn' => 'Acme\\Blog\\Resource\\App\\User',
+                    'path' => 'src/Resource/App/User.php',
+                ],
+                'candidates' => [],
+            ], $semantic['result'] ?? null);
+
+            $invalidSemantic = $client->request('bear/resource/resolve', [
+                'uri' => 'app://self/user',
+                'contextPath' => '../outside.php',
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $invalidSemantic, $client->stderr());
+            self::assertSame('invalid_input', $invalidSemantic['result']['status'] ?? null);
+
             $client->notify('textDocument/didOpen', [
                 'textDocument' => [
                     'uri' => $this->fileUri($clientFile),
