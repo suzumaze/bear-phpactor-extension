@@ -72,6 +72,27 @@ final class ProjectTest extends TestCase
         self::assertSame('Acme\Blog\Resource\App\User', $classes['app://self/user']);
     }
 
+    public function testResourceClassCandidatesIncludePathsInDeterministicOrder(): void
+    {
+        $project = Project::locate(self::fixtureDir() . '/src/Client.php');
+        self::assertNotNull($project);
+
+        $candidates = $project->resourceClassCandidates();
+
+        self::assertNotSame([], $candidates);
+        self::assertSame('app://self/article', $candidates[0]['uri']);
+        self::assertSame(self::fixtureDir() . '/src/Resource/App/Article.php', $candidates[0]['file']);
+        self::assertSame('Acme\Blog\Resource\App\Article', $candidates[0]['fqn']);
+        $sorted = $candidates;
+        usort(
+            $sorted,
+            static fn (array $left, array $right): int =>
+                [$left['uri'], $left['file'], $left['fqn']]
+                <=> [$right['uri'], $right['file'], $right['fqn']],
+        );
+        self::assertSame($sorted, $candidates);
+    }
+
     public function testSkipsComposerJsonWithoutPsr4AndContinuesUpward(): void
     {
         // nested/composer.json は psr-4 を持たないためスキップし、上の

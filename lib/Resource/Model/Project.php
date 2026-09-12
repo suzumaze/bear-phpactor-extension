@@ -217,6 +217,43 @@ final class Project
     }
 
     /**
+     * Return every physical Resource candidate without collapsing duplicate
+     * URIs from different PSR-4 roots.
+     *
+     * @return list<array{uri: string, file: string, fqn: string}>
+     */
+    public function resourceClassCandidates(): array
+    {
+        $candidates = [];
+        foreach ($this->resourceRoots() as $root) {
+            foreach (['App', 'Page'] as $schemeDir) {
+                $dir = $root['dir'] . '/' . $schemeDir;
+                if (!is_dir($dir)) {
+                    continue;
+                }
+
+                foreach ($this->resourcePhpFiles($dir) as $file) {
+                    $relativePath = substr($file, strlen($dir) + 1, -4);
+                    $uriPath = implode('/', array_map('lcfirst', explode('/', $relativePath)));
+                    $candidates[] = [
+                        'uri' => sprintf('%s://self/%s', strtolower($schemeDir), $uriPath),
+                        'file' => $file,
+                        'fqn' => $root['ns'] . $schemeDir . '\\' . str_replace('/', '\\', $relativePath),
+                    ];
+                }
+            }
+        }
+
+        usort(
+            $candidates,
+            static fn (array $left, array $right): int =>
+                [$left['uri'], $left['file'], $left['fqn']] <=> [$right['uri'], $right['file'], $right['fqn']],
+        );
+
+        return $candidates;
+    }
+
+    /**
      * リソースの置き場所の一覧。先頭ほど優先。
      *
      * 1. **参照元ファイル自身のアプリ**。ドキュメントが .../Resource/App/ の下に
@@ -336,6 +373,16 @@ final class Project
      */
     private function resourcePhpFiles(string $dir): array
     {
+        $canonicalRoot = realpath($this->root);
+        $canonicalDirectory = realpath($dir);
+        if (
+            $canonicalRoot === false
+            || $canonicalDirectory === false
+            || !$this->contains($canonicalRoot, $canonicalDirectory)
+        ) {
+            return [];
+        }
+
         $files = [];
         $iterator = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS)
@@ -345,6 +392,10 @@ final class Project
                 continue;
             }
             $path = $file->getPathname();
+            $canonicalPath = realpath($path);
+            if ($canonicalPath === false || !$this->contains($canonicalRoot, $canonicalPath)) {
+                continue;
+            }
             if (!$this->extendsResourceObject($path)) {
                 continue;
             }
@@ -353,6 +404,17 @@ final class Project
         sort($files);
 
         return $files;
+    }
+
+    private function contains(string $root, string $path): bool
+    {
+        $root = rtrim(str_replace('\\', '/', $root), '/');
+        $root = $root === '' ? '/' : $root;
+        $path = str_replace('\\', '/', $path);
+
+        return $root === '/'
+            ? str_starts_with($path, '/')
+            : $path === $root || str_starts_with($path, $root . '/');
     }
 
     /**

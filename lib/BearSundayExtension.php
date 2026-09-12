@@ -19,6 +19,7 @@ use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Router\RouterDefinitionLocator;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
@@ -65,6 +66,13 @@ final class BearSundayExtension implements Extension
             function (Container $container): ResourceQuery {
                 return new ResourceQuery();
             }
+        );
+
+        $container->register(
+            'bear_sunday.semantic.resource_inventory_query',
+            function (): ResourceInventoryQuery {
+                return new ResourceInventoryQuery();
+            },
         );
 
         $container->register(

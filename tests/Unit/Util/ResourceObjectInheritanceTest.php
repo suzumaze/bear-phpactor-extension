@@ -118,4 +118,32 @@ final class ResourceObjectInheritanceTest extends TestCase
             rmdir($tmp);
         }
     }
+
+    public function testDoesNotFollowParentClassSymlinkOutsideProject(): void
+    {
+        $temporaryRoot = sys_get_temp_dir() . '/bear-lsp-parent-symlink-' . bin2hex(random_bytes(4));
+        $project = $temporaryRoot . '/project';
+        self::assertTrue(mkdir($project . '/src', 0777, true));
+        self::assertNotFalse(file_put_contents(
+            $temporaryRoot . '/OutsideParent.php',
+            '<?php namespace Acme; class ParentResource extends \\BEAR\\Resource\\ResourceObject {}',
+        ));
+        self::assertTrue(symlink($temporaryRoot . '/OutsideParent.php', $project . '/src/ParentResource.php'));
+
+        try {
+            $class = PhpClassDeclaration::findInSource(
+                '<?php namespace Acme; class ChildResource extends ParentResource {}',
+            );
+            self::assertNotNull($class);
+            $inheritance = new ResourceObjectInheritance($project, ['Acme\\' => ['src']]);
+
+            self::assertFalse($inheritance->extendsResourceObject($class));
+        } finally {
+            unlink($project . '/src/ParentResource.php');
+            unlink($temporaryRoot . '/OutsideParent.php');
+            rmdir($project . '/src');
+            rmdir($project);
+            rmdir($temporaryRoot);
+        }
+    }
 }
