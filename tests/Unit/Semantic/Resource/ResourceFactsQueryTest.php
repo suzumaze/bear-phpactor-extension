@@ -8,6 +8,7 @@ use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFacts;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
+use Suzumaze\BearPhpactor\Tests\Unit\Semantic\Resource\Support\CountingParser;
 use PHPUnit\Framework\TestCase;
 
 final class ResourceFactsQueryTest extends TestCase
@@ -166,6 +167,53 @@ PHP,
                 $result->candidates,
             ),
         );
+    }
+
+    public function testCachesUnchangedSourceAndInvalidatesSameSizeSameTimestampChange(): void
+    {
+        $parser = new CountingParser();
+        $query = new ResourceFactsQuery(parser: $parser);
+        $file = $this->workspace . '/src/Resource/App/Dashboard.php';
+        $modified = filemtime($file);
+        self::assertIsInt($modified);
+
+        $first = $query->describeInWorkspace($this->workspace(), 'app://self/dashboard');
+        $second = $query->describeInWorkspace($this->workspace(), 'app://self/dashboard');
+        self::assertSame(SemanticStatus::Ok, $first->status);
+        self::assertSame(SemanticStatus::Ok, $second->status);
+        self::assertSame(1, $parser->parseCount);
+
+        $source = (string) file_get_contents($file);
+        $changed = str_replace('app://self/user{?id}', 'app://self/team{?id}', $source);
+        self::assertSame(strlen($source), strlen($changed));
+        self::assertNotFalse(file_put_contents($file, $changed));
+        self::assertTrue(touch($file, $modified));
+
+        $third = $query->describeInWorkspace($this->workspace(), 'app://self/dashboard');
+        self::assertSame(SemanticStatus::Ok, $third->status);
+        self::assertSame(2, $parser->parseCount);
+        self::assertInstanceOf(ResourceFacts::class, $third->value);
+        self::assertContains(
+            'app://self/team',
+            array_map(static fn ($relation): string => $relation->targetUri->uri(), $third->value->outgoingRelations),
+        );
+    }
+
+    public function testCachesParseErrorUntilSourceChanges(): void
+    {
+        $parser = new CountingParser();
+        $query = new ResourceFactsQuery(parser: $parser);
+        self::assertNotFalse(file_put_contents(
+            $this->workspace . '/src/Resource/App/Dashboard.php',
+            '<?php echo "no class";',
+        ));
+
+        $first = $query->describeInWorkspace($this->workspace(), 'app://self/dashboard');
+        $second = $query->describeInWorkspace($this->workspace(), 'app://self/dashboard');
+
+        self::assertSame(SemanticStatus::ParseError, $first->status);
+        self::assertSame(SemanticStatus::ParseError, $second->status);
+        self::assertSame(1, $parser->parseCount);
     }
 
     private function workspace(): WorkspaceContext

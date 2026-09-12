@@ -75,6 +75,12 @@ order. `schemas` lists the convention response Schema when present and is empty 
 the Resource has no matching Schema. Request Schema inference is not guessed because
 it requires an explicit `#[JsonSchema(params: ...)]` declaration.
 
+Parsed Resource facts are cached for the lifetime of the Language Server process.
+The key includes canonical path, Resource identity, modification time, size, and a
+content hash. Repeated queries avoid reparsing unchanged PHP while same-size edits in
+the same timestamp tick still invalidate the entry. The cache never changes the
+saved-file semantics of these requests.
+
 Example JSON-RPC request:
 
 ```json

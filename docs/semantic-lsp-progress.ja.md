@@ -38,10 +38,11 @@ flowchart TD
     p5["Resource inventory と outgoing Link / Embed facts\n完了"]
     p6["Incoming Link / Embed と Resource describe 集約\n完了"]
     p7["Project info\n完了"]
-    p75["Cache / freshness\n次フェーズ"]
+    p75["Resource Facts parse cache\n完了"]
+    p76["Inventory / JSON / ALPS cache・freshness\n次フェーズ"]
     p8["別 repository の薄い MCP-LSP adapter\n将来"]
 
-    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p8
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p8
 ```
 
 ## 現在利用できる入口

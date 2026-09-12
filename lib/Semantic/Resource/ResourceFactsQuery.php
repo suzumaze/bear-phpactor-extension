@@ -31,6 +31,11 @@ final class ResourceFactsQuery
     private const EMBED_FQN = 'BEAR\Resource\Annotation\Embed';
     private const LINK_FQN = 'BEAR\Resource\Annotation\Link';
 
+    /**
+     * @var array<string,array{fingerprint:string,result:SemanticResult<ResourceFacts|null>}>
+     */
+    private array $cache = [];
+
     public function __construct(
         private ResourceQuery $resourceQuery = new ResourceQuery(),
         private Parser $parser = new Parser(),
@@ -93,9 +98,21 @@ final class ResourceFactsQuery
             return SemanticResult::parseError();
         }
 
+        clearstatcache(true, $path->value->absolute);
+        $modified = filemtime($path->value->absolute);
+        $fingerprint = hash('sha256', $source) . ':' . ($modified === false ? 'unknown' : (string) $modified)
+            . ':' . strlen($source);
+        $cacheKey = $path->value->absolute . "\0" . $resource->uri->uri() . "\0" . $resource->fqn;
+        if (isset($this->cache[$cacheKey]) && $this->cache[$cacheKey]['fingerprint'] === $fingerprint) {
+            return $this->cache[$cacheKey]['result'];
+        }
+
         $class = PhpClassDeclaration::findInSource($source, $path->value->absolute, $this->parser);
         if (!$class instanceof ClassDeclaration) {
-            return SemanticResult::parseError();
+            $result = SemanticResult::parseError();
+            $this->cache[$cacheKey] = ['fingerprint' => $fingerprint, 'result' => $result];
+
+            return $result;
         }
 
         $methods = [];
@@ -136,7 +153,10 @@ final class ResourceFactsQuery
             ],
         );
 
-        return SemanticResult::ok(new ResourceFacts($resource, $methods, $relations));
+        $result = SemanticResult::ok(new ResourceFacts($resource, $methods, $relations));
+        $this->cache[$cacheKey] = ['fingerprint' => $fingerprint, 'result' => $result];
+
+        return $result;
     }
 
     private function isResourceMethod(MethodDeclaration $method): bool
