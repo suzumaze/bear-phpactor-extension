@@ -52,6 +52,51 @@ JSON,
         self::assertSame(SemanticStatus::ParseError, $this->resolve('item')->status);
     }
 
+    public function testRejectsDoctypeAndEntityDeclarations(): void
+    {
+        self::assertNotFalse(file_put_contents(
+            $this->workspace . '/apidoc.xml',
+            '<!DOCTYPE apidoc [<!ENTITY profile "var/alps/profile.json">]>'
+                . '<apidoc><alps>&profile;</alps></apidoc>',
+        ));
+
+        self::assertSame(SemanticStatus::ParseError, $this->resolve('item')->status);
+    }
+
+    public function testLimitsXmlAndJsonInputSize(): void
+    {
+        self::assertNotFalse(file_put_contents(
+            $this->workspace . '/apidoc.xml',
+            '<apidoc><alps>var/alps/profile.json</alps></apidoc>' . str_repeat(' ', 1048577),
+        ));
+        self::assertSame(SemanticStatus::ParseError, $this->resolve('item')->status);
+
+        $this->writeApidoc();
+        self::assertNotFalse(file_put_contents(
+            $this->workspace . '/var/alps/profile.json',
+            '{"alps":{"descriptor":[]}}' . str_repeat(' ', 1048577),
+        ));
+        self::assertSame(SemanticStatus::ParseError, $this->resolve('item')->status);
+    }
+
+    public function testLimitsXmlAndJsonStructureDepth(): void
+    {
+        self::assertNotFalse(file_put_contents(
+            $this->workspace . '/apidoc.xml',
+            str_repeat('<node>', 65)
+                . '<alps>var/alps/profile.json</alps>'
+                . str_repeat('</node>', 65),
+        ));
+        self::assertSame(SemanticStatus::ParseError, $this->resolve('item')->status);
+
+        $this->writeApidoc();
+        self::assertNotFalse(file_put_contents(
+            $this->workspace . '/var/alps/profile.json',
+            str_repeat('[', 65) . '0' . str_repeat(']', 65),
+        ));
+        self::assertSame(SemanticStatus::ParseError, $this->resolve('item')->status);
+    }
+
     public function testReportsDuplicateDescriptorIdAsDeterministicAmbiguity(): void
     {
         self::assertNotFalse(file_put_contents(

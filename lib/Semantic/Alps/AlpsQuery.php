@@ -16,6 +16,9 @@ use Suzumaze\BearPhpactor\Util\PathGuard;
  */
 final class AlpsQuery
 {
+    private const MAX_INPUT_BYTES = 1048576;
+    private const MAX_STRUCTURE_DEPTH = 64;
+
     /**
      * @return SemanticResult<AlpsDescriptorResolution|null>
      */
@@ -30,12 +33,13 @@ final class AlpsQuery
             return SemanticResult::failure($profile->status);
         }
 
-        $contents = @file_get_contents($profile->value);
-        if ($contents === false) {
-            return SemanticResult::notFound();
+        $profileContents = $this->readInput($profile->value);
+        if ($profileContents->value === null) {
+            return SemanticResult::failure($profileContents->status);
         }
+        $contents = $profileContents->value;
 
-        $data = json_decode($contents, true);
+        $data = json_decode($contents, true, self::MAX_STRUCTURE_DEPTH);
         if (!is_array($data)) {
             return SemanticResult::parseError();
         }
@@ -125,12 +129,16 @@ final class AlpsQuery
             return SemanticResult::outsideWorkspace();
         }
 
-        $contents = @file_get_contents($apidocPath);
-        if ($contents === false) {
-            return SemanticResult::notFound();
+        $apidocContents = $this->readInput($apidocPath);
+        if ($apidocContents->value === null) {
+            return SemanticResult::failure($apidocContents->status);
+        }
+        $contents = $apidocContents->value;
+        if ($this->containsForbiddenXmlDeclaration($contents)) {
+            return SemanticResult::parseError();
         }
         $xml = @simplexml_load_string($contents, SimpleXMLElement::class, LIBXML_NONET);
-        if ($xml === false) {
+        if ($xml === false || $this->exceedsXmlDepth($xml)) {
             return SemanticResult::parseError();
         }
 
@@ -152,6 +160,41 @@ final class AlpsQuery
         }
 
         return SemanticResult::ok($profilePath);
+    }
+
+    /** @return SemanticResult<string|null> */
+    private function readInput(string $path): SemanticResult
+    {
+        $contents = @file_get_contents($path, false, null, 0, self::MAX_INPUT_BYTES + 1);
+        if ($contents === false) {
+            return SemanticResult::notFound();
+        }
+        if (strlen($contents) > self::MAX_INPUT_BYTES) {
+            return SemanticResult::parseError();
+        }
+
+        return SemanticResult::ok($contents);
+    }
+
+    private function containsForbiddenXmlDeclaration(string $contents): bool
+    {
+        return stripos($contents, '<!DOCTYPE') !== false
+            || stripos($contents, '<!ENTITY') !== false;
+    }
+
+    private function exceedsXmlDepth(SimpleXMLElement $element, int $depth = 1): bool
+    {
+        if ($depth > self::MAX_STRUCTURE_DEPTH) {
+            return true;
+        }
+
+        foreach ($element->children() as $child) {
+            if ($this->exceedsXmlDepth($child, $depth + 1)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function isSafeRelativePath(string $path): bool
