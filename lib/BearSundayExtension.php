@@ -211,8 +211,10 @@ final class BearSundayExtension implements Extension
         // (WorseReflectionTypeLocator) まで鎖を続ける。
         $container->register(
             'bear_sunday.reference_finder.json_schema_convention_type_locator',
-            function (Container $container) {
-                return new JsonSchemaConventionTypeLocator();
+            function (Container $container): JsonSchemaConventionTypeLocator {
+                return new JsonSchemaConventionTypeLocator(
+                    schemaQuery: $container->get('bear_sunday.semantic.schema_query'),
+                );
             },
             [ReferenceFinderExtension::TAG_TYPE_LOCATOR => []]
         );
@@ -263,7 +265,9 @@ final class BearSundayExtension implements Extension
         $container->register(
             'bear_sunday.completor.body_property',
             function (Container $container): BodyPropertyCompletor {
-                return new BodyPropertyCompletor();
+                return new BodyPropertyCompletor(
+                    schemaQuery: $container->get('bear_sunday.semantic.schema_query'),
+                );
             },
             [
                 CompletionExtension::TAG_COMPLETOR => [

@@ -105,6 +105,44 @@ final readonly class SchemaQuery
         return SemanticResult::ambiguous($candidates);
     }
 
+    /**
+     * Resolve the response schema convention for a statically parsed class.
+     *
+     * @return SemanticResult<SchemaResolution|null>
+     */
+    public function resolveConvention(
+        Project $project,
+        string $filePath,
+        string $namespace,
+        string $className,
+    ): SemanticResult {
+        if ($className === '' || str_contains($className, "\0")) {
+            return SemanticResult::invalidInput();
+        }
+        if (is_file($filePath) && !$this->isInside($project->root(), $filePath)) {
+            return SemanticResult::outsideWorkspace();
+        }
+
+        $path = $this->pathResolver->conventionPath(
+            $project->root(),
+            $project->psr4(),
+            $filePath,
+            $namespace,
+            $className,
+        );
+        if ($path === null) {
+            return SemanticResult::notFound();
+        }
+
+        return $this->resolutionForPath(
+            $project,
+            $path,
+            self::KIND_RESPONSE,
+            self::SOURCE_CONVENTION,
+            allowedRoot: $this->schemaDirectory($path),
+        );
+    }
+
     /** @return SemanticResult<SchemaResolution|null> */
     public function resolveNamedInWorkspace(
         WorkspaceContext $workspace,
@@ -150,25 +188,23 @@ final readonly class SchemaQuery
         }
         $namespace = substr($resource->fqn, 0, $separator);
         $className = substr($resource->fqn, $separator + 1);
-        $path = $this->pathResolver->conventionPath(
-            $project->root(),
-            $project->psr4(),
+        $result = $this->resolveConvention(
+            $project,
             $resource->file,
             $namespace,
             $className,
         );
-        if ($path === null) {
-            return SemanticResult::notFound();
+        if ($result->status !== SemanticStatus::Ok || $result->value === null) {
+            return $result;
         }
 
-        return $this->resolutionForPath(
-            $project,
-            $path,
-            self::KIND_RESPONSE,
-            self::SOURCE_CONVENTION,
+        return SemanticResult::ok(new SchemaResolution(
+            $result->value->kind,
+            $result->value->source,
+            $result->value->file,
+            $result->value->titleOffset,
             $resource,
-            $this->schemaDirectory($path),
-        );
+        ));
     }
 
     /** @return SemanticResult<SchemaResolution|null> */

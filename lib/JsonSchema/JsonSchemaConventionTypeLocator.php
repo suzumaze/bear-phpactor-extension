@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Suzumaze\BearPhpactor\JsonSchema;
 
-use Suzumaze\BearPhpactor\Util\ProjectLocator;
+use Suzumaze\BearPhpactor\Resource\Model\Project;
+use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
 use Microsoft\PhpParser\MissingToken;
 use Microsoft\PhpParser\Node\QualifiedName;
 use Microsoft\PhpParser\Node\SourceFileNode;
@@ -51,10 +53,14 @@ use Phpactor\WorseReflection\Core\TypeFactory;
  */
 final class JsonSchemaConventionTypeLocator implements TypeLocator
 {
+    private SchemaQuery $schemaQuery;
+
     public function __construct(
         private Parser $parser = new Parser(),
-        private JsonSchemaPathResolver $schemaPathResolver = new JsonSchemaPathResolver(),
+        JsonSchemaPathResolver $schemaPathResolver = new JsonSchemaPathResolver(),
+        ?SchemaQuery $schemaQuery = null,
     ) {
+        $this->schemaQuery = $schemaQuery ?? new SchemaQuery($schemaPathResolver);
     }
 
     public function locateTypes(TextDocument $document, ByteOffset $byteOffset): TypeLocations
@@ -75,28 +81,34 @@ final class JsonSchemaConventionTypeLocator implements TypeLocator
         if ($uri === null) {
             return new TypeLocations([]);
         }
-        $found = ProjectLocator::locate($uri->path());
-        if ($found === null) {
+        $project = Project::locate($uri->path());
+        if ($project === null) {
             return new TypeLocations([]);
         }
-        $root = $found['root'];
 
         $rootNode = $this->parser->parseSourceFile($document->__toString());
         $offset = $byteOffset->toInt();
 
-        $schemaPath = $this->schemaPathFromClassConvention($rootNode, $offset, $root, $found['psr4'], $uri->path());
-        if ($schemaPath === null) {
+        $class = $this->classAtOffset($rootNode, $offset);
+        if ($class === null) {
             return new TypeLocations([]);
         }
 
-        // 着地はスキーマの "title" キーの位置 (無ければファイル先頭 (0,0))。
-        // ファイル先頭に着地すると「なぜここに来たか」が読めないため。
-        $titleOffset = $this->schemaPathResolver->titleKeyOffset($schemaPath);
+        $result = $this->schemaQuery->resolveConvention(
+            $project,
+            $uri->path(),
+            $class['namespace'],
+            $class['className'],
+        );
+        if ($result->status !== SemanticStatus::Ok || $result->value === null || $result->value->file === null) {
+            return new TypeLocations([]);
+        }
+        $titleOffset = $result->value->titleOffset ?? 0;
 
         return new TypeLocations([
             new TypeLocation(
                 TypeFactory::string(),
-                Location::fromPathAndOffsets($schemaPath, $titleOffset, $titleOffset),
+                Location::fromPathAndOffsets($result->value->file, $titleOffset, $titleOffset),
             ),
         ]);
     }
@@ -106,15 +118,12 @@ final class JsonSchemaConventionTypeLocator implements TypeLocator
      * スキーマファイルを解決する。クラス名の上でない・リソースクラスでない・
      * ファイルが実在しない場合は null。
      *
-     * @param array<string, list<string>> $psr4
+     * @return array{namespace:string,className:string}|null
      */
-    private function schemaPathFromClassConvention(
+    private function classAtOffset(
         SourceFileNode $rootNode,
         int $offset,
-        string $root,
-        array $psr4,
-        string $filePath,
-    ): ?string {
+    ): ?array {
         $node = $rootNode->getDescendantNodeAtPosition($offset);
         if (!$node instanceof ClassDeclaration) {
             return null;
@@ -133,12 +142,9 @@ final class JsonSchemaConventionTypeLocator implements TypeLocator
             return null;
         }
 
-        return $this->schemaPathResolver->conventionPath(
-            $root,
-            $psr4,
-            $filePath,
-            $namespace->name->getText(),
-            $name->getText($rootNode->fileContents),
-        );
+        return [
+            'namespace' => $namespace->name->getText(),
+            'className' => $name->getText($rootNode->fileContents),
+        ];
     }
 }

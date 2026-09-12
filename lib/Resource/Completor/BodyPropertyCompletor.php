@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Suzumaze\BearPhpactor\Resource\Completor;
 
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaPathResolver;
-use Suzumaze\BearPhpactor\Util\ProjectLocator;
+use Suzumaze\BearPhpactor\Resource\Model\Project;
+use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
 use Generator;
 use Microsoft\PhpParser\MissingToken;
 use Microsoft\PhpParser\Node;
@@ -42,10 +44,16 @@ use Phpactor\TextDocument\TextDocument;
  */
 final class BodyPropertyCompletor implements Completor
 {
+    private JsonSchemaPathResolver $schemaPathResolver;
+    private SchemaQuery $schemaQuery;
+
     public function __construct(
         private Parser $parser = new Parser(),
-        private JsonSchemaPathResolver $schemaPathResolver = new JsonSchemaPathResolver(),
+        JsonSchemaPathResolver $schemaPathResolver = new JsonSchemaPathResolver(),
+        ?SchemaQuery $schemaQuery = null,
     ) {
+        $this->schemaPathResolver = $schemaPathResolver;
+        $this->schemaQuery = $schemaQuery ?? new SchemaQuery($schemaPathResolver);
     }
 
     /**
@@ -65,11 +73,10 @@ final class BodyPropertyCompletor implements Completor
         if ($uri === null) {
             return false;
         }
-        $found = ProjectLocator::locate($uri->path());
-        if ($found === null) {
+        $project = Project::locate($uri->path());
+        if ($project === null) {
             return false;
         }
-        $root = $found['root'];
 
         $rootNode = $this->parser->parseSourceFile($text, $uri->__toString());
         $offset = $byteOffset->toInt();
@@ -103,19 +110,20 @@ final class BodyPropertyCompletor implements Completor
             return false;
         }
 
-        $schemaPath = $this->schemaPathFromEnclosingMethod($text, $subscript, $root)
-            ?? $this->schemaPathResolver->conventionPath(
-                $root,
-                $found['psr4'],
+        $schemaName = $this->schemaNameFromEnclosingMethod($text, $subscript);
+        $schema = $schemaName !== null
+            ? $this->schemaQuery->resolveNamed($project, $schemaName, SchemaQuery::KIND_RESPONSE)
+            : $this->schemaQuery->resolveConvention(
+                $project,
                 $uri->path(),
                 $namespaceText,
                 $className,
             );
-        if ($schemaPath === null) {
+        if ($schema->status !== SemanticStatus::Ok || $schema->value === null || $schema->value->file === null) {
             return false;
         }
 
-        $properties = $this->schemaProperties($schemaPath);
+        $properties = $this->schemaProperties($schema->value->file);
         if ($properties === null) {
             return false;
         }
@@ -174,7 +182,7 @@ final class BodyPropertyCompletor implements Completor
      * 囲むメソッドの #[JsonSchema(...)] 属性が指すレスポンススキーマを解決する。
      * params: はリクエストスキーマなので対象外。属性が無ければ null。
      */
-    private function schemaPathFromEnclosingMethod(string $fileContents, Node $node, string $root): ?string
+    private function schemaNameFromEnclosingMethod(string $fileContents, Node $node): ?string
     {
         $method = null;
         for ($current = $node; $current !== null; $current = $current->getParent()) {
@@ -214,12 +222,7 @@ final class BodyPropertyCompletor implements Completor
                             continue;
                         }
 
-                        return $this->schemaPathResolver->attributePath(
-                            $root,
-                            $fileContents,
-                            $argument->expression,
-                            $argument,
-                        );
+                        return $argument->expression->getStringContentsText();
                     }
                 }
             }
