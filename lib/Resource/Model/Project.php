@@ -94,6 +94,12 @@ final class Project
         return $this->root;
     }
 
+    /** @return array<string, list<string>> */
+    public function psr4(): array
+    {
+        return $this->psr4;
+    }
+
     /**
      * リソースURIに対応するクラスのファイルパス。
      * Resource ディレクトリを持つ psr-4 エントリが無い場合や、URIパスが

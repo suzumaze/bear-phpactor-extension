@@ -20,6 +20,7 @@ use Suzumaze\BearPhpactor\Router\RouterDefinitionLocator;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateQuery;
@@ -182,6 +183,12 @@ final class BearSundayExtension implements Extension
             ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => [],
         ]);
 
+        $container->register('bear_sunday.semantic.schema_query', function (Container $container): SchemaQuery {
+            return new SchemaQuery(
+                resourceQuery: $container->get('bear_sunday.semantic.resource_query'),
+            );
+        });
+
         // JsonSchema: #[JsonSchema('user.json')] 属性からスキーマファイルへ定義ジャンプ。
         // プロジェクトルートは他の3機能と同じく「ドキュメントの位置から上へ composer.json を辿る」方式
         // (ProjectLocator) で、LSPワークスペースの %project_root% には依存しない。
@@ -189,7 +196,8 @@ final class BearSundayExtension implements Extension
             'bear_sunday.reference_finder.json_schema_definition_locator',
             function (Container $container) {
                 return new JsonSchemaDefinitionLocator(
-                    $container->get('bear_sunday.resource.string_literal_at_offset')
+                    $container->get('bear_sunday.resource.string_literal_at_offset'),
+                    schemaQuery: $container->get('bear_sunday.semantic.schema_query'),
                 );
             },
             [ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => []]
