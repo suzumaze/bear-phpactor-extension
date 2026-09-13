@@ -24,6 +24,7 @@ final class ResourceIncomingRelationsQuery
     public function __construct(
         private ResourceQuery $resourceQuery = new ResourceQuery(),
         private ResourceFactsQuery $resourceFactsQuery = new ResourceFactsQuery(),
+        private ?ResourceInventoryIndex $inventoryIndex = null,
     ) {
     }
 
@@ -73,7 +74,10 @@ final class ResourceIncomingRelationsQuery
         }
 
         $relations = [];
-        foreach ($project->value->resourceClassCandidates() as $candidate) {
+        $candidates = $this->inventoryIndex === null
+            ? $project->value->resourceClassCandidates()
+            : $this->inventoryIndex->candidates($project->value, $contextPath);
+        foreach ($candidates as $candidate) {
             $sourceUri = ResourceUri::fromString($candidate['uri']);
             if ($sourceUri === null) {
                 continue;

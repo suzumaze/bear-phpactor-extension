@@ -23,6 +23,93 @@ final class StdioLanguageServerTest extends TestCase
         $this->removeTree($this->runtimeDirectory);
     }
 
+    public function testRealPhpactorStdioInvalidatesResourceInventoryFromWatchedFileNotification(): void
+    {
+        $workspace = $this->runtimeDirectory . '/inventory-workspace';
+        $resourceDirectory = $workspace . '/src/Resource/App';
+        self::assertTrue(mkdir($resourceDirectory, 0777, true));
+        self::assertNotFalse(file_put_contents(
+            $workspace . '/composer.json',
+            '{"autoload":{"psr-4":{"Acme\\\\Inventory\\\\":"src/"}}}',
+        ));
+        self::assertNotFalse(file_put_contents(
+            $resourceDirectory . '/First.php',
+            '<?php final class First extends \\BEAR\\Resource\\ResourceObject {}',
+        ));
+        $client = StdioLspClient::start(
+            $this->command($workspace),
+            $workspace,
+            $this->environment(),
+        );
+
+        try {
+            $initialize = $client->request('initialize', [
+                'processId' => getmypid(),
+                'rootUri' => $this->fileUri($workspace),
+                'capabilities' => [
+                    'workspace' => [
+                        'didChangeWatchedFiles' => ['dynamicRegistration' => true],
+                    ],
+                ],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $initialize, $client->stderr());
+            $client->notify('initialized');
+
+            $first = $client->request('bear/resource/list', [], 20.0);
+            self::assertSame(1, $first['result']['data']['total'] ?? null);
+
+            $addedFile = $resourceDirectory . '/Second.php';
+            self::assertNotFalse(file_put_contents(
+                $addedFile,
+                '<?php final class Second extends \\BEAR\\Resource\\ResourceObject {}',
+            ));
+            $beforeNotification = $client->request('bear/resource/list', [], 20.0);
+            self::assertSame(1, $beforeNotification['result']['data']['total'] ?? null);
+
+            $client->notify('workspace/didChangeWatchedFiles', [
+                'changes' => [[
+                    'uri' => $this->fileUri($addedFile),
+                    'type' => 1,
+                ]],
+            ]);
+            $afterNotification = $client->request('bear/resource/list', [], 20.0);
+            self::assertArrayNotHasKey('error', $afterNotification, $client->stderr());
+            self::assertSame(2, $afterNotification['result']['data']['total'] ?? null);
+            self::assertSame(
+                ['app://self/first', 'app://self/second'],
+                array_column($afterNotification['result']['data']['resources'] ?? [], 'uri'),
+            );
+
+            self::assertNotFalse(file_put_contents(
+                $addedFile,
+                '<?php final class Second {}',
+            ));
+            $client->notify('textDocument/didSave', [
+                'textDocument' => ['uri' => $this->fileUri($addedFile)],
+            ]);
+            $afterSave = $client->request('bear/resource/list', [], 20.0);
+            self::assertArrayNotHasKey('error', $afterSave, $client->stderr());
+            self::assertSame(1, $afterSave['result']['data']['total'] ?? null);
+
+            self::assertTrue(unlink($resourceDirectory . '/First.php'));
+            $client->notify('workspace/didChangeWatchedFiles', [
+                'changes' => [[
+                    'uri' => $this->fileUri($resourceDirectory . '/First.php'),
+                    'type' => 3,
+                ]],
+            ]);
+            $afterDelete = $client->request('bear/resource/list', [], 20.0);
+            self::assertArrayNotHasKey('error', $afterDelete, $client->stderr());
+            self::assertSame(0, $afterDelete['result']['data']['total'] ?? null);
+
+            $shutdown = $client->request('shutdown', [], 10.0);
+            self::assertArrayNotHasKey('error', $shutdown, $client->stderr());
+            $client->notify('exit');
+        } finally {
+            $client->close();
+        }
+    }
+
     public function testRealPhpactorStdioServerLoadsExtensionAndResolvesResourceDefinition(): void
     {
         $fixture = self::fixtureDir();

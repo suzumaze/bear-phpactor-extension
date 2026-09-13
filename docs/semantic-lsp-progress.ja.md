@@ -47,7 +47,7 @@ flowchart TD
     p81["Twig / Qiq Template Hover\n完了"]
     p82["明示 JSON Schema Hover\n完了"]
     p83["Route / SQL Hover\n完了"]
-    p84["Inventory index / watcher連携\n将来候補"]
+    p84["Inventory index / watcher連携\n完了"]
     p8["別 repository の薄い MCP-LSP adapter\n将来"]
 
     p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p8
@@ -138,8 +138,12 @@ Link/Embed、既存の Qiq/Twig template、規約で解決できる response Sch
 
 ALPS profileとSchema factsの解析結果は、件数上限付きのprocess-lifetime cacheで再利用する。
 各問い合わせで保存済みファイルを読みcontent hashを比較するため、mtimeとサイズが同じ編集も
-即座に反映する。Resource inventoryは、watcher/indexの無効化通知なしでは追加・削除・継承変更を
-正しく検出するために結局全走査が必要なので、現段階ではキャッシュしていない。
+即座に反映する。Resource inventoryはprocess-localな件数上限付きindexを共有し、Resource list、
+incoming relation、project info、Resource URI completionの重複走査を減らす。indexはLSP clientが
+標準の`workspace/didChangeWatchedFiles`を動的登録でき、Phpactorのfile eventsが有効な場合だけ使う。
+PHPファイルの追加・変更・削除通知または`textDocument/didSave`で全entryを無効化し、Composerの
+PSR-4構成はcache keyにも含める。監視非対応のheadless clientやSemantic Core単体利用では
+従来どおり毎回走査するため、性能改善のために結果のfreshnessを犠牲にしない。
 
 ## AI からの利用
 

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Suzumaze\BearPhpactor\Tests\Unit\Semantic\Resource;
 
+use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventory;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryIndex;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
@@ -112,6 +114,73 @@ JSON,
         self::assertSame(SemanticStatus::Ok, $result->status);
         self::assertInstanceOf(ResourceInventory::class, $result->value);
         self::assertSame(4, $result->value->total);
+    }
+
+    public function testStandaloneQueryDoesNotCacheWithoutAnExplicitIndex(): void
+    {
+        $query = new ResourceInventoryQuery();
+        $first = $query->listInWorkspace($this->workspace());
+        self::assertInstanceOf(ResourceInventory::class, $first->value);
+        self::assertSame(4, $first->value->total);
+
+        $this->writeResource('one/Resource/App/Added.php');
+        $second = $query->listInWorkspace($this->workspace());
+
+        self::assertInstanceOf(ResourceInventory::class, $second->value);
+        self::assertSame(5, $second->value->total);
+    }
+
+    public function testEnabledIndexIsReusedUntilExplicitInvalidation(): void
+    {
+        $index = new ResourceInventoryIndex(true);
+        $query = new ResourceInventoryQuery($index);
+        $first = $query->listInWorkspace($this->workspace());
+        self::assertInstanceOf(ResourceInventory::class, $first->value);
+        self::assertSame(4, $first->value->total);
+
+        $this->writeResource('one/Resource/App/Added.php');
+        $cached = $query->listInWorkspace($this->workspace());
+        self::assertInstanceOf(ResourceInventory::class, $cached->value);
+        self::assertSame(4, $cached->value->total);
+
+        $index->invalidate();
+        $refreshed = $query->listInWorkspace($this->workspace());
+        self::assertInstanceOf(ResourceInventory::class, $refreshed->value);
+        self::assertSame(5, $refreshed->value->total);
+    }
+
+    public function testComposerPsr4ChangesProduceANewIndexKey(): void
+    {
+        $index = new ResourceInventoryIndex(true);
+        $query = new ResourceInventoryQuery($index);
+        $first = $query->listInWorkspace($this->workspace());
+        self::assertInstanceOf(ResourceInventory::class, $first->value);
+        self::assertSame(4, $first->value->total);
+
+        self::assertNotFalse(file_put_contents(
+            $this->workspace . '/composer.json',
+            '{"autoload":{"psr-4":{"Acme\\\\One\\\\":"one/"}}}',
+        ));
+        $changed = $query->listInWorkspace($this->workspace());
+
+        self::assertInstanceOf(ResourceInventory::class, $changed->value);
+        self::assertSame(3, $changed->value->total);
+    }
+
+    public function testIndexAlsoCachesCollapsedClassesUsedByCompletion(): void
+    {
+        $project = Project::fromRoot($this->workspace);
+        self::assertInstanceOf(Project::class, $project);
+        $index = new ResourceInventoryIndex(true);
+
+        self::assertCount(3, $index->classes($project));
+        $this->writeResource('one/Resource/App/Added.php');
+        self::assertCount(3, $index->classes($project));
+
+        $index->invalidate();
+        $refreshedProject = Project::fromRoot($this->workspace);
+        self::assertInstanceOf(Project::class, $refreshedProject);
+        self::assertCount(4, $index->classes($refreshedProject));
     }
 
     private function workspace(): WorkspaceContext

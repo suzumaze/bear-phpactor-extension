@@ -9,6 +9,7 @@ use Suzumaze\BearPhpactor\Alps\AlpsDescriptorAtOffset;
 use Suzumaze\BearPhpactor\BearSundayExtension;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaConventionTypeLocator;
 use Suzumaze\BearPhpactor\LanguageServer\SemanticQueryHandler;
+use Suzumaze\BearPhpactor\LanguageServer\ResourceInventoryIndexListener;
 use Suzumaze\BearPhpactor\Resource\Completor\BodyPropertyCompletor;
 use Suzumaze\BearPhpactor\Resource\Completor\ResourceUriCompletor;
 use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceDefinitionLocator;
@@ -22,6 +23,7 @@ use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescriptionQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceIncomingRelationsQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryIndex;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFactsQuery;
@@ -102,6 +104,23 @@ final class BearSundayExtensionTest extends TestCase
         self::assertInstanceOf(
             ResourceInventoryQuery::class,
             $container->get('bear_sunday.semantic.resource_inventory_query'),
+        );
+        $index = $container->get('bear_sunday.semantic.resource_inventory_index');
+        self::assertInstanceOf(ResourceInventoryIndex::class, $index);
+        self::assertFalse($index->enabled());
+    }
+
+    public function testRegistersResourceInventoryInvalidationListener(): void
+    {
+        $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
+
+        self::assertInstanceOf(
+            ResourceInventoryIndexListener::class,
+            $container->get('bear_sunday.language_server.resource_inventory_index_listener'),
+        );
+        self::assertArrayHasKey(
+            'bear_sunday.language_server.resource_inventory_index_listener',
+            $container->getServiceIdsForTag(LanguageServerExtension::TAG_LISTENER_PROVIDER),
         );
     }
 

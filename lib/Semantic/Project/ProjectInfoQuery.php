@@ -6,6 +6,7 @@ namespace Suzumaze\BearPhpactor\Semantic\Project;
 
 use Composer\InstalledVersions;
 use Suzumaze\BearPhpactor\Config\PhpactorVersionConflictDetector;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryIndex;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 use Suzumaze\BearPhpactor\Util\PathGuard;
@@ -25,8 +26,10 @@ final class ProjectInfoQuery
     private ?array $runtimeVersions;
 
     /** @param array<string,string>|null $runtimeVersions */
-    public function __construct(?array $runtimeVersions = null)
-    {
+    public function __construct(
+        ?array $runtimeVersions = null,
+        private ?ResourceInventoryIndex $inventoryIndex = null,
+    ) {
         $this->runtimeVersions = $runtimeVersions;
     }
 
@@ -86,13 +89,17 @@ final class ProjectInfoQuery
 
         $workspaceName = basename($workspace->root());
 
+        $resourceCandidates = $this->inventoryIndex === null
+            ? $project->value->resourceClassCandidates()
+            : $this->inventoryIndex->candidates($project->value, $contextPath);
+
         return SemanticResult::ok(new ProjectInfo(
             $workspaceName === '' ? '/' : $workspaceName,
             $projectPath->value->relative === '' ? '.' : $projectPath->value->relative,
             $composerPath->value->relative,
             array_values($psr4Roots),
             $excluded,
-            count($project->value->resourceClassCandidates()),
+            count($resourceCandidates),
             self::capabilities(),
             $versions,
             $issues,

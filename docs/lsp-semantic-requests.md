@@ -132,9 +132,15 @@ Optional descriptor scalar fields are absent from the serialized response when u
 Normalized ALPS profiles and parsed Schema facts use bounded process-lifetime caches. The
 saved file is still read and content-hashed for every query, so edits with unchanged size
 and modification time cannot return stale semantic data. Parse errors are reused only while
-the file content is unchanged. Resource inventory is deliberately not cached here: without
-a filesystem watcher or Phpactor index invalidation event, detecting added, removed, or
-inheritance-changing PHP files would require a complete freshness scan anyway.
+the file content is unchanged.
+
+Resource candidate inventory uses a separate bounded process-local index only when the LSP
+client supports dynamic `workspace/didChangeWatchedFiles` registration and Phpactor file
+events are enabled. PHP create/change/delete events and `textDocument/didSave` invalidate
+the complete index; the Composer PSR-4 map is also part of each cache key. The same index is
+shared by Resource list, incoming relation, project info, and Resource URI completion paths.
+Standalone semantic callers and clients without watched-file support continue to rescan on
+every query, so they cannot receive stale inventory merely because invalidation is unavailable.
 
 Schema `kind` is `request` or `response`. Standard Hover recognizes explicit BEAR
 `JsonSchema` file arguments only; convention lookup remains on `textDocument/typeDefinition`.
@@ -159,7 +165,8 @@ Dynamic target expressions and invalid resource URIs are not guessed.
 For a Link with a dynamic explicit method, `targetMethod` is `null`; an omitted
 method uses BEAR.Resource's `get` default. Relation byte offsets refer to the saved
 PHP file. Incoming results default to 50 items and accept at most 200; the complete
-workspace Resource inventory is scanned before `total` and `truncated` are reported.
+current workspace Resource inventory is considered before `total` and `truncated`
+are reported, whether it was rebuilt or safely reused from the watched index.
 `templates` lists existing Qiq and Twig convention paths in deterministic engine
 order. `schemas` lists the convention response Schema when present and is empty when
 the Resource has no matching Schema. Request Schema inference is not guessed because

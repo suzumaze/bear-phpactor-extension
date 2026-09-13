@@ -16,6 +16,10 @@ final class ResourceInventoryQuery
     public const DEFAULT_LIMIT = 50;
     public const MAX_LIMIT = 200;
 
+    public function __construct(private ?ResourceInventoryIndex $inventoryIndex = null)
+    {
+    }
+
     /**
      * @return SemanticResult<ResourceInventory|null>
      */
@@ -36,7 +40,10 @@ final class ResourceInventoryQuery
 
         /** @var array<string,ResourceResolution> $resources */
         $resources = [];
-        foreach ($project->value->resourceClassCandidates() as $candidate) {
+        $candidates = $this->inventoryIndex === null
+            ? $project->value->resourceClassCandidates()
+            : $this->inventoryIndex->candidates($project->value);
+        foreach ($candidates as $candidate) {
             $uri = ResourceUri::fromString($candidate['uri']);
             if ($uri === null || ($scheme !== null && $uri->scheme() !== $scheme)) {
                 continue;

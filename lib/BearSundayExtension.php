@@ -9,6 +9,7 @@ use Suzumaze\BearPhpactor\Alps\AlpsDescriptorAtOffset;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaConventionTypeLocator;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaReferenceAtOffset;
 use Suzumaze\BearPhpactor\LanguageServer\BearHoverMiddleware;
+use Suzumaze\BearPhpactor\LanguageServer\ResourceInventoryIndexListener;
 use Suzumaze\BearPhpactor\LanguageServer\SemanticQueryHandler;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaDefinitionLocator;
 use Suzumaze\BearPhpactor\Resource\Completor\BodyPropertyCompletor;
@@ -29,6 +30,7 @@ use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescriptionQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceIncomingRelationsQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryIndex;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFactsQuery;
@@ -50,6 +52,7 @@ use Phpactor\Extension\LanguageServer\LanguageServerExtension;
 use Phpactor\Extension\ReferenceFinder\ReferenceFinderExtension;
 use Phpactor\Extension\WorseReflection\WorseReflectionExtension;
 use Phpactor\MapResolver\Resolver;
+use Phpactor\LanguageServerProtocol\ClientCapabilities;
 
 /**
  * BEAR.Sunday extension for phpactor.
@@ -82,9 +85,18 @@ final class BearSundayExtension implements Extension
         );
 
         $container->register(
+            'bear_sunday.semantic.resource_inventory_index',
+            function (Container $container): ResourceInventoryIndex {
+                return new ResourceInventoryIndex(self::supportsWatchedFileInvalidation($container));
+            },
+        );
+
+        $container->register(
             'bear_sunday.semantic.resource_inventory_query',
-            function (): ResourceInventoryQuery {
-                return new ResourceInventoryQuery();
+            function (Container $container): ResourceInventoryQuery {
+                return new ResourceInventoryQuery(
+                    $container->get('bear_sunday.semantic.resource_inventory_index'),
+                );
             },
         );
 
@@ -101,8 +113,19 @@ final class BearSundayExtension implements Extension
                 return new ResourceIncomingRelationsQuery(
                     $container->get('bear_sunday.semantic.resource_query'),
                     $container->get('bear_sunday.semantic.resource_facts_query'),
+                    $container->get('bear_sunday.semantic.resource_inventory_index'),
                 );
             },
+        );
+
+        $container->register(
+            'bear_sunday.language_server.resource_inventory_index_listener',
+            function (Container $container): ResourceInventoryIndexListener {
+                return new ResourceInventoryIndexListener(
+                    $container->get('bear_sunday.semantic.resource_inventory_index'),
+                );
+            },
+            [LanguageServerExtension::TAG_LISTENER_PROVIDER => []],
         );
 
         $container->register(
@@ -119,8 +142,10 @@ final class BearSundayExtension implements Extension
 
         $container->register(
             'bear_sunday.semantic.project_info_query',
-            function (): ProjectInfoQuery {
-                return new ProjectInfoQuery();
+            function (Container $container): ProjectInfoQuery {
+                return new ProjectInfoQuery(
+                    inventoryIndex: $container->get('bear_sunday.semantic.resource_inventory_index'),
+                );
             },
         );
 
@@ -147,7 +172,10 @@ final class BearSundayExtension implements Extension
         $container->register(
             'bear_sunday.resource.uri_completor',
             function (Container $container): ResourceUriCompletor {
-                return new ResourceUriCompletor($container->get('bear_sunday.resource.string_literal_at_offset'));
+                return new ResourceUriCompletor(
+                    $container->get('bear_sunday.resource.string_literal_at_offset'),
+                    $container->get('bear_sunday.semantic.resource_inventory_index'),
+                );
             },
             [
                 CompletionExtension::TAG_COMPLETOR => [
@@ -446,5 +474,28 @@ final class BearSundayExtension implements Extension
 
     public function configure(Resolver $schema): void
     {
+    }
+
+    private static function supportsWatchedFileInvalidation(Container $container): bool
+    {
+        $parameters = $container->getParameters();
+        if (($parameters[LanguageServerExtension::PARAM_FILE_EVENTS] ?? false) !== true) {
+            return false;
+        }
+        $globs = $parameters[LanguageServerExtension::PARAM_FILE_EVENT_GLOBS] ?? [];
+        if (!is_array($globs) || !in_array('**/*.php', $globs, true)) {
+            return false;
+        }
+        if (!$container->has(ClientCapabilities::class)) {
+            return false;
+        }
+
+        $capabilities = $container->get(ClientCapabilities::class);
+        $workspace = $capabilities->workspace;
+        if ($workspace === null || $workspace->didChangeWatchedFiles === null) {
+            return false;
+        }
+
+        return $workspace->didChangeWatchedFiles->dynamicRegistration === true;
     }
 }
