@@ -25,6 +25,7 @@ use Suzumaze\BearPhpactor\Alps\AlpsDescriptorAtOffset;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaReferenceAtOffset;
 use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
+use Suzumaze\BearPhpactor\Router\RouteReferenceAtOffset;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorFacts;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorRelationFact;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsFactsQuery;
@@ -33,11 +34,16 @@ use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
+use Suzumaze\BearPhpactor\Semantic\Route\RouteResolution;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFacts;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateResolution;
+use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
+use Suzumaze\BearPhpactor\Semantic\Sql\SqlResolution;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
+use Suzumaze\BearPhpactor\Sql\SqlQueryAtOffset;
 use Suzumaze\BearPhpactor\Template\TemplateReferenceScanner;
 use Throwable;
 
@@ -45,9 +51,9 @@ use Throwable;
  * Handles BEAR semantic hovers before Phpactor's single Hover handler.
  *
  * Phpactor does not currently expose a Hover provider chain. Intercepting only
- * recognized Resource URI, ALPS descriptor, explicit schema, and template
- * literals keeps
- * its built-in PHP Hover unchanged and avoids depending on extension order.
+ * recognized Resource URI, Route, SQL, ALPS descriptor, explicit schema, and
+ * template literals keeps its built-in PHP Hover unchanged and avoids depending
+ * on extension order.
  */
 final class BearHoverMiddleware implements Middleware, Handler
 {
@@ -72,6 +78,10 @@ final class BearHoverMiddleware implements Middleware, Handler
         private TemplateQuery $templateQuery = new TemplateQuery(),
         private JsonSchemaReferenceAtOffset $jsonSchemaReferenceAtOffset = new JsonSchemaReferenceAtOffset(),
         private SchemaFactsQuery $schemaFactsQuery = new SchemaFactsQuery(),
+        private SqlQueryAtOffset $sqlQueryAtOffset = new SqlQueryAtOffset(),
+        private SqlQuery $sqlQuery = new SqlQuery(),
+        private RouteReferenceAtOffset $routeReferenceAtOffset = new RouteReferenceAtOffset(),
+        private RouteQuery $routeQuery = new RouteQuery(),
     ) {
         $this->semanticWorkspace = WorkspaceContext::fromRoot($workspaceRoot);
     }
@@ -123,6 +133,16 @@ final class BearHoverMiddleware implements Middleware, Handler
                     );
                 }
 
+                $sql = ($this->sqlQueryAtOffset)($semanticDocument, $offset);
+                if ($sql !== null) {
+                    return $this->remap($request, $handler, 'sql', $semanticDocument, $source, $sql);
+                }
+
+                $route = ($this->routeReferenceAtOffset)($semanticDocument, $offset);
+                if ($route !== null) {
+                    return $this->remap($request, $handler, 'route', $semanticDocument, $source, $route);
+                }
+
                 $literal = ($this->stringLiteralAtOffset)($semanticDocument, $offset);
                 if ($literal !== null && ResourceUri::fromString($literal[1]) !== null) {
                     return $this->remap($request, $handler, 'resource', $semanticDocument, $source, $literal);
@@ -170,6 +190,8 @@ final class BearHoverMiddleware implements Middleware, Handler
                 'schema' => $schemaKind === null
                     ? null
                     : $this->schemaHover($identifier, $schemaKind, $contextPath, $range),
+                'sql' => $this->sqlHover($identifier, $contextPath, $range),
+                'route' => $this->routeHover($identifier, $contextPath, $range),
                 default => null,
             };
         } catch (Throwable) {
@@ -420,6 +442,51 @@ final class BearHoverMiddleware implements Middleware, Handler
         }
 
         return new Hover(new MarkupContent('markdown', implode("\n", $lines)), $range);
+    }
+
+    private function sqlHover(string $queryId, string $contextPath, Range $range): ?Hover
+    {
+        if ($this->semanticWorkspace->value === null) {
+            return null;
+        }
+
+        $result = $this->sqlQuery->resolveInWorkspace($this->semanticWorkspace->value, $queryId, $contextPath);
+        if ($result->status !== SemanticStatus::Ok || !$result->value instanceof SqlResolution) {
+            return null;
+        }
+
+        $sql = $result->value;
+        $markdown = implode("\n", [
+            '**BEAR SQL Query**',
+            '',
+            sprintf('Query ID: %s', $this->code($this->boundedField($sql->queryId))),
+            sprintf('Path: %s', $this->code($this->boundedField($this->relativeFile($sql->file)))),
+        ]);
+
+        return new Hover(new MarkupContent('markdown', $markdown), $range);
+    }
+
+    private function routeHover(string $routeName, string $contextPath, Range $range): ?Hover
+    {
+        if ($this->semanticWorkspace->value === null) {
+            return null;
+        }
+
+        $result = $this->routeQuery->resolveInWorkspace($this->semanticWorkspace->value, $routeName, $contextPath);
+        if ($result->status !== SemanticStatus::Ok || !$result->value instanceof RouteResolution) {
+            return null;
+        }
+
+        $route = $result->value;
+        $markdown = implode("\n", [
+            sprintf('**BEAR Route** %s', $this->code($this->boundedField($route->routeName))),
+            '',
+            sprintf('Resource URI: %s', $this->code($route->resource->uri->uri())),
+            sprintf('Class: %s', $this->code($this->boundedField($route->resource->fqn))),
+            sprintf('Path: %s', $this->code($this->boundedField($this->relativeFile($route->resource->file)))),
+        ]);
+
+        return new Hover(new MarkupContent('markdown', $markdown), $range);
     }
 
     /**

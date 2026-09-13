@@ -10,11 +10,6 @@ use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Util\PhpClassDeclaration;
-use Microsoft\PhpParser\Node\DelimitedList\ArgumentExpressionList;
-use Microsoft\PhpParser\Node\Expression\ArgumentExpression;
-use Microsoft\PhpParser\Node\Expression\CallExpression;
-use Microsoft\PhpParser\Node\Expression\MemberAccessExpression;
-use Microsoft\PhpParser\Node\QualifiedName;
 use Microsoft\PhpParser\Parser;
 use Phpactor\ReferenceFinder\DefinitionLocator;
 use Phpactor\ReferenceFinder\Exception\CouldNotLocateDefinition;
@@ -24,7 +19,6 @@ use Phpactor\ReferenceFinder\TypeLocations;
 use Phpactor\TextDocument\ByteOffset;
 use Phpactor\TextDocument\TextDocument;
 use Phpactor\WorseReflection\Core\TypeFactory;
-use Phpactor\WorseReflection\Core\Util\NodeUtil;
 
 /**
  * aura.route.php のルートパスから対応する Page リソースクラスへの定義ジャンプ。
@@ -50,24 +44,18 @@ final class RouterDefinitionLocator implements DefinitionLocator
 {
     private const ROUTE_FILE = 'aura.route.php';
 
-    /**
-     * ルート定義のメソッド名。Aura.Router の Map クラスで ($name, $path, $handler = null)
-     * という同じ引数形を持つ8つ: route と HTTP メソッド別ショートカットの
-     * get / post / put / patch / delete / head / options。第1引数はどれもルート名。
-     * attach ($namePrefix, $pathPrefix, callable $callable) は形が違い、第1引数が
-     * 名前の接頭辞であってルート名ではないため入れない。
-     */
-    private const ROUTE_METHOD_NAMES = ['route', 'get', 'post', 'put', 'patch', 'delete', 'head', 'options'];
-
     private RouteQuery $routeQuery;
+    private RouteReferenceAtOffset $routeReferenceAtOffset;
 
     public function __construct(
         private Parser $parser = new Parser(),
-        private StringLiteralAtOffset $stringLiteralAtOffset = new StringLiteralAtOffset(),
+        StringLiteralAtOffset $stringLiteralAtOffset = new StringLiteralAtOffset(),
         ResourceTargetResolver $resourceTargetResolver = new ResourceTargetResolver(),
         ?RouteQuery $routeQuery = null,
+        ?RouteReferenceAtOffset $routeReferenceAtOffset = null,
     ) {
         $this->routeQuery = $routeQuery ?? new RouteQuery($resourceTargetResolver);
+        $this->routeReferenceAtOffset = $routeReferenceAtOffset ?? new RouteReferenceAtOffset($stringLiteralAtOffset);
     }
 
     public function locateDefinition(TextDocument $document, ByteOffset $byteOffset): TypeLocations
@@ -77,10 +65,11 @@ final class RouterDefinitionLocator implements DefinitionLocator
             throw new UnsupportedDocument(sprintf('Not an Aura.Router route file: "%s"', (string) $uri));
         }
 
-        $path = $this->routePathAtOffset($document, $byteOffset);
-        if ($path === null) {
+        $reference = ($this->routeReferenceAtOffset)($document, $byteOffset->toInt());
+        if ($reference === null) {
             throw new CouldNotLocateDefinition('No route path string literal at the given offset');
         }
+        $path = $reference[1];
 
         $project = Project::locate($uri->path());
         if ($project === null) {
@@ -101,78 +90,5 @@ final class RouterDefinitionLocator implements DefinitionLocator
                 PhpClassDeclaration::location($target->file, $this->parser)
             ),
         ]);
-    }
-
-    /**
-     * カーソル位置にある文字列リテラルがルートパス ('/' 始まり) ならその内容を返す。
-     * 文字列リテラルの引き当ては共通部品 StringLiteralAtOffset に委ねる (文字列の
-     * 内側にカーソルがある場合のみ発火する)。
-     *
-     * ルートパスは $map->route(...) の第1引数 (ルート名) だけ。第2引数は HTTP の
-     * URL パターンでリソースとは無関係 ('/blogs/{blogger}' から飛ぶと
-     * Page/Blogs.php に着地してしまう)。文字列リテラルのノードから親を辿って
-     * 確かめる (SqlDefinitionLocator::queryNameFromDbQueryAttribute() と同じ形)。
-     */
-    private function routePathAtOffset(TextDocument $document, ByteOffset $byteOffset): ?string
-    {
-        $literal = $this->stringLiteralAtOffset->literal($document, $byteOffset->toInt());
-        if ($literal === null) {
-            return null;
-        }
-        $contents = $literal->getStringContentsText();
-        if (!str_starts_with($contents, '/')) {
-            return null;
-        }
-
-        $argument = $literal->getParent();
-        if (!$argument instanceof ArgumentExpression || $argument->expression !== $literal) {
-            return null;
-        }
-
-        $argumentList = $argument->getParent();
-        if (!$argumentList instanceof ArgumentExpressionList) {
-            return null;
-        }
-
-        // ルート名は第1引数。第2引数 (URLパターン) ではジャンプしない。
-        if (!isset($argumentList->children[0]) || $argumentList->children[0] !== $argument) {
-            return null;
-        }
-
-        $call = $argumentList->getParent();
-        if (!$call instanceof CallExpression || !$this->isRouteCall($call)) {
-            return null;
-        }
-
-        return $contents;
-    }
-
-    /**
-     * 呼び出し名がルート定義のメソッドであること ($map->route(...) や $map->get(...) の形。
-     * 変数名はアプリによって変わるため決め打ちしない)。メソッド連鎖
-     * ($map->route(...)->tokens([...])) の tokens 呼び出しはここで弾かれる。
-     *
-     * 受け入れる名前は ROUTE_METHOD_NAMES の8つ (Aura.Router の Map クラスで
-     * ($name, $path, $handler = null) という同じ引数形を持つ route と HTTP メソッド別
-     * ショートカット)。第1引数はどれもルート名。attach は第1引数が名前の接頭辞なので
-     * ルート名ではなく、ルートパスとして解決できない (誤って受け入れると名前の接頭辞
-     * から Page クラスへ飛んでしまう)。
-     */
-    private function isRouteCall(CallExpression $call): bool
-    {
-        $callable = $call->callableExpression;
-        if ($callable instanceof MemberAccessExpression) {
-            return in_array(
-                NodeUtil::nameFromTokenOrNode($call, $callable->memberName),
-                self::ROUTE_METHOD_NAMES,
-                true
-            );
-        }
-        if ($callable instanceof QualifiedName) {
-            // 先頭の \ は同じ名前の別表記 (完全修飾の書き方) なので落とす
-            return in_array(ltrim($callable->__toString(), '\\'), self::ROUTE_METHOD_NAMES, true);
-        }
-
-        return false;
     }
 }

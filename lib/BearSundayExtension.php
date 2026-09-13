@@ -20,6 +20,7 @@ use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceReferenceFinder;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Router\RouterDefinitionLocator;
+use Suzumaze\BearPhpactor\Router\RouteReferenceAtOffset;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsProfileQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
@@ -36,6 +37,7 @@ use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateQuery;
 use Suzumaze\BearPhpactor\Sql\SqlDefinitionLocator;
+use Suzumaze\BearPhpactor\Sql\SqlQueryAtOffset;
 use Suzumaze\BearPhpactor\Template\EmbedTemplateDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\TemplateDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\TemplateReferenceScanner;
@@ -224,6 +226,10 @@ final class BearSundayExtension implements Extension
                     $container->get('bear_sunday.semantic.template_query'),
                     $container->get('bear_sunday.json_schema.reference_at_offset'),
                     $container->get('bear_sunday.semantic.schema_facts_query'),
+                    $container->get('bear_sunday.sql.query_at_offset'),
+                    $container->get('bear_sunday.semantic.sql_query'),
+                    $container->get('bear_sunday.router.reference_at_offset'),
+                    $container->get('bear_sunday.semantic.route_query'),
                 );
             },
             [
@@ -256,23 +262,41 @@ final class BearSundayExtension implements Extension
                 $container->get('bear_sunday.semantic.resource_query'),
             );
         });
+        $container->register(
+            'bear_sunday.router.reference_at_offset',
+            function (Container $container): RouteReferenceAtOffset {
+                return new RouteReferenceAtOffset(
+                    $container->get('bear_sunday.resource.string_literal_at_offset'),
+                );
+            },
+        );
 
         // Aura.Router: aura.route.php のルート名から Page リソースクラスへの定義ジャンプ。
         $container->register(RouterDefinitionLocator::class, function (Container $container) {
             return new RouterDefinitionLocator(
                 resourceTargetResolver: $container->get('bear_sunday.resource.target_resolver'),
                 routeQuery: $container->get('bear_sunday.semantic.route_query'),
+                routeReferenceAtOffset: $container->get('bear_sunday.router.reference_at_offset'),
             );
         }, [ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => []]);
 
         $container->register('bear_sunday.semantic.sql_query', function (): SqlQuery {
             return new SqlQuery();
         });
+        $container->register(
+            'bear_sunday.sql.query_at_offset',
+            function (Container $container): SqlQueryAtOffset {
+                return new SqlQueryAtOffset(
+                    $container->get('bear_sunday.resource.string_literal_at_offset'),
+                );
+            },
+        );
 
         // SQL定義ジャンプ: #[DbQuery('...')] / @Query("...") → var/db/sql/<名前>.sql
         $container->register(SqlDefinitionLocator::class, function (Container $container): SqlDefinitionLocator {
             return new SqlDefinitionLocator(
                 sqlQuery: $container->get('bear_sunday.semantic.sql_query'),
+                sqlQueryAtOffset: $container->get('bear_sunday.sql.query_at_offset'),
             );
         }, [
             ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => [],

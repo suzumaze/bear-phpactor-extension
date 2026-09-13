@@ -537,6 +537,206 @@ final class BearHoverMiddlewareTest extends TestCase
         }
     }
 
+    public function testReturnsStandardHoverForRouteName(): void
+    {
+        $root = self::routeFixture();
+        $file = $root . '/aura.route.php';
+        $source = "<?php\n\$map->route('/index', '/index');\n";
+        [$middleware, $request] = $this->middleware($source, '/index', $file, $root);
+
+        $response = wait($middleware->process($request, $this->semanticHandler($middleware)));
+
+        self::assertInstanceOf(ResponseMessage::class, $response);
+        self::assertInstanceOf(Hover::class, $response->result);
+        self::assertInstanceOf(MarkupContent::class, $response->result->contents);
+        $markdown = $response->result->contents->value;
+        self::assertStringContainsString('**BEAR Route** `/index`', $markdown);
+        self::assertStringContainsString('Resource URI: `page://self/index`', $markdown);
+        self::assertStringContainsString('Class: `RouterFixture\\Resource\\Page\\Index`', $markdown);
+        self::assertStringContainsString('Path: `lib/Resource/Page/Index.php`', $markdown);
+
+        $start = PositionConverter::intByteOffsetToPosition((int) strpos($source, '/index'), $source);
+        $end = PositionConverter::intByteOffsetToPosition(
+            (int) strpos($source, '/index') + strlen('/index'),
+            $source,
+        );
+        self::assertEquals($start, $response->result->range->start);
+        self::assertEquals($end, $response->result->range->end);
+    }
+
+    public function testRouteMissingIsEmptyButNonTargetAndQuoteBoundaryDelegate(): void
+    {
+        $root = self::routeFixture();
+        $file = $root . '/aura.route.php';
+        $source = (string) file_get_contents($file);
+        [$missingMiddleware, $missingRequest] = $this->middleware($source, '/missing', $file, $root);
+        $missing = wait($missingMiddleware->process(
+            $missingRequest,
+            $this->semanticHandler($missingMiddleware),
+        ));
+        self::assertInstanceOf(ResponseMessage::class, $missing);
+        self::assertNull($missing->result);
+
+        foreach (['/../../Client', '/ambiguous'] as $routeName) {
+            [$emptyMiddleware, $emptyRequest] = $this->middleware($source, $routeName, $file, $root);
+            $empty = wait($emptyMiddleware->process(
+                $emptyRequest,
+                $this->semanticHandler($emptyMiddleware),
+            ));
+            self::assertInstanceOf(ResponseMessage::class, $empty);
+            self::assertNull($empty->result);
+        }
+
+        $expected = new ResponseMessage(1, new Hover('Phpactor fallback'));
+        $twoArguments = "<?php\n\$map->route('/index', '/index');\n";
+        [$secondMiddleware, $secondRequest] = $this->middleware(
+            $twoArguments,
+            "'/index');",
+            $file,
+            $root,
+        );
+        self::assertSame(
+            $expected,
+            wait($secondMiddleware->process($secondRequest, $this->fallbackHandler($expected))),
+        );
+
+        [$quoteMiddleware, $quoteRequest] = $this->middleware($twoArguments, "'/index',", $file, $root);
+        self::assertSame(
+            $expected,
+            wait($quoteMiddleware->process($quoteRequest, $this->fallbackHandler($expected))),
+        );
+    }
+
+    public function testReturnsEmptyRouteHoverOutsideWorkspace(): void
+    {
+        $root = self::routeFixture();
+        $source = "<?php\n\$map->route('/index', '/index');\n";
+        [$middleware, $request] = $this->middleware($source, '/index', '/tmp/aura.route.php', $root);
+
+        $response = wait($middleware->process($request, $this->semanticHandler($middleware)));
+
+        self::assertInstanceOf(ResponseMessage::class, $response);
+        self::assertNull($response->result);
+    }
+
+    public function testReturnsStandardHoverForSqlAttributeAndLegacyAnnotation(): void
+    {
+        $root = self::sqlFixture();
+        $attributeFile = $root . '/src/Query/PointQueryInterface.php';
+        $attributeSource = (string) file_get_contents($attributeFile);
+        [$attributeMiddleware, $attributeRequest] = $this->middleware(
+            $attributeSource,
+            'point_distance',
+            $attributeFile,
+            $root,
+        );
+        $attribute = wait($attributeMiddleware->process(
+            $attributeRequest,
+            $this->semanticHandler($attributeMiddleware),
+        ));
+
+        self::assertInstanceOf(ResponseMessage::class, $attribute);
+        self::assertInstanceOf(Hover::class, $attribute->result);
+        self::assertInstanceOf(MarkupContent::class, $attribute->result->contents);
+        self::assertStringContainsString('**BEAR SQL Query**', $attribute->result->contents->value);
+        self::assertStringContainsString('Query ID: `point_distance`', $attribute->result->contents->value);
+        self::assertStringContainsString(
+            'Path: `var/db/sql/point_distance.sql`',
+            $attribute->result->contents->value,
+        );
+
+        $legacyFile = $root . '/src/Query/LegacyPointQueryInterface.php';
+        $legacySource = (string) file_get_contents($legacyFile);
+        [$legacyMiddleware, $legacyRequest] = $this->middleware(
+            $legacySource,
+            'point_distance',
+            $legacyFile,
+            $root,
+        );
+        $legacy = wait($legacyMiddleware->process($legacyRequest, $this->semanticHandler($legacyMiddleware)));
+        self::assertInstanceOf(ResponseMessage::class, $legacy);
+        self::assertInstanceOf(Hover::class, $legacy->result);
+        self::assertStringContainsString('Query ID: `point_distance`', $legacy->result->contents->value);
+    }
+
+    public function testSqlMissingInvalidAndResourceLikeIdAreEmptyWithoutFallback(): void
+    {
+        $root = self::sqlFixture();
+        $file = $root . '/src/Query/MissingQueryInterface.php';
+        $source = (string) file_get_contents($file);
+        [$missingMiddleware, $missingRequest] = $this->middleware($source, 'missing_query', $file, $root);
+        $missing = wait($missingMiddleware->process(
+            $missingRequest,
+            $this->semanticHandler($missingMiddleware),
+        ));
+        self::assertInstanceOf(ResponseMessage::class, $missing);
+        self::assertNull($missing->result);
+
+        $escapeFile = $root . '/src/Query/EscapeQueryInterface.php';
+        $escapeSource = (string) file_get_contents($escapeFile);
+        [$escapeMiddleware, $escapeRequest] = $this->middleware($escapeSource, '../escape', $escapeFile, $root);
+        $escape = wait($escapeMiddleware->process($escapeRequest, $this->semanticHandler($escapeMiddleware)));
+        self::assertInstanceOf(ResponseMessage::class, $escape);
+        self::assertNull($escape->result);
+
+        $resourceRoot = self::fixture();
+        $resourceFile = $resourceRoot . '/src/Client.php';
+        $resourceLikeSource = "<?php\nuse Ray\\MediaQuery\\Annotation\\DbQuery;\n"
+            . "#[DbQuery('app://self/user')]\ninterface Query {}\n";
+        [$resourceMiddleware, $resourceRequest] = $this->middleware(
+            $resourceLikeSource,
+            'app://self/user',
+            $resourceFile,
+            $resourceRoot,
+        );
+        $resourceLike = wait($resourceMiddleware->process(
+            $resourceRequest,
+            $this->semanticHandler($resourceMiddleware),
+        ));
+        self::assertInstanceOf(ResponseMessage::class, $resourceLike);
+        self::assertNull($resourceLike->result);
+    }
+
+    public function testSqlNonIdAttributeAndQuoteBoundaryDelegate(): void
+    {
+        $root = self::sqlFixture();
+        $file = $root . '/src/Query/PointQueryInterface.php';
+        $source = (string) file_get_contents($file);
+        $expected = new ResponseMessage(1, new Hover('Phpactor fallback'));
+
+        [$laterMiddleware, $laterRequest] = $this->middleware($source, "'row", $file, $root);
+        self::assertSame(
+            $expected,
+            wait($laterMiddleware->process($laterRequest, $this->fallbackHandler($expected))),
+        );
+
+        [$quoteMiddleware, $quoteRequest] = $this->middleware($source, "'point_distance", $file, $root);
+        self::assertSame(
+            $expected,
+            wait($quoteMiddleware->process($quoteRequest, $this->fallbackHandler($expected))),
+        );
+
+        $namedType = "<?php\nuse Ray\\MediaQuery\\Annotation\\DbQuery;\n#[DbQuery(type: 'point_distance')]\n";
+        [$namedMiddleware, $namedRequest] = $this->middleware($namedType, 'point_distance', $file, $root);
+        self::assertSame(
+            $expected,
+            wait($namedMiddleware->process($namedRequest, $this->fallbackHandler($expected))),
+        );
+    }
+
+    public function testReturnsEmptySqlHoverOutsideWorkspace(): void
+    {
+        $root = self::sqlFixture();
+        $source = "<?php\nuse Ray\\MediaQuery\\Annotation\\DbQuery;\n"
+            . "#[DbQuery('point_distance')]\ninterface Query {}\n";
+        [$middleware, $request] = $this->middleware($source, 'point_distance', '/tmp/Query.php', $root);
+
+        $response = wait($middleware->process($request, $this->semanticHandler($middleware)));
+
+        self::assertInstanceOf(ResponseMessage::class, $response);
+        self::assertNull($response->result);
+    }
+
     /** @return array{BearHoverMiddleware,RequestMessage} */
     private function middleware(
         string $source,
@@ -618,6 +818,22 @@ final class BearHoverMiddlewareTest extends TestCase
     private static function jsonSchemaFixture(): string
     {
         $fixture = realpath(dirname(__DIR__, 2) . '/Fixture/JsonSchema/basic');
+        self::assertNotFalse($fixture);
+
+        return $fixture;
+    }
+
+    private static function routeFixture(): string
+    {
+        $fixture = realpath(dirname(__DIR__, 2) . '/Fixture/Router');
+        self::assertNotFalse($fixture);
+
+        return $fixture;
+    }
+
+    private static function sqlFixture(): string
+    {
+        $fixture = realpath(dirname(__DIR__, 2) . '/Fixture/Sql/App1');
         self::assertNotFalse($fixture);
 
         return $fixture;

@@ -430,6 +430,113 @@ final class StdioLanguageServerTest extends TestCase
         }
     }
 
+    public function testRealPhpactorStdioServerProvidesRouteHover(): void
+    {
+        $fixture = dirname(__DIR__) . '/Fixture/Router';
+        $routeFile = $fixture . '/aura.route.php';
+        $source = "<?php\n\$map->route('/index', '/index');\n";
+        $client = StdioLspClient::start(
+            $this->command($fixture),
+            $fixture,
+            $this->environment(),
+        );
+
+        try {
+            $initialize = $client->request('initialize', [
+                'processId' => getmypid(),
+                'rootUri' => $this->fileUri($fixture),
+                'capabilities' => (object) [],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $initialize, $client->stderr());
+            self::assertTrue($initialize['result']['capabilities']['hoverProvider'] ?? false);
+            $client->notify('initialized');
+
+            $client->notify('textDocument/didOpen', [
+                'textDocument' => [
+                    'uri' => $this->fileUri($routeFile),
+                    'languageId' => 'php',
+                    'version' => 1,
+                    'text' => $source,
+                ],
+            ]);
+
+            $hover = $client->request('textDocument/hover', [
+                'textDocument' => ['uri' => $this->fileUri($routeFile)],
+                'position' => $this->positionOf('/index', $source),
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $hover, $client->stderr());
+            self::assertSame('markdown', $hover['result']['contents']['kind'] ?? null);
+            self::assertStringContainsString(
+                '**BEAR Route** `/index`',
+                $hover['result']['contents']['value'] ?? '',
+            );
+            self::assertStringContainsString(
+                'Path: `lib/Resource/Page/Index.php`',
+                $hover['result']['contents']['value'] ?? '',
+            );
+
+            $shutdown = $client->request('shutdown', [], 10.0);
+            self::assertArrayNotHasKey('error', $shutdown, $client->stderr());
+            $client->notify('exit');
+        } finally {
+            $client->close();
+        }
+    }
+
+    public function testRealPhpactorStdioServerProvidesSqlHover(): void
+    {
+        $fixture = dirname(__DIR__) . '/Fixture/Sql/App1';
+        $queryFile = $fixture . '/src/Query/PointQueryInterface.php';
+        $source = "<?php\nuse Ray\\MediaQuery\\Annotation\\DbQuery;\n"
+            . "#[DbQuery('point_distance')]\ninterface Query {}\n";
+        $client = StdioLspClient::start(
+            $this->command($fixture),
+            $fixture,
+            $this->environment(),
+        );
+
+        try {
+            $initialize = $client->request('initialize', [
+                'processId' => getmypid(),
+                'rootUri' => $this->fileUri($fixture),
+                'capabilities' => (object) [],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $initialize, $client->stderr());
+            self::assertTrue($initialize['result']['capabilities']['hoverProvider'] ?? false);
+            $client->notify('initialized');
+
+            $client->notify('textDocument/didOpen', [
+                'textDocument' => [
+                    'uri' => $this->fileUri($queryFile),
+                    'languageId' => 'php',
+                    'version' => 1,
+                    'text' => $source,
+                ],
+            ]);
+
+            $hover = $client->request('textDocument/hover', [
+                'textDocument' => ['uri' => $this->fileUri($queryFile)],
+                'position' => $this->positionOf('point_distance', $source),
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $hover, $client->stderr());
+            self::assertSame('markdown', $hover['result']['contents']['kind'] ?? null);
+            self::assertStringContainsString(
+                'Query ID: `point_distance`',
+                $hover['result']['contents']['value'] ?? '',
+            );
+            self::assertStringContainsString(
+                'Path: `var/db/sql/point_distance.sql`',
+                $hover['result']['contents']['value'] ?? '',
+            );
+
+            $shutdown = $client->request('shutdown', [], 10.0);
+            self::assertArrayNotHasKey('error', $shutdown, $client->stderr());
+            $client->notify('exit');
+        } finally {
+            $client->close();
+        }
+    }
+
     public function testRealPhpactorStdioServerProvidesTwigAndQiqTemplateHover(): void
     {
         $fixture = dirname(__DIR__) . '/Fixture/Template';

@@ -123,6 +123,18 @@ final class SqlDefinitionLocatorTest extends TestCase
         self::assertNull($location);
     }
 
+    public function testNoLocationWhenFirstWrittenArgumentIsNamedType(): void
+    {
+        // DbQueryの実際のID引数はid。x.sqlが実在しても先頭に書かれたtype:をID扱いしない。
+        $location = $this->requestDefinition(
+            'src/Query/NamedTypeOnlyQueryInterface.php',
+            "'x'",
+            1,
+        );
+
+        self::assertNull($location);
+    }
+
     public function testNoLocationWhenFullyQualifiedNameIsForeignNamespace(): void
     {
         // 先頭バックスラッシュ付きでも \Foo\Bar\DbQuery は別物なので飛ばない

@@ -16,6 +16,22 @@ A valid but unresolved or unsafe Resource URI returns an empty Hover instead of 
 generic PHP string description. This is implemented as a narrow middleware because
 the supported Phpactor version exposes one Hover handler rather than a provider chain.
 
+In `aura.route.php`, the first static string argument of Aura.Router `route`, `get`,
+`post`, `put`, `patch`, `delete`, `head`, and `options` calls (or their named `name:`
+argument) returns standard Hover
+with the route name and resolved Page Resource URI, class, and workspace-relative
+path. HTTP path arguments, `attach`, dynamic expressions, and quote boundaries
+continue to Phpactor. A recognized route whose Resource is missing, ambiguous,
+invalid, or unsafe returns an empty Hover without guessing from the HTTP path.
+
+Static Ray.MediaQuery `DbQuery` IDs and legacy Ray.QueryModule `@Query("id")`
+docblock IDs return standard Hover with the query ID and resolved
+workspace-relative SQL path. Attribute recognition follows the actual ID argument:
+the first positional argument or `id:`; `type:`, `factory:`, later arguments,
+dynamic expressions, foreign attributes, and quote boundaries continue to Phpactor.
+SQL contents are never included. A recognized missing, invalid, or unsafe query ID
+returns an empty Hover without trying another convention.
+
 The same standard Hover method recognizes only the first string argument of
 `#[Alps('descriptorId')]` (including the supported fully-qualified spellings). It
 returns the workspace-relative profile, bounded descriptor fields, and up to 20
@@ -33,8 +49,8 @@ must use the `qiq` language ID or live below `var/qiq/template`. Dynamic express
 Twig block names, comments, and quote boundaries continue to Phpactor. A recognized
 static reference that is missing, invalid, or unsafe returns an empty Hover without
 guessing another target. For PHP-associated template documents, ALPS, explicit Schema,
-and Resource URI semantics are checked first so existing BEAR Hover behavior remains
-unchanged.
+SQL, Route, and Resource URI semantics are checked first so existing BEAR Hover
+behavior remains unchanged.
 
 Explicit BEAR `#[JsonSchema(...)]` file references return standard Hover with the
 request/response kind, resolved workspace-relative path, top-level types, and up to
@@ -52,7 +68,10 @@ Hover provider chain. The BEAR middleware therefore performs only syntactic
 recognition there and remaps a recognized request to a registered internal handler;
 semantic querying and response creation still pass through Phpactor's lifecycle
 middleware. Recognition itself is consequently outside cancellation and trace timing.
-This shim should move to an upstream Hover provider chain when Phpactor exposes one.
+For PHP documents the deterministic recognition order is ALPS, explicit Schema, SQL,
+Route, Resource URI, then Template; context-specific attributes and route declarations
+therefore cannot be misclassified as generic string semantics. This shim should move
+to an upstream Hover provider chain when Phpactor exposes one.
 
 All paths supplied by a caller are relative to the workspace root. Successful paths
 in responses are also workspace-relative. Every response has this envelope:
