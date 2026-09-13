@@ -36,10 +36,12 @@ use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
+use Suzumaze\BearPhpactor\Semantic\Sql\SqlReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateQuery;
 use Suzumaze\BearPhpactor\Sql\SqlDefinitionLocator;
 use Suzumaze\BearPhpactor\Sql\SqlQueryAtOffset;
+use Suzumaze\BearPhpactor\Sql\SqlReferenceFinder;
 use Suzumaze\BearPhpactor\Template\EmbedTemplateDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\TemplateDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\TemplateReferenceScanner;
@@ -319,6 +321,15 @@ final class BearSundayExtension implements Extension
                 );
             },
         );
+        $container->register(
+            'bear_sunday.semantic.sql_references_query',
+            function (Container $container): SqlReferencesQuery {
+                return new SqlReferencesQuery(
+                    $container->get('bear_sunday.semantic.sql_query'),
+                    $container->get('bear_sunday.sql.query_at_offset'),
+                );
+            },
+        );
 
         // SQL定義ジャンプ: #[DbQuery('...')] / @Query("...") → var/db/sql/<名前>.sql
         $container->register(SqlDefinitionLocator::class, function (Container $container): SqlDefinitionLocator {
@@ -329,6 +340,22 @@ final class BearSundayExtension implements Extension
         }, [
             ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => [],
         ]);
+
+        // SQL参照検索: 同じ実在SQLファイルへ解決する DbQuery / @Query を列挙する。
+        // false で鎖を続け、Phpactor組込みの参照検索を妨げない。
+        $container->register(
+            'bear_sunday.sql.reference_finder',
+            function (Container $container): SqlReferenceFinder {
+                $pathResolver = $container->get(FilePathResolverExtension::SERVICE_FILE_PATH_RESOLVER);
+
+                return new SqlReferenceFinder(
+                    $container->get('bear_sunday.sql.query_at_offset'),
+                    $container->get('bear_sunday.semantic.sql_references_query'),
+                    $pathResolver->resolve('%project_root%'),
+                );
+            },
+            [ReferenceFinderExtension::TAG_REFERENCE_FINDER => []],
+        );
 
         $container->register('bear_sunday.semantic.schema_query', function (Container $container): SchemaQuery {
             return new SchemaQuery(

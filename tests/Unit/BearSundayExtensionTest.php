@@ -29,6 +29,8 @@ use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
+use Suzumaze\BearPhpactor\Semantic\Sql\SqlReferencesQuery;
+use Suzumaze\BearPhpactor\Sql\SqlReferenceFinder;
 use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateQuery;
 use Suzumaze\BearPhpactor\Template\EmbedTemplateDefinitionLocator;
@@ -166,6 +168,10 @@ final class BearSundayExtensionTest extends TestCase
         $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
 
         self::assertInstanceOf(SqlQuery::class, $container->get('bear_sunday.semantic.sql_query'));
+        self::assertInstanceOf(
+            SqlReferencesQuery::class,
+            $container->get('bear_sunday.semantic.sql_references_query'),
+        );
     }
 
     public function testRegistersTransportIndependentSchemaQuery(): void
@@ -228,12 +234,21 @@ final class BearSundayExtensionTest extends TestCase
 
     public function testRegistersReferenceFinderWithTag(): void
     {
-        $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
+        $container = PhpactorContainer::fromExtensions([
+            BearSundayExtension::class,
+            FilePathResolverExtension::class,
+            LoggingExtension::class,
+        ]);
 
         $finder = $container->get('bear_sunday.resource.reference_finder');
         self::assertInstanceOf(ResourceReferenceFinder::class, $finder);
         self::assertArrayHasKey(
             'bear_sunday.resource.reference_finder',
+            $container->getServiceIdsForTag(ReferenceFinderExtension::TAG_REFERENCE_FINDER),
+        );
+        self::assertInstanceOf(SqlReferenceFinder::class, $container->get('bear_sunday.sql.reference_finder'));
+        self::assertArrayHasKey(
+            'bear_sunday.sql.reference_finder',
             $container->getServiceIdsForTag(ReferenceFinderExtension::TAG_REFERENCE_FINDER),
         );
     }

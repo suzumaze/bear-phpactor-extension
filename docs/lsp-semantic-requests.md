@@ -38,6 +38,14 @@ dynamic expressions, foreign attributes, and quote boundaries continue to Phpact
 SQL contents are never included. A recognized missing, invalid, or unsafe query ID
 returns an empty Hover without trying another convention.
 
+Standard `textDocument/references` at the same static SQL ID returns `DbQuery` and
+legacy `@Query` sites only when the ID resolves to an existing SQL file. Equal strings,
+foreign attributes, non-ID arguments, dynamic expressions, and IDs without a SQL file
+are not references. Scanning is restricted to canonical PSR-4 roots inside the workspace,
+with each PHP input limited to 1 MiB and results ordered deterministically. With
+`includeDeclaration: true`, the existing Definition locator also supplies the SQL file
+as the declaration location.
+
 The same standard Hover method recognizes only the first string argument of
 `#[Alps('descriptorId')]` (including the supported fully-qualified spellings). It
 returns the workspace-relative profile, bounded descriptor fields, and up to 20

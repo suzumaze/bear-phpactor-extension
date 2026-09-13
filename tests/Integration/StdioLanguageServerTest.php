@@ -163,6 +163,65 @@ final class StdioLanguageServerTest extends TestCase
         }
     }
 
+    public function testRealPhpactorStdioFindsSqlReferencesFromDbQueryId(): void
+    {
+        $fixture = dirname(__DIR__) . '/Fixture/Sql/App1';
+        $queryFile = $fixture . '/src/Query/PointQueryInterface.php';
+        $source = (string) file_get_contents($queryFile);
+        $client = StdioLspClient::start(
+            $this->command($fixture),
+            $fixture,
+            $this->environment(),
+        );
+
+        try {
+            $initialize = $client->request('initialize', [
+                'processId' => getmypid(),
+                'rootUri' => $this->fileUri($fixture),
+                'capabilities' => (object) [],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $initialize, $client->stderr());
+            self::assertTrue($initialize['result']['capabilities']['referencesProvider'] ?? false);
+            $client->notify('initialized');
+            $client->notify('textDocument/didOpen', [
+                'textDocument' => [
+                    'uri' => $this->fileUri($queryFile),
+                    'languageId' => 'php',
+                    'version' => 1,
+                    'text' => $source,
+                ],
+            ]);
+
+            $references = $client->request('textDocument/references', [
+                'textDocument' => ['uri' => $this->fileUri($queryFile)],
+                'position' => $this->positionOf('point_distance', $source),
+                'context' => ['includeDeclaration' => false],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $references, $client->stderr());
+            self::assertSame([
+                $this->fileUri($fixture . '/src/Query/LegacyPointQueryInterface.php'),
+                $this->fileUri($queryFile),
+            ], array_column($references['result'] ?? [], 'uri'));
+
+            $withDeclaration = $client->request('textDocument/references', [
+                'textDocument' => ['uri' => $this->fileUri($queryFile)],
+                'position' => $this->positionOf('point_distance', $source),
+                'context' => ['includeDeclaration' => true],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $withDeclaration, $client->stderr());
+            self::assertContains(
+                $this->fileUri($fixture . '/var/db/sql/point_distance.sql'),
+                array_column($withDeclaration['result'] ?? [], 'uri'),
+            );
+
+            $shutdown = $client->request('shutdown', [], 10.0);
+            self::assertArrayNotHasKey('error', $shutdown, $client->stderr());
+            $client->notify('exit');
+        } finally {
+            $client->close();
+        }
+    }
+
     public function testRealPhpactorStdioServerLoadsExtensionAndResolvesResourceDefinition(): void
     {
         $fixture = self::fixtureDir();

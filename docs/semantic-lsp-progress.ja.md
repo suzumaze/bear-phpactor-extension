@@ -49,9 +49,10 @@ flowchart TD
     p83["Route / SQL Hover\n完了"]
     p84["Inventory index / watcher連携\n完了"]
     p85["Route → Page Resource References\n完了"]
+    p86["SQL ID References\n完了"]
     p8["別 repository の薄い MCP-LSP adapter\n将来"]
 
-    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p8
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p86 --> p8
 ```
 
 ## 現在利用できる入口
@@ -60,7 +61,7 @@ flowchart TD
 
 - `textDocument/definition`: Resource URI、Route、SQL、ALPS、Template、明示 Schema
 - `textDocument/typeDefinition`: Resource 規約の response Schema
-- `textDocument/references`: Resource URI・Resourceクラス・Route名から、同じResourceの参照元
+- `textDocument/references`: Resource URI・Resourceクラス・Route名から同じResourceの参照元、およびSQL IDから同じSQLファイルの参照元
 - `textDocument/hover`: Resource URI の facts、Route、SQL、ALPS descriptor の fields と明示関係、静的 Template 参照、明示 JSON Schema の構造
 - `textDocument/completion`: Resource URI と body Schema property
 - `textDocument/documentLink`: Resource URI と Template 参照
@@ -104,6 +105,12 @@ SQL Hover は Ray.MediaQuery の `DbQuery` 属性にある第1位置引数また
 docblock形式 `@Query("id")` の静的IDだけを対象にし、query IDとworkspace相対SQL pathを返す。
 SQL本文は返さない。`type:`・`factory:`・後続引数・動的式・別FQN属性・クォート上はPhpactorへ委譲し、
 認識済みIDが未解決・不正・workspace外なら空結果にする。
+
+同じ静的SQL IDからのReferencesは、実在するSQLファイルへ一意に解決できる場合だけ、PSR-4 source root内の
+`DbQuery`とlegacy `@Query`を列挙する。単なる同名文字列、別FQN属性、非ID引数、動的式、SQLファイルが
+欠落したIDは参照と見なさない。走査先はcanonical workspace内に制限し、各PHP入力を1 MiBに制限する。
+結果はファイルpathとbyte rangeで決定的に整列し、`includeDeclaration: true`なら既存Definitionを通じて
+対応SQLファイルも標準LSPの宣言Locationとして得られる。
 
 対応中の Phpactor には Hover provider chain がなく、拡張 middleware は標準の trace・
 shutdown・cancellation middleware より前に実行される。そのため前段では構文上の認識だけを

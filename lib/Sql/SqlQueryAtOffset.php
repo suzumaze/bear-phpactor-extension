@@ -8,6 +8,8 @@ use Microsoft\PhpParser\Node\Attribute;
 use Microsoft\PhpParser\Node\DelimitedList\ArgumentExpressionList;
 use Microsoft\PhpParser\Node\Expression\ArgumentExpression;
 use Microsoft\PhpParser\Node\QualifiedName;
+use Microsoft\PhpParser\Node\StringLiteral;
+use Microsoft\PhpParser\Parser;
 use Microsoft\PhpParser\PhpTokenizer;
 use Microsoft\PhpParser\Token;
 use Microsoft\PhpParser\TokenKind;
@@ -25,6 +27,7 @@ final class SqlQueryAtOffset
 
     public function __construct(
         private StringLiteralAtOffset $stringLiteralAtOffset = new StringLiteralAtOffset(),
+        private Parser $parser = new Parser(),
     ) {
     }
 
@@ -50,11 +53,78 @@ final class SqlQueryAtOffset
         return $this->fromQueryAnnotation($text, $byteOffset);
     }
 
+    /**
+     * Return every statically identifiable SQL query ID in source order.
+     *
+     * @return list<array{int,string,int}>
+     */
+    public function references(TextDocument $document): array
+    {
+        if (!$document->language()->isPhp()) {
+            return [];
+        }
+
+        $text = $document->__toString();
+        if (!str_contains($text, self::DB_QUERY_SHORT_NAME) && !str_contains($text, '@Query')) {
+            return [];
+        }
+
+        $references = [];
+        if (str_contains($text, self::DB_QUERY_SHORT_NAME)) {
+            $root = $this->parser->parseSourceFile($text, $document->uri()?->__toString());
+            foreach ($root->getDescendantNodes() as $node) {
+                if (!$node instanceof StringLiteral) {
+                    continue;
+                }
+
+                $reference = $this->referenceFromDbQueryLiteral(
+                    $document,
+                    $node,
+                    $node->getStartPosition() + 1,
+                );
+                if ($reference !== null) {
+                    $references[] = $reference;
+                }
+            }
+        }
+
+        if (str_contains($text, '@Query')) {
+            array_push($references, ...$this->queryAnnotationReferences($text));
+        }
+
+        usort(
+            $references,
+            static fn (array $left, array $right): int => $left <=> $right,
+        );
+
+        $unique = [];
+        foreach ($references as $reference) {
+            $unique[$reference[0] . ':' . $reference[2] . ':' . $reference[1]] = $reference;
+        }
+
+        return array_values($unique);
+    }
+
     /** @return array{int,string,int}|null */
     private function fromDbQueryAttribute(TextDocument $document, int $byteOffset): ?array
     {
         $literal = $this->stringLiteralAtOffset->literal($document, $byteOffset);
         if ($literal === null) {
+            return null;
+        }
+
+        return $this->referenceFromDbQueryLiteral($document, $literal, $byteOffset);
+    }
+
+    /** @return array{int,string,int}|null */
+    private function referenceFromDbQueryLiteral(
+        TextDocument $document,
+        StringLiteral $literal,
+        int $byteOffset,
+    ): ?array {
+        $text = $document->__toString();
+        $opening = substr($text, $literal->getStartPosition(), 1);
+        if ($opening !== "'" && $opening !== '"') {
             return null;
         }
 
@@ -75,7 +145,7 @@ final class SqlQueryAtOffset
         }
 
         if ($argument->name instanceof Token) {
-            if ($argument->name->getText($document->__toString()) !== 'id') {
+            if ($argument->name->getText($text) !== 'id') {
                 return null;
             }
         } elseif (!isset($argumentList->children[0]) || $argumentList->children[0] !== $argument) {
@@ -109,6 +179,19 @@ final class SqlQueryAtOffset
     /** @return array{int,string,int}|null */
     private function fromQueryAnnotation(string $text, int $byteOffset): ?array
     {
+        foreach ($this->queryAnnotationReferences($text) as $reference) {
+            if ($byteOffset >= $reference[0] && $byteOffset < $reference[2]) {
+                return $reference;
+            }
+        }
+
+        return null;
+    }
+
+    /** @return list<array{int,string,int}> */
+    private function queryAnnotationReferences(string $text): array
+    {
+        $references = [];
         foreach (PhpTokenizer::getTokensArrayFromContent($text, null, 0, false) as $token) {
             if ($token->kind !== TokenKind::DocCommentToken) {
                 continue;
@@ -119,27 +202,19 @@ final class SqlQueryAtOffset
                 continue;
             }
 
-            $commentEnd = $token->start + strlen($comment);
-            if ($byteOffset < $token->start || $byteOffset >= $commentEnd) {
-                continue;
-            }
-
-            $reference = $this->fromDocComment($comment, $token->start, $byteOffset);
-            if ($reference !== null) {
-                return $reference;
-            }
+            array_push($references, ...$this->referencesFromDocComment($comment, $token->start));
         }
 
-        return null;
+        return $references;
     }
 
     /**
-     * @return array{int,string,int}|null
+     * @return list<array{int,string,int}>
      */
-    private function fromDocComment(string $comment, int $commentOffset, int $byteOffset): ?array
+    private function referencesFromDocComment(string $comment, int $commentOffset): array
     {
         if (!str_starts_with($comment, '/**')) {
-            return null;
+            return [];
         }
 
         if (
@@ -150,17 +225,16 @@ final class SqlQueryAtOffset
                 PREG_OFFSET_CAPTURE,
             ) === false
         ) {
-            return null;
+            return [];
         }
 
+        $references = [];
         foreach ($matches['name'] as [$name, $relativeOffset]) {
             $start = $commentOffset + $relativeOffset;
             $end = $start + strlen($name);
-            if ($byteOffset >= $start && $byteOffset < $end) {
-                return [$start, $name, $end];
-            }
+            $references[] = [$start, $name, $end];
         }
 
-        return null;
+        return $references;
     }
 }

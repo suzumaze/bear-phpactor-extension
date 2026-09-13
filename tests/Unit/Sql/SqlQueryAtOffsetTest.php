@@ -94,4 +94,52 @@ PHP;
         self::assertNull($detector($document, (int) strpos($source, 'comment_query')));
         self::assertNull($detector($document, (int) strpos($source, 'string_query')));
     }
+
+    public function testListsOnlyStaticSqlReferencesInSourceOrder(): void
+    {
+        $source = <<<'PHP'
+<?php
+use Ray\MediaQuery\Annotation\DbQuery as MediaQuery;
+use Foo\DbQuery;
+/** @Query("legacy_first") */
+interface FirstQuery {}
+#[MediaQuery(id: 'attribute_second', type: 'row')]
+interface SecondQuery {}
+#[DbQuery('foreign')]
+interface ForeignQuery {}
+#[MediaQuery(type: 'not_an_id')]
+interface TypeOnlyQuery {}
+#[MediaQuery(self::QUERY_ID)]
+interface DynamicQuery {}
+// @Query("ordinary_comment")
+$value = '@Query("ordinary_string")';
+PHP;
+        $document = TextDocumentBuilder::create($source)->language('php')->build();
+
+        $actual = (new SqlQueryAtOffset())->references($document);
+
+        $legacyStart = (int) strpos($source, 'legacy_first');
+        $attributeStart = (int) strpos($source, 'attribute_second');
+        self::assertSame([
+            [$legacyStart, 'legacy_first', $legacyStart + strlen('legacy_first')],
+            [$attributeStart, 'attribute_second', $attributeStart + strlen('attribute_second')],
+        ], $actual);
+    }
+
+    public function testListsEveryLegacyReferenceInOneDocblockWithoutDuplicates(): void
+    {
+        $source = <<<'PHP'
+<?php
+/**
+ * @Query('first_query')
+ * @Query("second_query")
+ */
+interface Query {}
+PHP;
+        $document = TextDocumentBuilder::create($source)->language('php')->build();
+
+        $actual = (new SqlQueryAtOffset())->references($document);
+
+        self::assertSame(['first_query', 'second_query'], array_column($actual, 1));
+    }
 }
