@@ -37,6 +37,7 @@ use Suzumaze\BearPhpactor\Semantic\Template\TemplateQuery;
 use Suzumaze\BearPhpactor\Sql\SqlDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\EmbedTemplateDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\TemplateDefinitionLocator;
+use Suzumaze\BearPhpactor\Template\TemplateReferenceScanner;
 use Phpactor\Container\Container;
 use Phpactor\Container\ContainerBuilder;
 use Phpactor\Container\Extension;
@@ -218,6 +219,8 @@ final class BearSundayExtension implements Extension
                     $container->get('bear_sunday.semantic.resource_facts_query'),
                     $container->get('bear_sunday.alps.descriptor_at_offset'),
                     $container->get('bear_sunday.semantic.alps_facts_query'),
+                    $container->get('bear_sunday.template.reference_scanner'),
+                    $container->get('bear_sunday.semantic.template_query'),
                 );
             },
             [
@@ -230,10 +233,18 @@ final class BearSundayExtension implements Extension
             TemplateDefinitionLocator::class,
             function (Container $container): TemplateDefinitionLocator {
                 return new TemplateDefinitionLocator(
+                    scanner: $container->get('bear_sunday.template.reference_scanner'),
                     query: $container->get('bear_sunday.semantic.template_query'),
                 );
             },
             [ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => []]
+        );
+
+        $container->register(
+            'bear_sunday.template.reference_scanner',
+            function (): TemplateReferenceScanner {
+                return new TemplateReferenceScanner();
+            },
         );
 
         $container->register('bear_sunday.semantic.route_query', function (Container $container): RouteQuery {

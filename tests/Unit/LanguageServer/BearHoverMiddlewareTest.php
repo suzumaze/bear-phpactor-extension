@@ -148,6 +148,185 @@ final class BearHoverMiddlewareTest extends TestCase
         self::assertNull($response->result);
     }
 
+    public function testReturnsStandardHoverForTwigTemplateReference(): void
+    {
+        $root = self::templateFixture();
+        $file = $root . '/src/Resource/Page/TwigReferences.html.twig';
+        $source = (string) file_get_contents($file);
+        [$middleware, $request] = $this->middleware(
+            $source,
+            'element/component/card.html.twig',
+            $file,
+            $root,
+            'twig',
+        );
+
+        $response = wait($middleware->process($request, $this->semanticHandler($middleware)));
+
+        self::assertInstanceOf(ResponseMessage::class, $response);
+        self::assertInstanceOf(Hover::class, $response->result);
+        self::assertInstanceOf(MarkupContent::class, $response->result->contents);
+        $markdown = $response->result->contents->value;
+        self::assertStringContainsString('**BEAR Template**', $markdown);
+        self::assertStringContainsString('Engine: `twig`', $markdown);
+        self::assertStringContainsString('Name: `element/component/card.html.twig`', $markdown);
+        self::assertStringContainsString('Path: `var/templates/element/component/card.html.twig`', $markdown);
+
+        $start = PositionConverter::intByteOffsetToPosition(
+            (int) strpos($source, 'element/component/card.html.twig'),
+            $source,
+        );
+        $end = PositionConverter::intByteOffsetToPosition(
+            (int) strpos($source, 'element/component/card.html.twig')
+                + strlen('element/component/card.html.twig'),
+            $source,
+        );
+        self::assertEquals($start, $response->result->range->start);
+        self::assertEquals($end, $response->result->range->end);
+    }
+
+    public function testReturnsTwigHoverWhenClientAssociatesTwigWithPhp(): void
+    {
+        $root = self::templateFixture();
+        $file = $root . '/src/Resource/Page/TwigReferences.html.twig';
+        $source = (string) file_get_contents($file);
+        [$middleware, $request] = $this->middleware(
+            $source,
+            'element/component/structured_data.html.twig',
+            $file,
+            $root,
+        );
+
+        $response = wait($middleware->process($request, $this->semanticHandler($middleware)));
+
+        self::assertInstanceOf(ResponseMessage::class, $response);
+        self::assertInstanceOf(Hover::class, $response->result);
+        self::assertStringContainsString('Engine: `twig`', $response->result->contents->value);
+    }
+
+    public function testReturnsStandardHoverForRelativeQiqTemplateReference(): void
+    {
+        $root = self::templateFixture();
+        $file = $root . '/var/qiq/template/Page/Nested/RelativeReferences.php';
+        $source = (string) file_get_contents($file);
+        [$middleware, $request] = $this->middleware($source, './sibling', $file, $root, 'qiq');
+
+        $response = wait($middleware->process($request, $this->semanticHandler($middleware)));
+
+        self::assertInstanceOf(ResponseMessage::class, $response);
+        self::assertInstanceOf(Hover::class, $response->result);
+        $markdown = $response->result->contents->value;
+        self::assertStringContainsString('Engine: `qiq`', $markdown);
+        self::assertStringContainsString('Name: `./sibling`', $markdown);
+        self::assertStringContainsString('Path: `var/qiq/template/Page/Nested/sibling.php`', $markdown);
+    }
+
+    public function testReturnsQiqHoverWhenCanonicalTemplateIsAssociatedWithPhp(): void
+    {
+        $root = self::templateFixture();
+        $file = $root . '/var/qiq/template/Page/QiqReferences.php';
+        $source = (string) file_get_contents($file);
+        [$middleware, $request] = $this->middleware($source, 'layout/base', $file, $root);
+
+        $response = wait($middleware->process($request, $this->semanticHandler($middleware)));
+
+        self::assertInstanceOf(ResponseMessage::class, $response);
+        self::assertInstanceOf(Hover::class, $response->result);
+        $markdown = $response->result->contents->value;
+        self::assertStringContainsString('Engine: `qiq`', $markdown);
+        self::assertStringContainsString('Name: `layout/base`', $markdown);
+        self::assertStringContainsString('Path: `var/qiq/template/layout/base.php`', $markdown);
+    }
+
+    public function testReturnsEmptyHoverForUnresolvedStaticTemplateWithoutPhpactorFallback(): void
+    {
+        $root = self::templateFixture();
+        $file = $root . '/src/Resource/Page/TwigReferences.html.twig';
+        $source = "{{ include('missing/static.html.twig') }}\n";
+        [$middleware, $request] = $this->middleware(
+            $source,
+            'missing/static.html.twig',
+            $file,
+            $root,
+            'twig',
+        );
+
+        $response = wait($middleware->process($request, $this->semanticHandler($middleware)));
+
+        self::assertInstanceOf(ResponseMessage::class, $response);
+        self::assertNull($response->result);
+    }
+
+    public function testDelegatesDynamicTemplateReferenceToPhpactorMiddlewareStack(): void
+    {
+        $root = self::templateFixture();
+        $file = $root . '/src/Resource/Page/TwigReferences.html.twig';
+        $source = "{{ include(dynamic_template) }}\n";
+        [$middleware, $request] = $this->middleware($source, 'dynamic_template', $file, $root, 'twig');
+        $expected = new ResponseMessage(1, new Hover('Phpactor fallback'));
+
+        self::assertSame($expected, wait($middleware->process($request, $this->fallbackHandler($expected))));
+    }
+
+    public function testDoesNotTreatQiqLookingTagInOrdinaryPhpFileAsTemplateHover(): void
+    {
+        $root = self::templateFixture();
+        $file = $root . '/src/PlainPhp.php';
+        $source = "<?php\n\$text = \"{{= render('partial/card') }}\";\n";
+        [$middleware, $request] = $this->middleware($source, 'partial/card', $file, $root);
+        $expected = new ResponseMessage(1, new Hover('Phpactor fallback'));
+
+        self::assertSame($expected, wait($middleware->process($request, $this->fallbackHandler($expected))));
+    }
+
+    public function testDelegatesTemplateQuoteBoundaryToPhpactorMiddlewareStack(): void
+    {
+        $root = self::templateFixture();
+        $file = $root . '/src/Resource/Page/TwigReferences.html.twig';
+        $source = "{{ include('element/component/card.html.twig') }}\n";
+        [$middleware, $request] = $this->middleware($source, "'element", $file, $root, 'twig');
+        $expected = new ResponseMessage(1, new Hover('Phpactor fallback'));
+
+        self::assertSame($expected, wait($middleware->process($request, $this->fallbackHandler($expected))));
+    }
+
+    public function testResourceUriTakesPrecedenceInPhpAssociatedQiqDocument(): void
+    {
+        $root = self::templateResourceFixture();
+        $file = $root . '/var/qiq/template/App/User.php';
+        $source = "<?php uri('app://self/user'); ?>\n{{= render('partial/card') }}\n";
+        [$middleware, $request] = $this->middleware($source, 'app://self/user', $file, $root);
+
+        $response = wait($middleware->process($request, $this->semanticHandler($middleware)));
+
+        self::assertInstanceOf(ResponseMessage::class, $response);
+        self::assertInstanceOf(Hover::class, $response->result);
+        self::assertStringContainsString(
+            '**BEAR Resource** `app://self/user`',
+            $response->result->contents->value,
+        );
+    }
+
+    public function testReturnsEmptyTemplateHoverWhenOpenDocumentIsOutsideSemanticWorkspace(): void
+    {
+        $root = self::templateFixture();
+        $outsideFile = realpath(dirname(__DIR__, 3) . '/composer.json');
+        self::assertNotFalse($outsideFile);
+        $source = "{{ include('element/component/card.html.twig') }}\n";
+        [$middleware, $request] = $this->middleware(
+            $source,
+            'element/component/card.html.twig',
+            $outsideFile,
+            $root,
+            'twig',
+        );
+
+        $response = wait($middleware->process($request, $this->semanticHandler($middleware)));
+
+        self::assertInstanceOf(ResponseMessage::class, $response);
+        self::assertNull($response->result);
+    }
+
     public function testBoundsRelationshipsAndProducesValidMarkdownAndUtf8(): void
     {
         $root = sys_get_temp_dir() . '/bear-alps-hover-' . bin2hex(random_bytes(8));
@@ -206,12 +385,13 @@ final class BearHoverMiddlewareTest extends TestCase
         string $needle,
         ?string $file = null,
         ?string $workspaceRoot = null,
+        string $language = 'php',
     ): array {
         $workspaceRoot ??= self::fixture();
         $file ??= $workspaceRoot . '/src/Client.php';
         $uri = 'file://' . $file;
         $workspace = new Workspace();
-        $workspace->open(new TextDocumentItem($uri, 'php', 1, $source));
+        $workspace->open(new TextDocumentItem($uri, $language, 1, $source));
         $offset = strpos($source, $needle);
         self::assertNotFalse($offset);
         $position = PositionConverter::intByteOffsetToPosition($offset, $source);
@@ -264,6 +444,22 @@ final class BearHoverMiddlewareTest extends TestCase
     private static function alpsFixture(): string
     {
         $fixture = realpath(dirname(__DIR__, 2) . '/Fixture/Alps/App1');
+        self::assertNotFalse($fixture);
+
+        return $fixture;
+    }
+
+    private static function templateFixture(): string
+    {
+        $fixture = realpath(dirname(__DIR__, 2) . '/Fixture/Template');
+        self::assertNotFalse($fixture);
+
+        return $fixture;
+    }
+
+    private static function templateResourceFixture(): string
+    {
+        $fixture = realpath(dirname(__DIR__, 2) . '/Fixture/Template/basic');
         self::assertNotFalse($fixture);
 
         return $fixture;

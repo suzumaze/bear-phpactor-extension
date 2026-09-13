@@ -44,10 +44,11 @@ flowchart TD
     p78["ALPS / Schema parse cache・freshness\n完了"]
     p79["Resource URI Hover\n完了"]
     p80["ALPS descriptor Hover\n完了"]
-    p81["Inventory index / watcher連携\n将来候補"]
+    p81["Twig / Qiq Template Hover\n完了"]
+    p82["Inventory index / watcher連携\n将来候補"]
     p8["別 repository の薄い MCP-LSP adapter\n将来"]
 
-    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p8
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p8
 ```
 
 ## 現在利用できる入口
@@ -57,7 +58,7 @@ flowchart TD
 - `textDocument/definition`: Resource URI、Route、SQL、ALPS、Template、明示 Schema
 - `textDocument/typeDefinition`: Resource 規約の response Schema
 - `textDocument/references`: Resource URI の参照元
-- `textDocument/hover`: Resource URI の facts、ALPS descriptor の fields と明示関係
+- `textDocument/hover`: Resource URI の facts、ALPS descriptor の fields と明示関係、静的 Template 参照
 - `textDocument/completion`: Resource URI と body Schema property
 - `textDocument/documentLink`: Resource URI と Template 参照
 
@@ -72,6 +73,14 @@ Query 層を通して profile、descriptor fields、同一 profile 内の明示�
 との対応を推測しない。関係は決定的な順序で最大20件ずつ表示し、未解決または
 workspace 外の参照は空結果にする。第1引数以外と通常の PHP symbol は Phpactor Hover
 へ委譲する。
+
+Template Hover は Definition と同じ静的な Twig `extends` / `include` / `include()` /
+`block()` 第2引数、および Qiq `setLayout()` / `render()` / `extends()` を対象にし、engine・
+元の名前・workspace相対の解決先を返す。動的式、Twig block名、コメント、文字列のクォート上は
+Phpactorへ委譲し、認識済みの静的参照が未解決・不正・workspace外なら空結果にする。Hoverでの
+Qiq認識は誤検知を避けるため `qiq` languageId または `var/qiq/template` 配下に限定し、既存
+Definitionの互換用heuristicは変更しない。PHPとして開かれたtemplate文書ではALPS、Resource URI、
+Templateの順に判定するため、既存BEAR Hoverを抑制しない。
 
 対応中の Phpactor には Hover provider chain がなく、拡張 middleware は標準の trace・
 shutdown・cancellation middleware より前に実行される。そのため前段では構文上の認識だけを

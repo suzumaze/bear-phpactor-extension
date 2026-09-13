@@ -28,25 +28,72 @@ final class TemplateReferenceScanner
     /** @return list<TemplateReference> */
     public function references(TextDocument $document): array
     {
+        return $this->referencesForEngine($document, $this->definitionEngine($document));
+    }
+
+    /**
+     * Hover interception must be narrower than the historical Definition
+     * heuristic: an arbitrary PHP file containing a Qiq-looking tag must not
+     * suppress Phpactor's normal Hover.
+     *
+     * @return list<TemplateReference>
+     */
+    public function hoverReferences(TextDocument $document): array
+    {
+        return $this->referencesForEngine($document, $this->hoverEngine($document));
+    }
+
+    private function definitionEngine(TextDocument $document): ?string
+    {
         $text = $document->__toString();
         $path = $document->uri()?->path() ?? '';
 
         if (str_ends_with(strtolower($path), '.html.twig') || $document->language()->is('twig')) {
-            return $this->twigReferences($text);
+            return TemplateReference::ENGINE_TWIG;
         }
 
         if (
-            str_ends_with(strtolower($path), '.php')
-            && (str_contains($text, '{{') || str_contains($path, '/var/qiq/template/'))
+            (
+                str_ends_with(strtolower($path), '.php')
+                && (str_contains($text, '{{') || str_contains($path, '/var/qiq/template/'))
+            )
+            || $document->language()->is('qiq')
         ) {
-            return $this->qiqReferences($text);
+            return TemplateReference::ENGINE_QIQ;
         }
 
-        if ($document->language()->is('qiq')) {
-            return $this->qiqReferences($text);
+        return null;
+    }
+
+    private function hoverEngine(TextDocument $document): ?string
+    {
+        $path = $document->uri()?->path() ?? '';
+        $lowerPath = strtolower($path);
+
+        if (str_ends_with($lowerPath, '.html.twig') || $document->language()->is('twig')) {
+            return TemplateReference::ENGINE_TWIG;
         }
 
-        return [];
+        if (
+            $document->language()->is('qiq')
+            || (str_ends_with($lowerPath, '.php') && str_contains($lowerPath, '/var/qiq/template/'))
+        ) {
+            return TemplateReference::ENGINE_QIQ;
+        }
+
+        return null;
+    }
+
+    /** @return list<TemplateReference> */
+    private function referencesForEngine(TextDocument $document, ?string $engine): array
+    {
+        $text = $document->__toString();
+
+        return match ($engine) {
+            TemplateReference::ENGINE_TWIG => $this->twigReferences($text),
+            TemplateReference::ENGINE_QIQ => $this->qiqReferences($text),
+            default => [],
+        };
     }
 
     /** @return list<TemplateReference> */

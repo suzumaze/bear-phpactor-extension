@@ -32,14 +32,17 @@ use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Template\TemplateQuery;
+use Suzumaze\BearPhpactor\Semantic\Template\TemplateResolution;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
+use Suzumaze\BearPhpactor\Template\TemplateReferenceScanner;
 use Throwable;
 
 /**
  * Handles BEAR semantic hovers before Phpactor's single Hover handler.
  *
  * Phpactor does not currently expose a Hover provider chain. Intercepting only
- * recognized Resource URI and ALPS descriptor literals keeps
+ * recognized Resource URI, ALPS descriptor, and template literals keeps
  * its built-in PHP Hover unchanged and avoids depending on extension order.
  */
 final class BearHoverMiddleware implements Middleware, Handler
@@ -60,6 +63,8 @@ final class BearHoverMiddleware implements Middleware, Handler
         private ResourceFactsQuery $resourceFactsQuery = new ResourceFactsQuery(),
         private AlpsDescriptorAtOffset $alpsDescriptorAtOffset = new AlpsDescriptorAtOffset(),
         private AlpsFactsQuery $alpsFactsQuery = new AlpsFactsQuery(),
+        private TemplateReferenceScanner $templateReferenceScanner = new TemplateReferenceScanner(),
+        private TemplateQuery $templateQuery = new TemplateQuery(),
     ) {
         $this->semanticWorkspace = WorkspaceContext::fromRoot($workspaceRoot);
     }
@@ -85,31 +90,45 @@ final class BearHoverMiddleware implements Middleware, Handler
         [$textDocument, $position] = $arguments;
         try {
             $document = $this->workspace->get($textDocument->uri);
-            if ($document->languageId !== 'php') {
-                return $handler->handle($request);
-            }
-
             $source = $document->text;
             $offset = PositionConverter::positionToByteOffset($position, $source)->toInt();
-            $phpDocument = TextDocumentBuilder::create($source)
+            $semanticDocument = TextDocumentBuilder::create($source)
                 ->uri($document->uri)
-                ->language('php')
+                ->language($document->languageId)
                 ->build();
 
-            $descriptor = ($this->alpsDescriptorAtOffset)($phpDocument, $offset);
-            if ($descriptor !== null) {
-                return $this->remap($request, $handler, 'alps', $phpDocument, $source, $descriptor);
+            if ($document->languageId === 'php') {
+                $descriptor = ($this->alpsDescriptorAtOffset)($semanticDocument, $offset);
+                if ($descriptor !== null) {
+                    return $this->remap($request, $handler, 'alps', $semanticDocument, $source, $descriptor);
+                }
+
+                $literal = ($this->stringLiteralAtOffset)($semanticDocument, $offset);
+                if ($literal !== null && ResourceUri::fromString($literal[1]) !== null) {
+                    return $this->remap($request, $handler, 'resource', $semanticDocument, $source, $literal);
+                }
             }
 
-            $literal = ($this->stringLiteralAtOffset)($phpDocument, $offset);
-            if ($literal === null || ResourceUri::fromString($literal[1]) === null) {
-                return $handler->handle($request);
+            foreach ($this->templateReferenceScanner->hoverReferences($semanticDocument) as $reference) {
+                if (!$reference->contains($offset)) {
+                    continue;
+                }
+
+                return $this->remap(
+                    $request,
+                    $handler,
+                    'template',
+                    $semanticDocument,
+                    $source,
+                    [$reference->start, $reference->name, $reference->end],
+                    $reference->engine,
+                );
             }
         } catch (Throwable) {
             return $handler->handle($request);
         }
 
-        return $this->remap($request, $handler, 'resource', $phpDocument, $source, $literal);
+        return $handler->handle($request);
     }
 
     /** @return Promise<Hover|null> */
@@ -121,10 +140,13 @@ final class BearHoverMiddleware implements Middleware, Handler
                 return new Success(null);
             }
 
-            [$kind, $identifier, $contextPath, $range] = $arguments;
+            [$kind, $identifier, $contextPath, $range, $engine] = $arguments;
             $hover = match ($kind) {
                 'resource' => $this->resourceHover($identifier, $contextPath, $range),
                 'alps' => $this->alpsHover($identifier, $contextPath, $range),
+                'template' => $engine === null
+                    ? null
+                    : $this->templateHover($engine, $identifier, $contextPath, $range),
                 default => null,
             };
         } catch (Throwable) {
@@ -178,6 +200,7 @@ final class BearHoverMiddleware implements Middleware, Handler
         TextDocument $document,
         string $source,
         array $literal,
+        ?string $engine = null,
     ): Promise {
         $start = PositionConverter::intByteOffsetToPosition($literal[0], $source);
         $end = PositionConverter::intByteOffsetToPosition(
@@ -185,7 +208,7 @@ final class BearHoverMiddleware implements Middleware, Handler
             $source,
         );
 
-        return $handler->handle(new RequestMessage($request->id, self::INTERNAL_METHOD, [
+        $params = [
             'kind' => $kind,
             'identifier' => $literal[1],
             'contextPath' => $this->contextPath($document),
@@ -193,11 +216,16 @@ final class BearHoverMiddleware implements Middleware, Handler
                 'start' => ['line' => $start->line, 'character' => $start->character],
                 'end' => ['line' => $end->line, 'character' => $end->character],
             ],
-        ]));
+        ];
+        if ($engine !== null) {
+            $params['engine'] = $engine;
+        }
+
+        return $handler->handle(new RequestMessage($request->id, self::INTERNAL_METHOD, $params));
     }
 
     /**
-     * @return array{string,string,string,Range}|null
+     * @return array{string,string,string,Range,string|null}|null
      */
     private function semanticArguments(RequestMessage $request): ?array
     {
@@ -209,11 +237,13 @@ final class BearHoverMiddleware implements Middleware, Handler
         $identifier = $params['identifier'] ?? null;
         $contextPath = $params['contextPath'] ?? null;
         $range = $params['range'] ?? null;
+        $engine = $params['engine'] ?? null;
         if (
             !is_string($kind)
             || !is_string($identifier)
             || !is_string($contextPath)
             || !is_array($range)
+            || ($engine !== null && !is_string($engine))
         ) {
             return null;
         }
@@ -224,7 +254,7 @@ final class BearHoverMiddleware implements Middleware, Handler
             return null;
         }
 
-        return [$kind, $identifier, $contextPath, new Range($start, $end)];
+        return [$kind, $identifier, $contextPath, new Range($start, $end), $engine];
     }
 
     private function position(mixed $value): ?Position
@@ -280,6 +310,34 @@ final class BearHoverMiddleware implements Middleware, Handler
         if ($markdown === null) {
             return null;
         }
+
+        return new Hover(new MarkupContent('markdown', $markdown), $range);
+    }
+
+    private function templateHover(string $engine, string $name, string $contextPath, Range $range): ?Hover
+    {
+        if ($this->semanticWorkspace->value === null) {
+            return null;
+        }
+
+        $result = $this->templateQuery->resolveInWorkspace(
+            $this->semanticWorkspace->value,
+            $engine,
+            $name,
+            $contextPath,
+        );
+        if ($result->status !== SemanticStatus::Ok || !$result->value instanceof TemplateResolution) {
+            return null;
+        }
+
+        $template = $result->value;
+        $markdown = implode("\n", [
+            '**BEAR Template**',
+            '',
+            sprintf('Engine: %s', $this->code($this->boundedField($template->engine))),
+            sprintf('Name: %s', $this->code($this->boundedField($template->name))),
+            sprintf('Path: %s', $this->code($this->boundedField($this->relativeFile($template->file)))),
+        ]);
 
         return new Hover(new MarkupContent('markdown', $markdown), $range);
     }

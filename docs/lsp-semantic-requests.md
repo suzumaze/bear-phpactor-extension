@@ -25,6 +25,16 @@ references or infers a Resource from descriptor names. An unresolved or unsafe A
 descriptor returns an empty Hover; other attribute arguments and ordinary PHP
 positions continue to Phpactor.
 
+Static Twig and Qiq template references supported by Definition also return standard
+Hover with the engine, original name, and resolved workspace-relative path. Twig
+recognition is limited to `.html.twig` documents or the `twig` language ID. Qiq Hover
+recognition is deliberately narrower than the legacy Definition heuristic: the document
+must use the `qiq` language ID or live below `var/qiq/template`. Dynamic expressions,
+Twig block names, comments, and quote boundaries continue to Phpactor. A recognized
+static reference that is missing, invalid, or unsafe returns an empty Hover without
+guessing another target. For PHP-associated template documents, ALPS and Resource URI
+semantics are checked first so existing BEAR Hover behavior remains unchanged.
+
 Compatibility note: in the supported Phpactor release, extension middleware runs
 before the built-in trace, shutdown, and cancellation middleware, and there is no
 Hover provider chain. The BEAR middleware therefore performs only syntactic

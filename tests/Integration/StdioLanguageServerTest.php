@@ -396,6 +396,95 @@ final class StdioLanguageServerTest extends TestCase
         }
     }
 
+    public function testRealPhpactorStdioServerProvidesTwigAndQiqTemplateHover(): void
+    {
+        $fixture = dirname(__DIR__) . '/Fixture/Template';
+        $twigFile = $fixture . '/src/Resource/Page/TwigReferences.html.twig';
+        $twigSource = (string) file_get_contents($twigFile)
+            . "\n{{ include('missing/static.html.twig') }}\n";
+        $qiqFile = $fixture . '/var/qiq/template/Page/Nested/RelativeReferences.php';
+        $qiqSource = (string) file_get_contents($qiqFile);
+        $client = StdioLspClient::start(
+            $this->command($fixture),
+            $fixture,
+            $this->environment(),
+        );
+
+        try {
+            $initialize = $client->request('initialize', [
+                'processId' => getmypid(),
+                'rootUri' => $this->fileUri($fixture),
+                'capabilities' => (object) [],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $initialize, $client->stderr());
+            self::assertTrue($initialize['result']['capabilities']['hoverProvider'] ?? false);
+            $client->notify('initialized');
+
+            $client->notify('textDocument/didOpen', [
+                'textDocument' => [
+                    'uri' => $this->fileUri($twigFile),
+                    'languageId' => 'twig',
+                    'version' => 1,
+                    'text' => $twigSource,
+                ],
+            ]);
+
+            $twigHover = $client->request('textDocument/hover', [
+                'textDocument' => ['uri' => $this->fileUri($twigFile)],
+                'position' => $this->positionOf('element/component/card.html.twig', $twigSource),
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $twigHover, $client->stderr());
+            self::assertSame('markdown', $twigHover['result']['contents']['kind'] ?? null);
+            self::assertStringContainsString(
+                'Engine: `twig`',
+                $twigHover['result']['contents']['value'] ?? '',
+            );
+            self::assertStringContainsString(
+                'Path: `var/templates/element/component/card.html.twig`',
+                $twigHover['result']['contents']['value'] ?? '',
+            );
+
+            $missingHover = $client->request('textDocument/hover', [
+                'textDocument' => ['uri' => $this->fileUri($twigFile)],
+                'position' => $this->positionOf('missing/static.html.twig', $twigSource),
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $missingHover, $client->stderr());
+            self::assertNull($missingHover['result'] ?? null);
+
+            $client->notify('textDocument/didOpen', [
+                'textDocument' => [
+                    'uri' => $this->fileUri($qiqFile),
+                    'languageId' => 'qiq',
+                    'version' => 1,
+                    'text' => $qiqSource,
+                ],
+            ]);
+
+            $qiqHover = $client->request('textDocument/hover', [
+                'textDocument' => ['uri' => $this->fileUri($qiqFile)],
+                'position' => $this->positionOf('./sibling', $qiqSource),
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $qiqHover, $client->stderr());
+            self::assertSame('markdown', $qiqHover['result']['contents']['kind'] ?? null);
+            self::assertStringContainsString(
+                'Engine: `qiq`',
+                $qiqHover['result']['contents']['value'] ?? '',
+            );
+            self::assertStringContainsString(
+                'Path: `var/qiq/template/Page/Nested/sibling.php`',
+                $qiqHover['result']['contents']['value'] ?? '',
+            );
+
+            $shutdown = $client->request('shutdown', [], 10.0);
+            self::assertArrayNotHasKey('error', $shutdown, $client->stderr());
+            self::assertArrayHasKey('result', $shutdown);
+            self::assertNull($shutdown['result']);
+            $client->notify('exit');
+        } finally {
+            $client->close();
+        }
+    }
+
     /** @return list<string> */
     private function command(string $fixture): array
     {
