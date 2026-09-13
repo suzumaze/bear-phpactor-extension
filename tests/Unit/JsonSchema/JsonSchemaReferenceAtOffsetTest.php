@@ -84,6 +84,34 @@ final class JsonSchemaReferenceAtOffsetTest extends TestCase
         self::assertNull($locator($document, $contentStart + strlen('user.json')));
     }
 
+    public function testListsOnlySupportedStaticReferencesInSourceOrder(): void
+    {
+        $source = <<<'PHP'
+<?php
+use BEAR\Resource\Annotation\JsonSchema as Schema;
+#[Schema(params: 'user-params.json', schema: 'user.json')]
+final class Valid {}
+#[\Other\JsonSchema('foreign.json')]
+final class Foreign {}
+#[Schema('first.json', 'second.json', key: 'id')]
+final class Positional {}
+#[Schema('dynamic.' . self::EXTENSION)]
+final class Dynamic {}
+PHP;
+        $document = TextDocumentBuilder::create($source)->language('php')->build();
+
+        $actual = (new JsonSchemaReferenceAtOffset())->references($document);
+
+        self::assertSame(
+            [
+                ['user-params.json', SchemaQuery::KIND_REQUEST],
+                ['user.json', SchemaQuery::KIND_RESPONSE],
+                ['first.json', SchemaQuery::KIND_RESPONSE],
+            ],
+            array_map(static fn (array $reference): array => [$reference[1], $reference[3]], $actual),
+        );
+    }
+
     /** @return array{int,string,int,string} */
     private function expected(string $source, string $needle, string $kind): array
     {

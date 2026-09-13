@@ -76,6 +76,14 @@ and quote boundaries continue to Phpactor. Raw JSON and `$ref` targets are not r
 or expanded. A recognized missing, malformed, invalid, or outside-workspace schema
 returns an empty Hover without guessing another target.
 
+Standard `textDocument/references` on one of those explicit Schema arguments resolves
+each candidate through the same Schema query and returns only attributes targeting the
+same canonical Schema file. Request and response Schemas remain distinct; convention
+Schemas, foreign attributes, unsupported arguments, dynamic expressions, and missing
+files are not mixed in. SQL and Schema reference queries share a bounded PSR-4 PHP
+source scanner with workspace containment, canonical deduplication, a 1 MiB per-file
+limit, and deterministic paths. `includeDeclaration: true` also returns the Schema file.
+
 Compatibility note: in the supported Phpactor release, extension middleware runs
 before the built-in trace, shutdown, and cancellation middleware, and there is no
 Hover provider chain. The BEAR middleware therefore performs only syntactic

@@ -8,6 +8,7 @@ use Suzumaze\BearPhpactor\Alps\AlpsDefinitionLocator;
 use Suzumaze\BearPhpactor\Alps\AlpsDescriptorAtOffset;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaConventionTypeLocator;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaReferenceAtOffset;
+use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaReferenceFinder;
 use Suzumaze\BearPhpactor\LanguageServer\BearHoverMiddleware;
 use Suzumaze\BearPhpactor\LanguageServer\ResourceInventoryIndexListener;
 use Suzumaze\BearPhpactor\LanguageServer\SemanticQueryHandler;
@@ -35,6 +36,7 @@ use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateQuery;
@@ -373,6 +375,16 @@ final class BearSundayExtension implements Extension
         );
 
         $container->register(
+            'bear_sunday.semantic.schema_references_query',
+            function (Container $container): SchemaReferencesQuery {
+                return new SchemaReferencesQuery(
+                    $container->get('bear_sunday.semantic.schema_query'),
+                    $container->get('bear_sunday.json_schema.reference_at_offset'),
+                );
+            },
+        );
+
+        $container->register(
             'bear_sunday.semantic.schema_facts_query',
             function (Container $container): SchemaFactsQuery {
                 return new SchemaFactsQuery($container->get('bear_sunday.semantic.schema_query'));
@@ -392,6 +404,21 @@ final class BearSundayExtension implements Extension
                 );
             },
             [ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => []]
+        );
+
+        // 明示JsonSchema参照検索: 同じ実在Schemaファイルへ解決する属性引数を列挙する。
+        $container->register(
+            'bear_sunday.json_schema.reference_finder',
+            function (Container $container): JsonSchemaReferenceFinder {
+                $pathResolver = $container->get(FilePathResolverExtension::SERVICE_FILE_PATH_RESOLVER);
+
+                return new JsonSchemaReferenceFinder(
+                    $container->get('bear_sunday.json_schema.reference_at_offset'),
+                    $container->get('bear_sunday.semantic.schema_references_query'),
+                    $pathResolver->resolve('%project_root%'),
+                );
+            },
+            [ReferenceFinderExtension::TAG_REFERENCE_FINDER => []],
         );
 
         // JsonSchema 規約ジャンプ (クラス宣言名 → var/json_schema/<ケバブ>.json) は

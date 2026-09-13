@@ -8,6 +8,7 @@ use Suzumaze\BearPhpactor\Alps\AlpsDefinitionLocator;
 use Suzumaze\BearPhpactor\Alps\AlpsDescriptorAtOffset;
 use Suzumaze\BearPhpactor\BearSundayExtension;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaConventionTypeLocator;
+use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaReferenceFinder;
 use Suzumaze\BearPhpactor\LanguageServer\SemanticQueryHandler;
 use Suzumaze\BearPhpactor\LanguageServer\ResourceInventoryIndexListener;
 use Suzumaze\BearPhpactor\Resource\Completor\BodyPropertyCompletor;
@@ -28,6 +29,7 @@ use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlReferencesQuery;
 use Suzumaze\BearPhpactor\Sql\SqlReferenceFinder;
@@ -179,6 +181,10 @@ final class BearSundayExtensionTest extends TestCase
         $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
 
         self::assertInstanceOf(SchemaQuery::class, $container->get('bear_sunday.semantic.schema_query'));
+        self::assertInstanceOf(
+            SchemaReferencesQuery::class,
+            $container->get('bear_sunday.semantic.schema_references_query'),
+        );
     }
 
     public function testRegistersTransportIndependentSchemaFactsQuery(): void
@@ -249,6 +255,14 @@ final class BearSundayExtensionTest extends TestCase
         self::assertInstanceOf(SqlReferenceFinder::class, $container->get('bear_sunday.sql.reference_finder'));
         self::assertArrayHasKey(
             'bear_sunday.sql.reference_finder',
+            $container->getServiceIdsForTag(ReferenceFinderExtension::TAG_REFERENCE_FINDER),
+        );
+        self::assertInstanceOf(
+            JsonSchemaReferenceFinder::class,
+            $container->get('bear_sunday.json_schema.reference_finder'),
+        );
+        self::assertArrayHasKey(
+            'bear_sunday.json_schema.reference_finder',
             $container->getServiceIdsForTag(ReferenceFinderExtension::TAG_REFERENCE_FINDER),
         );
     }
