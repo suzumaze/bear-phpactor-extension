@@ -48,9 +48,10 @@ flowchart TD
     p82["明示 JSON Schema Hover\n完了"]
     p83["Route / SQL Hover\n完了"]
     p84["Inventory index / watcher連携\n完了"]
+    p85["Route → Page Resource References\n完了"]
     p8["別 repository の薄い MCP-LSP adapter\n将来"]
 
-    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p8
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p8
 ```
 
 ## 現在利用できる入口
@@ -59,7 +60,7 @@ flowchart TD
 
 - `textDocument/definition`: Resource URI、Route、SQL、ALPS、Template、明示 Schema
 - `textDocument/typeDefinition`: Resource 規約の response Schema
-- `textDocument/references`: Resource URI の参照元
+- `textDocument/references`: Resource URI・Resourceクラス・Route名から、同じResourceの参照元
 - `textDocument/hover`: Resource URI の facts、Route、SQL、ALPS descriptor の fields と明示関係、静的 Template 参照、明示 JSON Schema の構造
 - `textDocument/completion`: Resource URI と body Schema property
 - `textDocument/documentLink`: Resource URI と Template 参照
@@ -94,6 +95,10 @@ raw JSONや外部`$ref`は読み出さず、認識済み参照が未解決・不
 Route Hover は `aura.route.php` の既知 Aura.Router 呼び出しにある静的な第1位置引数または`name:`だけを対象にし、
 route名、対応するPage Resource URI・FQN・workspace相対pathを返す。HTTP pathの第2引数、`attach`、
 動的式、クォート上はPhpactorへ委譲し、対応Resourceが未解決・曖昧・不正・workspace外なら空結果にする。
+
+Route名からのReferencesは、Definitionと同じRoute QueryでPage Resourceを一意に解決し、同じPage Resourceへ
+解決されるRoute宣言とResource URI参照を返す。HTTP pathは対象にせず、未解決・曖昧なRouteからは空結果を返す。
+Route fileの走査はworkspace内の`aura.route.php`だけに限定し、入力を1 MiBに制限する。
 
 SQL Hover は Ray.MediaQuery の `DbQuery` 属性にある第1位置引数または `id:` と、既存のtokenized
 docblock形式 `@Query("id")` の静的IDだけを対象にし、query IDとworkspace相対SQL pathを返す。

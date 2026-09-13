@@ -9,6 +9,8 @@ use Microsoft\PhpParser\Node\Expression\ArgumentExpression;
 use Microsoft\PhpParser\Node\Expression\CallExpression;
 use Microsoft\PhpParser\Node\Expression\MemberAccessExpression;
 use Microsoft\PhpParser\Node\QualifiedName;
+use Microsoft\PhpParser\Node\StringLiteral;
+use Microsoft\PhpParser\Parser;
 use Microsoft\PhpParser\Token;
 use Phpactor\TextDocument\TextDocument;
 use Phpactor\WorseReflection\Core\Util\NodeUtil;
@@ -24,6 +26,7 @@ final class RouteReferenceAtOffset
 
     public function __construct(
         private StringLiteralAtOffset $stringLiteralAtOffset = new StringLiteralAtOffset(),
+        private Parser $parser = new Parser(),
     ) {
     }
 
@@ -32,13 +35,49 @@ final class RouteReferenceAtOffset
      */
     public function __invoke(TextDocument $document, int $byteOffset): ?array
     {
-        $uri = $document->uri();
-        if ($uri === null || basename($uri->path()) !== self::ROUTE_FILE) {
+        if (!$this->isRouteDocument($document)) {
             return null;
         }
 
         $literal = $this->stringLiteralAtOffset->literal($document, $byteOffset);
         if ($literal === null) {
+            return null;
+        }
+
+        return $this->referenceFromLiteral($document, $literal, $byteOffset);
+    }
+
+    /** @return list<array{int,string,int}> */
+    public function references(TextDocument $document): array
+    {
+        if (!$this->isRouteDocument($document)) {
+            return [];
+        }
+
+        $references = [];
+        $root = $this->parser->parseSourceFile($document->__toString(), $document->uri()?->__toString());
+        foreach ($root->getDescendantNodes() as $node) {
+            if (!$node instanceof StringLiteral) {
+                continue;
+            }
+            $reference = $this->referenceFromLiteral($document, $node, $node->getStartPosition() + 1);
+            if ($reference !== null) {
+                $references[] = $reference;
+            }
+        }
+
+        return $references;
+    }
+
+    /** @return array{int,string,int}|null */
+    private function referenceFromLiteral(
+        TextDocument $document,
+        StringLiteral $literal,
+        int $byteOffset,
+    ): ?array {
+        $text = $document->__toString();
+        $opening = substr($text, $literal->getStartPosition(), 1);
+        if ($opening !== "'" && $opening !== '"') {
             return null;
         }
 
@@ -64,7 +103,7 @@ final class RouteReferenceAtOffset
         }
 
         if ($argument->name instanceof Token) {
-            if ($argument->name->getText($document->__toString()) !== 'name') {
+            if ($argument->name->getText($text) !== 'name') {
                 return null;
             }
         } elseif (!isset($argumentList->children[0]) || $argumentList->children[0] !== $argument) {
@@ -77,6 +116,13 @@ final class RouteReferenceAtOffset
         }
 
         return [$contentStart, $routeName, $contentEnd];
+    }
+
+    private function isRouteDocument(TextDocument $document): bool
+    {
+        $uri = $document->uri();
+
+        return $uri !== null && basename($uri->path()) === self::ROUTE_FILE;
     }
 
     private function isRouteCall(CallExpression $call): bool

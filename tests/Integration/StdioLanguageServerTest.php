@@ -110,6 +110,59 @@ final class StdioLanguageServerTest extends TestCase
         }
     }
 
+    public function testRealPhpactorStdioFindsPageResourceReferencesFromRouteName(): void
+    {
+        $fixture = dirname(__DIR__) . '/Fixture/References';
+        $routeFile = $fixture . '/aura.route.php';
+        $source = (string) file_get_contents($routeFile);
+        $client = StdioLspClient::start(
+            $this->command($fixture),
+            $fixture,
+            $this->environment(),
+        );
+
+        try {
+            $initialize = $client->request('initialize', [
+                'processId' => getmypid(),
+                'rootUri' => $this->fileUri($fixture),
+                'capabilities' => (object) [],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $initialize, $client->stderr());
+            self::assertTrue($initialize['result']['capabilities']['referencesProvider'] ?? false);
+            $client->notify('initialized');
+            $client->notify('textDocument/didOpen', [
+                'textDocument' => [
+                    'uri' => $this->fileUri($routeFile),
+                    'languageId' => 'php',
+                    'version' => 1,
+                    'text' => $source,
+                ],
+            ]);
+
+            $references = $client->request('textDocument/references', [
+                'textDocument' => ['uri' => $this->fileUri($routeFile)],
+                'position' => $this->positionOf('/article', $source),
+                'context' => ['includeDeclaration' => false],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $references, $client->stderr());
+            $uris = array_column($references['result'] ?? [], 'uri');
+            self::assertSame(2, count(array_filter(
+                $uris,
+                fn (string $uri): bool => $uri === $this->fileUri($routeFile),
+            )));
+            self::assertContains(
+                $this->fileUri($fixture . '/src/Resource/App/PageCaller.php'),
+                $uris,
+            );
+
+            $shutdown = $client->request('shutdown', [], 10.0);
+            self::assertArrayNotHasKey('error', $shutdown, $client->stderr());
+            $client->notify('exit');
+        } finally {
+            $client->close();
+        }
+    }
+
     public function testRealPhpactorStdioServerLoadsExtensionAndResolvesResourceDefinition(): void
     {
         $fixture = self::fixtureDir();

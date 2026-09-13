@@ -87,4 +87,26 @@ final class RouteReferenceAtOffsetTest extends TestCase
             ->build();
         self::assertNull($detector($dynamicDocument, (int) strpos($dynamicSource, 'ROUTE_NAME')));
     }
+
+    public function testListsOnlyStaticRouteNameReferencesDeterministically(): void
+    {
+        $source = <<<'PHP'
+<?php
+$map->route('/article', '/articles/{id}');
+$map->get(name: '/named', path: '/named-path');
+$map->attach('/prefix', '/prefix', fn () => null);
+PHP;
+        $document = TextDocumentBuilder::create($source)
+            ->uri('file:///workspace/aura.route.php')
+            ->language('php')
+            ->build();
+        $detector = new RouteReferenceAtOffset();
+
+        $article = (int) strpos($source, '/article');
+        $named = (int) strpos($source, '/named');
+        self::assertSame([
+            [$article, '/article', $article + strlen('/article')],
+            [$named, '/named', $named + strlen('/named')],
+        ], $detector->references($document));
+    }
 }

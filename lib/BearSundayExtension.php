@@ -426,8 +426,8 @@ final class BearSundayExtension implements Extension
             ]
         );
 
-        // 参照検索: リソースURI文字列・リソースクラス宣言名から、そのリソースを
-        // 参照する箇所 (textDocument/references) を探す。必ず false で終わる
+        // 参照検索: Resource URI・Resourceクラス宣言名・Route名から、同じResourceを
+        // 参照するURIとRoute宣言 (textDocument/references) を探す。必ず false で終わる
         // ファインダーなので、組込みの IndexedReferenceFinder (通常のPHPクラス参照
         // 検索) まで鎖は続く (ChainReferenceFinder は true で止まる)。
         $container->register(
@@ -436,6 +436,8 @@ final class BearSundayExtension implements Extension
                 return new ResourceReferenceFinder(
                     $container->get('bear_sunday.resource.string_literal_at_offset'),
                     $container->get('bear_sunday.resource.target_resolver'),
+                    routeReferenceAtOffset: $container->get('bear_sunday.router.reference_at_offset'),
+                    routeQuery: $container->get('bear_sunday.semantic.route_query'),
                 );
             },
             [ReferenceFinderExtension::TAG_REFERENCE_FINDER => []]

@@ -8,7 +8,10 @@ use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Resource\Model\ResourceTargetResolver;
 use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
+use Suzumaze\BearPhpactor\Router\RouteReferenceAtOffset;
+use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 use Suzumaze\BearPhpactor\Util\PathGuard;
 use Suzumaze\BearPhpactor\Util\PhpClassDeclaration;
 use Suzumaze\BearPhpactor\Util\ProjectLocator;
@@ -22,12 +25,13 @@ use Phpactor\ReferenceFinder\ReferenceFinder;
 use Phpactor\TextDocument\ByteOffset;
 use Phpactor\TextDocument\Location;
 use Phpactor\TextDocument\TextDocument;
+use Phpactor\TextDocument\TextDocumentBuilder;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
 /**
- * リソースURIの文字列リテラル・リソースクラス宣言名から、そのリソースを参照する
- * 箇所 (textDocument/references) を探す。
+ * リソースURIの文字列リテラル・リソースクラス宣言名・Route名から、その
+ * リソースを参照する箇所 (textDocument/references) を探す。
  *
  * 参照の同一性は「URI文字列が同じ」ではなく「そのサイトの位置から URI を定義解決
  * した先のファイルが対象と同じ」で判定する。テスト用のミニアプリが同じ
@@ -39,17 +43,26 @@ use RecursiveIteratorIterator;
  */
 final class ResourceReferenceFinder implements ReferenceFinder
 {
+    private const MAX_ROUTE_BYTES = 1_048_576;
+
+    private RouteReferenceAtOffset $routeReferenceAtOffset;
+    private RouteQuery $routeQuery;
+
     public function __construct(
         private StringLiteralAtOffset $stringLiteralAtOffset,
         private ResourceTargetResolver $resourceTargetResolver = new ResourceTargetResolver(),
         private Parser $parser = new Parser(),
+        ?RouteReferenceAtOffset $routeReferenceAtOffset = null,
+        ?RouteQuery $routeQuery = null,
     ) {
+        $this->routeReferenceAtOffset = $routeReferenceAtOffset ?? new RouteReferenceAtOffset();
+        $this->routeQuery = $routeQuery ?? new RouteQuery($resourceTargetResolver);
     }
 
     public function findReferences(TextDocument $document, ByteOffset $byteOffset): Generator
     {
-        // 入口の安価な事前判定: リソースURI文字列 (app:// page://) も ResourceObject
-        // の継承も無いドキュメントは参照検索の対象ではない。構文解析より先に降りる
+        // 入口の安価な事前判定: Resource URI、ResourceObject継承、aura.route.phpの
+        // いずれでもないドキュメントは参照検索の対象ではない。構文解析より先に降りる
         // (LocatorEntryPointTest と同じ流儀。当拡張は連鎖の先頭に居るので、全PHP
         // ファイルの全参照検索で最初に走ることになる)。
         //
@@ -68,6 +81,7 @@ final class ResourceReferenceFinder implements ReferenceFinder
             && !str_contains($text, 'ResourceObject')
             && !str_contains($path, '/Resource/App/')
             && !str_contains($path, '/Resource/Page/')
+            && basename($path) !== 'aura.route.php'
         ) {
             return false;
         }
@@ -168,6 +182,8 @@ final class ResourceReferenceFinder implements ReferenceFinder
             }
         }
 
+        yield from $this->routeReferences($found['root'], $targetRealPath);
+
         // 組込みの IndexedReferenceFinder を殺さない。false で鎖を続ける。
         return false;
     }
@@ -184,6 +200,20 @@ final class ResourceReferenceFinder implements ReferenceFinder
     private function targetAtOffset(TextDocument $document, ByteOffset $byteOffset): ?string
     {
         $offset = $byteOffset->toInt();
+
+        $route = ($this->routeReferenceAtOffset)($document, $offset);
+        if ($route !== null) {
+            $path = $document->uri()?->path();
+            $project = $path === null ? null : Project::locate($path);
+            if ($project === null) {
+                return null;
+            }
+            $result = $this->routeQuery->resolve($project, $route[1]);
+
+            return $result->status === SemanticStatus::Ok && $result->value !== null
+                ? $result->value->resource->file
+                : null;
+        }
 
         // (a) リソースURI文字列リテラル
         $string = ($this->stringLiteralAtOffset)($document, $offset);
@@ -242,5 +272,60 @@ final class ResourceReferenceFinder implements ReferenceFinder
         }
 
         return $path;
+    }
+
+    /**
+     * @return Generator<int,PotentialLocation,null,void>
+     */
+    private function routeReferences(string $projectRoot, string $targetRealPath): Generator
+    {
+        $workspace = WorkspaceContext::fromRoot($projectRoot);
+        if ($workspace->value === null) {
+            return;
+        }
+        $routePath = $workspace->value->accessPolicy()->resolveExisting('aura.route.php');
+        if ($routePath->value === null || !is_file($routePath->value->absolute)) {
+            return;
+        }
+
+        $size = @filesize($routePath->value->absolute);
+        if ($size === false || $size > self::MAX_ROUTE_BYTES) {
+            return;
+        }
+        $source = @file_get_contents(
+            $routePath->value->absolute,
+            false,
+            null,
+            0,
+            self::MAX_ROUTE_BYTES + 1,
+        );
+        if ($source === false || strlen($source) > self::MAX_ROUTE_BYTES) {
+            return;
+        }
+        $document = TextDocumentBuilder::create($source)
+            ->uri($routePath->value->absolute)
+            ->language('php')
+            ->build();
+        $project = Project::locateWithin($routePath->value->absolute, $workspace->value->root());
+        if ($project === null) {
+            return;
+        }
+
+        foreach ($this->routeReferenceAtOffset->references($document) as [$start, $routeName, $end]) {
+            $result = $this->routeQuery->resolve($project, $routeName);
+            if (
+                $result->status !== SemanticStatus::Ok
+                || $result->value === null
+                || realpath($result->value->resource->file) !== $targetRealPath
+            ) {
+                continue;
+            }
+
+            yield PotentialLocation::surely(Location::fromPathAndOffsets(
+                $routePath->value->absolute,
+                $start - 1,
+                $end + 1,
+            ));
+        }
     }
 }

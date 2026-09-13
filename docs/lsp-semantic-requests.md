@@ -24,6 +24,12 @@ path. HTTP path arguments, `attach`, dynamic expressions, and quote boundaries
 continue to Phpactor. A recognized route whose Resource is missing, ambiguous,
 invalid, or unsafe returns an empty Hover without guessing from the HTTP path.
 
+Standard `textDocument/references` at the same Route name resolves the Page Resource
+through the same Route query used by Definition. It returns Route declarations and
+Resource URI literals that resolve to that exact Page Resource. HTTP path arguments and
+missing or ambiguous Routes return no BEAR references. Route-file scanning is restricted
+to the workspace-local `aura.route.php` and bounded to 1 MiB.
+
 Static Ray.MediaQuery `DbQuery` IDs and legacy Ray.QueryModule `@Query("id")`
 docblock IDs return standard Hover with the query ID and resolved
 workspace-relative SQL path. Attribute recognition follows the actual ID argument:
