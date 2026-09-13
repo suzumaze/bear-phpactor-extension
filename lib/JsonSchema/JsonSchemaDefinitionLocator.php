@@ -5,14 +5,10 @@ declare(strict_types=1);
 namespace Suzumaze\BearPhpactor\JsonSchema;
 
 use Suzumaze\BearPhpactor\Resource\Model\Project;
-use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
-use Microsoft\PhpParser\Node;
-use Microsoft\PhpParser\Node\Attribute;
-use Microsoft\PhpParser\Node\Expression\ArgumentExpression;
+use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
 use Microsoft\PhpParser\Parser;
-use Microsoft\PhpParser\Token;
 use Phpactor\ReferenceFinder\DefinitionLocator;
 use Phpactor\ReferenceFinder\Exception\CouldNotLocateDefinition;
 use Phpactor\ReferenceFinder\Exception\UnsupportedDocument;
@@ -51,17 +47,20 @@ use Phpactor\WorseReflection\Core\TypeFactory;
  */
 final class JsonSchemaDefinitionLocator implements DefinitionLocator
 {
-    private JsonSchemaPathResolver $schemaPathResolver;
     private SchemaQuery $schemaQuery;
+    private JsonSchemaReferenceAtOffset $referenceAtOffset;
 
     public function __construct(
-        private StringLiteralAtOffset $stringLiteralAtOffset = new StringLiteralAtOffset(),
-        private Parser $parser = new Parser(),
+        StringLiteralAtOffset $stringLiteralAtOffset = new StringLiteralAtOffset(),
+        Parser $parser = new Parser(),
         JsonSchemaPathResolver $schemaPathResolver = new JsonSchemaPathResolver(),
         ?SchemaQuery $schemaQuery = null,
+        ?JsonSchemaReferenceAtOffset $referenceAtOffset = null,
     ) {
-        $this->schemaPathResolver = $schemaPathResolver;
+        // Keep the former parser argument for positional and named constructor compatibility.
+        unset($parser);
         $this->schemaQuery = $schemaQuery ?? new SchemaQuery($schemaPathResolver);
+        $this->referenceAtOffset = $referenceAtOffset ?? new JsonSchemaReferenceAtOffset($stringLiteralAtOffset);
     }
 
     public function locateDefinition(TextDocument $document, ByteOffset $byteOffset): TypeLocations
@@ -88,16 +87,15 @@ final class JsonSchemaDefinitionLocator implements DefinitionLocator
                 sprintf('No composer.json with autoload.psr-4 above "%s"', $uri->path())
             );
         }
-        $this->parser->parseSourceFile($document->__toString());
         $offset = $byteOffset->toInt();
 
-        $reference = $this->schemaReferenceFromAttribute($document, $offset);
+        $reference = ($this->referenceAtOffset)($document, $offset);
 
         if ($reference === null) {
             throw new CouldNotLocateDefinition('No JSON Schema reference found at offset');
         }
 
-        $result = $this->schemaQuery->resolveNamed($project, $reference['fileName'], $reference['kind']);
+        $result = $this->schemaQuery->resolveNamed($project, $reference[1], $reference[3]);
         if ($result->status !== SemanticStatus::Ok || $result->value === null || $result->value->file === null) {
             throw new CouldNotLocateDefinition('No JSON Schema reference found at offset');
         }
@@ -110,37 +108,5 @@ final class JsonSchemaDefinitionLocator implements DefinitionLocator
                 Location::fromPathAndOffsets($result->value->file, $titleOffset, $titleOffset),
             ),
         ]);
-    }
-
-    /**
-     * @return array{fileName:string,kind:string}|null
-     */
-    private function schemaReferenceFromAttribute(TextDocument $document, int $offset): ?array
-    {
-        $literal = $this->stringLiteralAtOffset->literal($document, $offset);
-        if ($literal === null) {
-            return null;
-        }
-
-        $argument = null;
-        for ($node = $literal; $node instanceof Node; $node = $node->getParent()) {
-            if ($argument === null && $node instanceof ArgumentExpression) {
-                $argument = $node;
-            }
-            if ($node instanceof Attribute) {
-                if (!$this->schemaPathResolver->isJsonSchemaAttribute($node)) {
-                    return null;
-                }
-
-                $kind = $argument?->name instanceof Token
-                    && $argument->name->getText($document->__toString()) === 'params'
-                    ? SchemaQuery::KIND_REQUEST
-                    : SchemaQuery::KIND_RESPONSE;
-
-                return ['fileName' => $literal->getStringContentsText(), 'kind' => $kind];
-            }
-        }
-
-        return null;
     }
 }

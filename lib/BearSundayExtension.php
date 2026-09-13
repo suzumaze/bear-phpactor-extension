@@ -7,6 +7,7 @@ namespace Suzumaze\BearPhpactor;
 use Suzumaze\BearPhpactor\Alps\AlpsDefinitionLocator;
 use Suzumaze\BearPhpactor\Alps\AlpsDescriptorAtOffset;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaConventionTypeLocator;
+use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaReferenceAtOffset;
 use Suzumaze\BearPhpactor\LanguageServer\BearHoverMiddleware;
 use Suzumaze\BearPhpactor\LanguageServer\SemanticQueryHandler;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaDefinitionLocator;
@@ -221,6 +222,8 @@ final class BearSundayExtension implements Extension
                     $container->get('bear_sunday.semantic.alps_facts_query'),
                     $container->get('bear_sunday.template.reference_scanner'),
                     $container->get('bear_sunday.semantic.template_query'),
+                    $container->get('bear_sunday.json_schema.reference_at_offset'),
+                    $container->get('bear_sunday.semantic.schema_facts_query'),
                 );
             },
             [
@@ -282,6 +285,15 @@ final class BearSundayExtension implements Extension
         });
 
         $container->register(
+            'bear_sunday.json_schema.reference_at_offset',
+            function (Container $container): JsonSchemaReferenceAtOffset {
+                return new JsonSchemaReferenceAtOffset(
+                    $container->get('bear_sunday.resource.string_literal_at_offset'),
+                );
+            },
+        );
+
+        $container->register(
             'bear_sunday.semantic.schema_facts_query',
             function (Container $container): SchemaFactsQuery {
                 return new SchemaFactsQuery($container->get('bear_sunday.semantic.schema_query'));
@@ -297,6 +309,7 @@ final class BearSundayExtension implements Extension
                 return new JsonSchemaDefinitionLocator(
                     $container->get('bear_sunday.resource.string_literal_at_offset'),
                     schemaQuery: $container->get('bear_sunday.semantic.schema_query'),
+                    referenceAtOffset: $container->get('bear_sunday.json_schema.reference_at_offset'),
                 );
             },
             [ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => []]

@@ -233,7 +233,7 @@ final class StdioLanguageServerTest extends TestCase
         }
     }
 
-    public function testRealPhpactorStdioServerResolvesSchemaTypeDefinition(): void
+    public function testRealPhpactorStdioServerResolvesSchemaTypeDefinitionAndHover(): void
     {
         $fixture = dirname(__DIR__) . '/Fixture/JsonSchema/basic';
         $resourceFile = $fixture . '/src/Resource/App/BodyTypeDemo.php';
@@ -241,6 +241,12 @@ final class StdioLanguageServerTest extends TestCase
         $offset = strpos($sourceWithCaret, '<caret>');
         self::assertNotFalse($offset);
         $source = str_replace('<caret>', '', $sourceWithCaret);
+        $explicitSchemaFile = $fixture . '/src/Resource/App/SchemaDemo.php';
+        $explicitSchemaSource = str_replace(
+            ['<caret-1>', '<caret-2>', '<caret-3>', '<caret-4>', '<caret-5>'],
+            '',
+            (string) file_get_contents($explicitSchemaFile),
+        );
         $client = StdioLspClient::start(
             $this->command($fixture),
             $fixture,
@@ -289,6 +295,34 @@ final class StdioLanguageServerTest extends TestCase
                 $this->fileUri($fixture . '/var/json_schema/body-type-demo.json'),
                 $typeDefinition['result']['uri'] ?? null,
                 json_encode($typeDefinition, JSON_UNESCAPED_SLASHES) . "\n" . $client->stderr(),
+            );
+
+            $client->notify('textDocument/didOpen', [
+                'textDocument' => [
+                    'uri' => $this->fileUri($explicitSchemaFile),
+                    'languageId' => 'php',
+                    'version' => 1,
+                    'text' => $explicitSchemaSource,
+                ],
+            ]);
+
+            $schemaHover = $client->request('textDocument/hover', [
+                'textDocument' => ['uri' => $this->fileUri($explicitSchemaFile)],
+                'position' => $this->positionOf('user.json', $explicitSchemaSource),
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $schemaHover, $client->stderr());
+            self::assertSame('markdown', $schemaHover['result']['contents']['kind'] ?? null);
+            self::assertStringContainsString(
+                '**BEAR JSON Schema**',
+                $schemaHover['result']['contents']['value'] ?? '',
+            );
+            self::assertStringContainsString(
+                'Path: `var/json_schema/user.json`',
+                $schemaHover['result']['contents']['value'] ?? '',
+            );
+            self::assertStringContainsString(
+                '- `name`: `string` (required)',
+                $schemaHover['result']['contents']['value'] ?? '',
             );
 
             $shutdown = $client->request('shutdown', [], 10.0);

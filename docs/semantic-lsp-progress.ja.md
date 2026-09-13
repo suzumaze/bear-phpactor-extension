@@ -45,10 +45,11 @@ flowchart TD
     p79["Resource URI Hover\n完了"]
     p80["ALPS descriptor Hover\n完了"]
     p81["Twig / Qiq Template Hover\n完了"]
-    p82["Inventory index / watcher連携\n将来候補"]
+    p82["明示 JSON Schema Hover\n完了"]
+    p83["Inventory index / watcher連携\n将来候補"]
     p8["別 repository の薄い MCP-LSP adapter\n将来"]
 
-    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p8
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p8
 ```
 
 ## 現在利用できる入口
@@ -58,7 +59,7 @@ flowchart TD
 - `textDocument/definition`: Resource URI、Route、SQL、ALPS、Template、明示 Schema
 - `textDocument/typeDefinition`: Resource 規約の response Schema
 - `textDocument/references`: Resource URI の参照元
-- `textDocument/hover`: Resource URI の facts、ALPS descriptor の fields と明示関係、静的 Template 参照
+- `textDocument/hover`: Resource URI の facts、ALPS descriptor の fields と明示関係、静的 Template 参照、明示 JSON Schema の構造
 - `textDocument/completion`: Resource URI と body Schema property
 - `textDocument/documentLink`: Resource URI と Template 参照
 
@@ -79,8 +80,15 @@ Template Hover は Definition と同じ静的な Twig `extends` / `include` / `i
 元の名前・workspace相対の解決先を返す。動的式、Twig block名、コメント、文字列のクォート上は
 Phpactorへ委譲し、認識済みの静的参照が未解決・不正・workspace外なら空結果にする。Hoverでの
 Qiq認識は誤検知を避けるため `qiq` languageId または `var/qiq/template` 配下に限定し、既存
-Definitionの互換用heuristicは変更しない。PHPとして開かれたtemplate文書ではALPS、Resource URI、
-Templateの順に判定するため、既存BEAR Hoverを抑制しない。
+Definitionの互換用heuristicは変更しない。PHPとして開かれたtemplate文書ではALPS、明示Schema、
+Resource URI、Templateの順に判定するため、既存BEAR Hoverを抑制しない。
+
+明示 JSON Schema Hover は BEAR の `#[JsonSchema(...)]` でファイル参照になる第1位置引数・
+`schema:`・`params:` だけを認識する。前2つはresponse、`params:` はrequestとして、workspace
+相対path、top-level type、名前順で最大20件のproperty・型・required状態を返す。`key:`・
+`target:`・第2位置引数・動的式・別FQNの同名属性・文字列のクォート上はPhpactorへ委譲する。
+raw JSONや外部`$ref`は読み出さず、認識済み参照が未解決・不正・壊れたJSON・workspace外なら
+空結果にする。PHP文書ではALPS、明示Schema、Resource URI、Templateの順に判定する。
 
 対応中の Phpactor には Hover provider chain がなく、拡張 middleware は標準の trace・
 shutdown・cancellation middleware より前に実行される。そのため前段では構文上の認識だけを

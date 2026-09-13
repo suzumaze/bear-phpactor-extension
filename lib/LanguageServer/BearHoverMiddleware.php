@@ -22,6 +22,7 @@ use Phpactor\LanguageServerProtocol\TextDocumentIdentifier;
 use Phpactor\TextDocument\TextDocument;
 use Phpactor\TextDocument\TextDocumentBuilder;
 use Suzumaze\BearPhpactor\Alps\AlpsDescriptorAtOffset;
+use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaReferenceAtOffset;
 use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorFacts;
@@ -32,6 +33,8 @@ use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFacts;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateResolution;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
@@ -42,7 +45,8 @@ use Throwable;
  * Handles BEAR semantic hovers before Phpactor's single Hover handler.
  *
  * Phpactor does not currently expose a Hover provider chain. Intercepting only
- * recognized Resource URI, ALPS descriptor, and template literals keeps
+ * recognized Resource URI, ALPS descriptor, explicit schema, and template
+ * literals keeps
  * its built-in PHP Hover unchanged and avoids depending on extension order.
  */
 final class BearHoverMiddleware implements Middleware, Handler
@@ -51,6 +55,7 @@ final class BearHoverMiddleware implements Middleware, Handler
     private const MAX_METHODS = 20;
     private const MAX_RELATIONS = 20;
     private const MAX_CANDIDATES = 20;
+    private const MAX_SCHEMA_PROPERTIES = 20;
     private const MAX_FIELD_LENGTH = 500;
 
     /** @var SemanticResult<WorkspaceContext|null> */
@@ -65,6 +70,8 @@ final class BearHoverMiddleware implements Middleware, Handler
         private AlpsFactsQuery $alpsFactsQuery = new AlpsFactsQuery(),
         private TemplateReferenceScanner $templateReferenceScanner = new TemplateReferenceScanner(),
         private TemplateQuery $templateQuery = new TemplateQuery(),
+        private JsonSchemaReferenceAtOffset $jsonSchemaReferenceAtOffset = new JsonSchemaReferenceAtOffset(),
+        private SchemaFactsQuery $schemaFactsQuery = new SchemaFactsQuery(),
     ) {
         $this->semanticWorkspace = WorkspaceContext::fromRoot($workspaceRoot);
     }
@@ -101,6 +108,19 @@ final class BearHoverMiddleware implements Middleware, Handler
                 $descriptor = ($this->alpsDescriptorAtOffset)($semanticDocument, $offset);
                 if ($descriptor !== null) {
                     return $this->remap($request, $handler, 'alps', $semanticDocument, $source, $descriptor);
+                }
+
+                $schema = ($this->jsonSchemaReferenceAtOffset)($semanticDocument, $offset);
+                if ($schema !== null) {
+                    return $this->remap(
+                        $request,
+                        $handler,
+                        'schema',
+                        $semanticDocument,
+                        $source,
+                        $schema,
+                        schemaKind: $schema[3],
+                    );
                 }
 
                 $literal = ($this->stringLiteralAtOffset)($semanticDocument, $offset);
@@ -140,13 +160,16 @@ final class BearHoverMiddleware implements Middleware, Handler
                 return new Success(null);
             }
 
-            [$kind, $identifier, $contextPath, $range, $engine] = $arguments;
+            [$kind, $identifier, $contextPath, $range, $engine, $schemaKind] = $arguments;
             $hover = match ($kind) {
                 'resource' => $this->resourceHover($identifier, $contextPath, $range),
                 'alps' => $this->alpsHover($identifier, $contextPath, $range),
                 'template' => $engine === null
                     ? null
                     : $this->templateHover($engine, $identifier, $contextPath, $range),
+                'schema' => $schemaKind === null
+                    ? null
+                    : $this->schemaHover($identifier, $schemaKind, $contextPath, $range),
                 default => null,
             };
         } catch (Throwable) {
@@ -189,7 +212,7 @@ final class BearHoverMiddleware implements Middleware, Handler
      * shutdown, error handling, cancellation bookkeeping, and response wrapping
      * remain active even though the supported Phpactor has no Hover provider chain.
      *
-     * @param array{0:int,1:string,2?:int} $literal
+     * @param array{0:int,1:string,2?:int,3?:string} $literal
      *
      * @return Promise<ResponseMessage|null>
      */
@@ -201,6 +224,7 @@ final class BearHoverMiddleware implements Middleware, Handler
         string $source,
         array $literal,
         ?string $engine = null,
+        ?string $schemaKind = null,
     ): Promise {
         $start = PositionConverter::intByteOffsetToPosition($literal[0], $source);
         $end = PositionConverter::intByteOffsetToPosition(
@@ -220,12 +244,15 @@ final class BearHoverMiddleware implements Middleware, Handler
         if ($engine !== null) {
             $params['engine'] = $engine;
         }
+        if ($schemaKind !== null) {
+            $params['schemaKind'] = $schemaKind;
+        }
 
         return $handler->handle(new RequestMessage($request->id, self::INTERNAL_METHOD, $params));
     }
 
     /**
-     * @return array{string,string,string,Range,string|null}|null
+     * @return array{string,string,string,Range,string|null,string|null}|null
      */
     private function semanticArguments(RequestMessage $request): ?array
     {
@@ -238,12 +265,14 @@ final class BearHoverMiddleware implements Middleware, Handler
         $contextPath = $params['contextPath'] ?? null;
         $range = $params['range'] ?? null;
         $engine = $params['engine'] ?? null;
+        $schemaKind = $params['schemaKind'] ?? null;
         if (
             !is_string($kind)
             || !is_string($identifier)
             || !is_string($contextPath)
             || !is_array($range)
             || ($engine !== null && !is_string($engine))
+            || ($schemaKind !== null && !is_string($schemaKind))
         ) {
             return null;
         }
@@ -254,7 +283,7 @@ final class BearHoverMiddleware implements Middleware, Handler
             return null;
         }
 
-        return [$kind, $identifier, $contextPath, new Range($start, $end), $engine];
+        return [$kind, $identifier, $contextPath, new Range($start, $end), $engine, $schemaKind];
     }
 
     private function position(mixed $value): ?Position
@@ -340,6 +369,57 @@ final class BearHoverMiddleware implements Middleware, Handler
         ]);
 
         return new Hover(new MarkupContent('markdown', $markdown), $range);
+    }
+
+    private function schemaHover(string $fileName, string $kind, string $contextPath, Range $range): ?Hover
+    {
+        if ($this->semanticWorkspace->value === null) {
+            return null;
+        }
+
+        $result = $this->schemaFactsQuery->describeNamedInWorkspace(
+            $this->semanticWorkspace->value,
+            $fileName,
+            $kind,
+            $contextPath,
+        );
+        if (
+            $result->status !== SemanticStatus::Ok
+            || !$result->value instanceof SchemaFacts
+            || !$result->value->available
+            || $result->value->schema->file === null
+        ) {
+            return null;
+        }
+
+        $facts = $result->value;
+        $types = $facts->types === [] ? '(unspecified)' : implode(' | ', $facts->types);
+        $lines = [
+            '**BEAR JSON Schema**',
+            '',
+            sprintf('Kind: %s', $this->code($this->boundedField($facts->schema->kind))),
+            sprintf('Path: %s', $this->code($this->boundedField($this->relativeFile($facts->schema->file)))),
+            sprintf('Top-level type: %s', $this->code($this->boundedField($types))),
+        ];
+
+        if ($facts->properties !== []) {
+            $lines[] = '';
+            $lines[] = '**Properties**';
+            foreach (array_slice($facts->properties, 0, self::MAX_SCHEMA_PROPERTIES) as $property) {
+                $propertyTypes = $property->types === [] ? '(unspecified)' : implode(' | ', $property->types);
+                $lines[] = sprintf(
+                    '- %s: %s (%s)',
+                    $this->code($this->boundedField($property->name)),
+                    $this->code($this->boundedField($propertyTypes)),
+                    $property->required ? 'required' : 'optional',
+                );
+            }
+            if (count($facts->properties) > self::MAX_SCHEMA_PROPERTIES) {
+                $lines[] = sprintf('- … %d more', count($facts->properties) - self::MAX_SCHEMA_PROPERTIES);
+            }
+        }
+
+        return new Hover(new MarkupContent('markdown', implode("\n", $lines)), $range);
     }
 
     /**

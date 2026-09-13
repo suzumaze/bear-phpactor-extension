@@ -32,8 +32,19 @@ recognition is deliberately narrower than the legacy Definition heuristic: the d
 must use the `qiq` language ID or live below `var/qiq/template`. Dynamic expressions,
 Twig block names, comments, and quote boundaries continue to Phpactor. A recognized
 static reference that is missing, invalid, or unsafe returns an empty Hover without
-guessing another target. For PHP-associated template documents, ALPS and Resource URI
-semantics are checked first so existing BEAR Hover behavior remains unchanged.
+guessing another target. For PHP-associated template documents, ALPS, explicit Schema,
+and Resource URI semantics are checked first so existing BEAR Hover behavior remains
+unchanged.
+
+Explicit BEAR `#[JsonSchema(...)]` file references return standard Hover with the
+request/response kind, resolved workspace-relative path, top-level types, and up to
+20 deterministically ordered top-level properties with their declared types and
+required flag. Recognition follows the BEAR attribute contract: the first positional
+argument and `schema:` are response schemas, while `params:` is a request schema;
+`key:`, `target:`, later positional arguments, dynamic expressions, foreign attributes,
+and quote boundaries continue to Phpactor. Raw JSON and `$ref` targets are not returned
+or expanded. A recognized missing, malformed, invalid, or outside-workspace schema
+returns an empty Hover without guessing another target.
 
 Compatibility note: in the supported Phpactor release, extension middleware runs
 before the built-in trace, shutdown, and cancellation middleware, and there is no
@@ -106,7 +117,9 @@ the file content is unchanged. Resource inventory is deliberately not cached her
 a filesystem watcher or Phpactor index invalidation event, detecting added, removed, or
 inheritance-changing PHP files would require a complete freshness scan anyway.
 
-Schema `kind` is `request` or `response`. Resource convention lookup supports only
+Schema `kind` is `request` or `response`. Standard Hover recognizes explicit BEAR
+`JsonSchema` file arguments only; convention lookup remains on `textDocument/typeDefinition`.
+Resource convention lookup supports only
 `response`; request schemas require the explicit name recorded by `#[JsonSchema(params: ...)]`.
 Schema description returns sorted top-level properties with `required` and statically
 declared `types`. It does not return raw JSON or expand `$ref`. JSON input is limited

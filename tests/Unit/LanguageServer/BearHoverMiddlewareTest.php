@@ -148,6 +148,164 @@ final class BearHoverMiddlewareTest extends TestCase
         self::assertNull($response->result);
     }
 
+    public function testReturnsStandardHoverForResponseJsonSchemaReference(): void
+    {
+        $root = self::jsonSchemaFixture();
+        $file = $root . '/src/Resource/App/SchemaDemo.php';
+        $source = str_replace(
+            ['<caret-1>', '<caret-2>', '<caret-3>', '<caret-4>', '<caret-5>'],
+            '',
+            (string) file_get_contents($file),
+        );
+        [$middleware, $request] = $this->middleware($source, 'user.json', $file, $root);
+
+        $response = wait($middleware->process($request, $this->semanticHandler($middleware)));
+
+        self::assertInstanceOf(ResponseMessage::class, $response);
+        self::assertInstanceOf(Hover::class, $response->result);
+        self::assertInstanceOf(MarkupContent::class, $response->result->contents);
+        $markdown = $response->result->contents->value;
+        self::assertStringContainsString('**BEAR JSON Schema**', $markdown);
+        self::assertStringContainsString('Kind: `response`', $markdown);
+        self::assertStringContainsString('Path: `var/json_schema/user.json`', $markdown);
+        self::assertStringContainsString('Top-level type: `object`', $markdown);
+        self::assertStringContainsString('- `age`: `integer` (optional)', $markdown);
+        self::assertStringContainsString('- `name`: `string` (required)', $markdown);
+
+        $start = PositionConverter::intByteOffsetToPosition((int) strpos($source, 'user.json'), $source);
+        $end = PositionConverter::intByteOffsetToPosition(
+            (int) strpos($source, 'user.json') + strlen('user.json'),
+            $source,
+        );
+        self::assertEquals($start, $response->result->range->start);
+        self::assertEquals($end, $response->result->range->end);
+    }
+
+    public function testReturnsStandardHoverForRequestJsonSchemaReference(): void
+    {
+        $root = self::jsonSchemaFixture();
+        $file = $root . '/src/Resource/App/SchemaDemo.php';
+        $source = str_replace(
+            ['<caret-1>', '<caret-2>', '<caret-3>', '<caret-4>', '<caret-5>'],
+            '',
+            (string) file_get_contents($file),
+        );
+        [$middleware, $request] = $this->middleware($source, 'user-params.json', $file, $root);
+
+        $response = wait($middleware->process($request, $this->semanticHandler($middleware)));
+
+        self::assertInstanceOf(ResponseMessage::class, $response);
+        self::assertInstanceOf(Hover::class, $response->result);
+        $markdown = $response->result->contents->value;
+        self::assertStringContainsString('Kind: `request`', $markdown);
+        self::assertStringContainsString('Path: `var/json_validate/user-params.json`', $markdown);
+        self::assertStringContainsString('- `id`: `integer` (optional)', $markdown);
+    }
+
+    public function testReturnsEmptyHoverForMissingJsonSchemaWithoutPhpactorFallback(): void
+    {
+        $root = self::jsonSchemaFixture();
+        $file = $root . '/src/Resource/App/SchemaDemo.php';
+        $source = "<?php\nuse BEAR\Resource\Annotation\JsonSchema;\n#[JsonSchema('missing.json')]\n";
+        [$middleware, $request] = $this->middleware($source, 'missing.json', $file, $root);
+
+        $response = wait($middleware->process($request, $this->semanticHandler($middleware)));
+
+        self::assertInstanceOf(ResponseMessage::class, $response);
+        self::assertNull($response->result);
+    }
+
+    public function testDelegatesNonSchemaJsonSchemaArgumentsAndQuoteBoundary(): void
+    {
+        $root = self::jsonSchemaFixture();
+        $file = $root . '/src/Resource/App/SchemaDemo.php';
+        $source = "<?php\nuse BEAR\Resource\Annotation\JsonSchema;\n"
+            . "#[JsonSchema(key: 'id', target: 'query')]\n";
+        $expected = new ResponseMessage(1, new Hover('Phpactor fallback'));
+
+        [$keyMiddleware, $keyRequest] = $this->middleware($source, 'id', $file, $root);
+        self::assertSame(
+            $expected,
+            wait($keyMiddleware->process($keyRequest, $this->fallbackHandler($expected))),
+        );
+
+        $schemaSource = "<?php\nuse BEAR\Resource\Annotation\JsonSchema;\n#[JsonSchema('user.json')]\n";
+        [$quoteMiddleware, $quoteRequest] = $this->middleware($schemaSource, "'user", $file, $root);
+        self::assertSame(
+            $expected,
+            wait($quoteMiddleware->process($quoteRequest, $this->fallbackHandler($expected))),
+        );
+    }
+
+    public function testJsonSchemaRecognitionTakesPrecedenceOverResourceUri(): void
+    {
+        $root = self::jsonSchemaFixture();
+        $file = $root . '/src/Resource/App/SchemaDemo.php';
+        $source = "<?php\nuse BEAR\Resource\Annotation\JsonSchema;\n#[JsonSchema('app://self/user')]\n";
+        [$middleware, $request] = $this->middleware($source, 'app://self/user', $file, $root);
+
+        $response = wait($middleware->process($request, $this->semanticHandler($middleware)));
+
+        self::assertInstanceOf(ResponseMessage::class, $response);
+        self::assertNull($response->result);
+    }
+
+    public function testReturnsEmptyJsonSchemaHoverWhenOpenDocumentIsOutsideSemanticWorkspace(): void
+    {
+        $root = self::jsonSchemaFixture();
+        $outsideFile = realpath(dirname(__DIR__, 3) . '/composer.json');
+        self::assertNotFalse($outsideFile);
+        $source = "<?php\nuse BEAR\Resource\Annotation\JsonSchema;\n#[JsonSchema('user.json')]\n";
+        [$middleware, $request] = $this->middleware($source, 'user.json', $outsideFile, $root);
+
+        $response = wait($middleware->process($request, $this->semanticHandler($middleware)));
+
+        self::assertInstanceOf(ResponseMessage::class, $response);
+        self::assertNull($response->result);
+    }
+
+    public function testBoundsJsonSchemaPropertiesAndProducesValidMarkdownAndUtf8(): void
+    {
+        $root = sys_get_temp_dir() . '/bear-schema-hover-' . bin2hex(random_bytes(8));
+        try {
+            self::assertTrue(mkdir($root . '/src', 0777, true));
+            self::assertTrue(mkdir($root . '/var/json_schema', 0777, true));
+            self::assertNotFalse(file_put_contents(
+                $root . '/composer.json',
+                '{"autoload":{"psr-4":{"Acme\\\\App\\\\":"src/"}}}',
+            ));
+
+            $properties = ['00``' . str_repeat('あ', 600) => ['type' => 'string']];
+            for ($index = 1; $index < 25; $index++) {
+                $properties[sprintf('property%02d', $index)] = ['type' => 'string'];
+            }
+            self::assertNotFalse(file_put_contents(
+                $root . '/var/json_schema/many.json',
+                json_encode(
+                    ['type' => 'object', 'properties' => $properties],
+                    JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE,
+                ),
+            ));
+
+            $source = "<?php\nuse BEAR\\Resource\\Annotation\\JsonSchema;\n#[JsonSchema('many.json')]\n";
+            $file = $root . '/src/Demo.php';
+            self::assertNotFalse(file_put_contents($file, $source));
+            [$middleware, $request] = $this->middleware($source, 'many.json', $file, $root);
+
+            $response = wait($middleware->process($request, $this->semanticHandler($middleware)));
+
+            self::assertInstanceOf(ResponseMessage::class, $response);
+            self::assertInstanceOf(Hover::class, $response->result);
+            $markdown = $response->result->contents->value;
+            self::assertSame(1, preg_match('//u', $markdown));
+            self::assertStringContainsString('- ```00``あ', $markdown);
+            self::assertSame(20, substr_count($markdown, ' (optional)'));
+            self::assertStringContainsString('- … 5 more', $markdown);
+        } finally {
+            $this->removeTree($root);
+        }
+    }
+
     public function testReturnsStandardHoverForTwigTemplateReference(): void
     {
         $root = self::templateFixture();
@@ -452,6 +610,14 @@ final class BearHoverMiddlewareTest extends TestCase
     private static function templateFixture(): string
     {
         $fixture = realpath(dirname(__DIR__, 2) . '/Fixture/Template');
+        self::assertNotFalse($fixture);
+
+        return $fixture;
+    }
+
+    private static function jsonSchemaFixture(): string
+    {
+        $fixture = realpath(dirname(__DIR__, 2) . '/Fixture/JsonSchema/basic');
         self::assertNotFalse($fixture);
 
         return $fixture;
