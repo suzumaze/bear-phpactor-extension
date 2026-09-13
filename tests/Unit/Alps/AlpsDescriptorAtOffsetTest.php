@@ -55,6 +55,30 @@ final class AlpsDescriptorAtOffsetTest extends TestCase
         self::assertNull($locator($document, $contentStart + strlen('goArticle')));
     }
 
+    public function testListsOnlySupportedStaticDescriptorReferencesInSourceOrder(): void
+    {
+        $source = <<<'PHP'
+<?php
+use BEAR\ApiDoc\Annotation\Alps as Semantic;
+#[Semantic('firstDescriptor')]
+final class First {}
+#[\BEAR\ApiDoc\Annotation\Alps('secondDescriptor')]
+final class Second {}
+#[Semantic('valid', 'notDescriptor')]
+final class ExtraArgument {}
+#[\Other\Alps('foreignDescriptor')]
+final class Foreign {}
+#[Semantic(self::DESCRIPTOR)]
+final class Dynamic {}
+PHP;
+        $document = TextDocumentBuilder::create($source)->language('php')->build();
+
+        self::assertSame(
+            ['firstDescriptor', 'secondDescriptor', 'valid'],
+            array_column((new AlpsDescriptorAtOffset())->references($document), 1),
+        );
+    }
+
     /** @return array{int,string,int}|null */
     private function locate(string $source, string $needle): ?array
     {

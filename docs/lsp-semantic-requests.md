@@ -55,6 +55,14 @@ references or infers a Resource from descriptor names. An unresolved or unsafe A
 descriptor returns an empty Hover; other attribute arguments and ordinary PHP
 positions continue to Phpactor.
 
+Standard `textDocument/references` on that static `Alps` argument returns PHP
+attribute usages resolving to the same profile path and descriptor byte offset. This
+prevents an equal ID in another project/profile from being conflated. Missing or
+duplicate descriptors return no BEAR references; `includeDeclaration: true` adds the
+descriptor definition in the profile. Profile `contains`, `href`, and `rt` edges are
+kept as structured relationships in `bear/alps/describeDescriptor` and Hover instead
+of being flattened into ordinary attribute references.
+
 Static Twig and Qiq template references supported by Definition also return standard
 Hover with the engine, original name, and resolved workspace-relative path. Twig
 recognition is limited to `.html.twig` documents or the `twig` language ID. Qiq Hover

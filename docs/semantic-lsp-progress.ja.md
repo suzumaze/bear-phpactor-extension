@@ -51,9 +51,10 @@ flowchart TD
     p85["Route → Page Resource References\n完了"]
     p86["SQL ID References\n完了"]
     p87["明示 JSON Schema References\n完了"]
+    p88["ALPS descriptor属性 References\n完了"]
     p8["別 repository の薄い MCP-LSP adapter\n将来"]
 
-    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p86 --> p87 --> p8
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p86 --> p87 --> p88 --> p8
 ```
 
 ## 現在利用できる入口
@@ -62,7 +63,7 @@ flowchart TD
 
 - `textDocument/definition`: Resource URI、Route、SQL、ALPS、Template、明示 Schema
 - `textDocument/typeDefinition`: Resource 規約の response Schema
-- `textDocument/references`: Resource URI・Resourceクラス・Route名から同じResourceの参照元、SQL IDと明示Schema参照から同じ実ファイルの参照元
+- `textDocument/references`: Resource、Route、SQL、明示Schema、ALPS descriptor属性の同一セマンティック対象への参照元
 - `textDocument/hover`: Resource URI の facts、Route、SQL、ALPS descriptor の fields と明示関係、静的 Template 参照、明示 JSON Schema の構造
 - `textDocument/completion`: Resource URI と body Schema property
 - `textDocument/documentLink`: Resource URI と Template 参照
@@ -118,6 +119,12 @@ SQL本文は返さない。`type:`・`factory:`・後続引数・動的式・別
 指す属性引数だけを返す。requestとresponse、規約Schema、別FQN属性、非対応引数、動的式、欠落Schemaを
 混同しない。SQLとSchemaのPHP走査は共通scannerを使い、workspace内PSR-4 root、1 MiB上限、
 canonical pathの重複排除と決定順を共有する。`includeDeclaration: true`では対応Schemaも宣言として返る。
+
+ALPS descriptorからのReferencesは、`#[Alps('descriptorId')]`の静的な第1引数をPHP source root内で列挙する。
+単なる同名IDではなく、各利用位置から解決したprofile pathとdescriptor byte offsetが一致するものだけを返すため、
+別project/profileの同名descriptorは混ざらない。欠落・重複descriptorは空結果にし、`includeDeclaration: true`では
+profile内のdescriptor定義も返す。profile JSON内の`contains`・`href`・`rt`は属性利用とは異なる関係edgeなので、
+標準Referencesへ混ぜず`bear/alps/describeDescriptor`とHoverの構造化関係として提供する。
 
 対応中の Phpactor には Hover provider chain がなく、拡張 middleware は標準の trace・
 shutdown・cancellation middleware より前に実行される。そのため前段では構文上の認識だけを

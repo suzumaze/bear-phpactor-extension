@@ -6,6 +6,7 @@ namespace Suzumaze\BearPhpactor;
 
 use Suzumaze\BearPhpactor\Alps\AlpsDefinitionLocator;
 use Suzumaze\BearPhpactor\Alps\AlpsDescriptorAtOffset;
+use Suzumaze\BearPhpactor\Alps\AlpsReferenceFinder;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaConventionTypeLocator;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaReferenceAtOffset;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaReferenceFinder;
@@ -24,6 +25,7 @@ use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Router\RouterDefinitionLocator;
 use Suzumaze\BearPhpactor\Router\RouteReferenceAtOffset;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsFactsQuery;
+use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsProfileQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
@@ -454,6 +456,15 @@ final class BearSundayExtension implements Extension
                 );
             },
         );
+        $container->register(
+            'bear_sunday.semantic.alps_descriptor_references_query',
+            function (Container $container): AlpsDescriptorReferencesQuery {
+                return new AlpsDescriptorReferencesQuery(
+                    $container->get('bear_sunday.semantic.alps_query'),
+                    $container->get('bear_sunday.alps.descriptor_at_offset'),
+                );
+            },
+        );
 
         // ALPSプロファイル: #[Alps('doDeleteArticle')] 属性から profile.json の
         // 記述子定義へ定義ジャンプ。プロファイルの場所は固定の規約パスでは無く、
@@ -467,6 +478,21 @@ final class BearSundayExtension implements Extension
         }, [
             ReferenceFinderExtension::TAG_DEFINITION_LOCATOR => [],
         ]);
+
+        // ALPS参照検索: 同じprofile内の一意なdescriptorを指す属性利用箇所を列挙する。
+        $container->register(
+            'bear_sunday.alps.reference_finder',
+            function (Container $container): AlpsReferenceFinder {
+                $pathResolver = $container->get(FilePathResolverExtension::SERVICE_FILE_PATH_RESOLVER);
+
+                return new AlpsReferenceFinder(
+                    $container->get('bear_sunday.alps.descriptor_at_offset'),
+                    $container->get('bear_sunday.semantic.alps_descriptor_references_query'),
+                    $pathResolver->resolve('%project_root%'),
+                );
+            },
+            [ReferenceFinderExtension::TAG_REFERENCE_FINDER => []],
+        );
 
         // Twig / Qiq: Resource の #[Embed(rel, src) に対応するテンプレート変数から、
         // 埋め込み先 Resource の同種テンプレートへ定義ジャンプ。

@@ -288,6 +288,72 @@ final class StdioLanguageServerTest extends TestCase
         }
     }
 
+    public function testRealPhpactorStdioFindsAlpsDescriptorAttributeReferences(): void
+    {
+        $fixture = dirname(__DIR__) . '/Fixture/Alps/App1';
+        $sourceFile = $fixture . '/src/AlpsReferences.php';
+        $source = (string) file_get_contents($sourceFile);
+        $client = StdioLspClient::start(
+            $this->command($fixture),
+            $fixture,
+            $this->environment(),
+        );
+
+        try {
+            $initialize = $client->request('initialize', [
+                'processId' => getmypid(),
+                'rootUri' => $this->fileUri($fixture),
+                'capabilities' => (object) [],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $initialize, $client->stderr());
+            self::assertTrue($initialize['result']['capabilities']['referencesProvider'] ?? false);
+            $client->notify('initialized');
+            $client->notify('textDocument/didOpen', [
+                'textDocument' => [
+                    'uri' => $this->fileUri($sourceFile),
+                    'languageId' => 'php',
+                    'version' => 1,
+                    'text' => $source,
+                ],
+            ]);
+
+            $references = $client->request('textDocument/references', [
+                'textDocument' => ['uri' => $this->fileUri($sourceFile)],
+                'position' => $this->positionOf('doDeleteArticle', $source),
+                'context' => ['includeDeclaration' => false],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $references, $client->stderr());
+            self::assertSame(
+                [$this->fileUri($sourceFile), $this->fileUri($sourceFile)],
+                array_column($references['result'] ?? [], 'uri'),
+            );
+            self::assertSame(
+                [10, 13],
+                array_map(
+                    static fn (array $location): int => $location['range']['start']['line'],
+                    $references['result'] ?? [],
+                ),
+            );
+
+            $withDeclaration = $client->request('textDocument/references', [
+                'textDocument' => ['uri' => $this->fileUri($sourceFile)],
+                'position' => $this->positionOf('doDeleteArticle', $source),
+                'context' => ['includeDeclaration' => true],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $withDeclaration, $client->stderr());
+            self::assertContains(
+                $this->fileUri($fixture . '/var/alps/profile.json'),
+                array_column($withDeclaration['result'] ?? [], 'uri'),
+            );
+
+            $shutdown = $client->request('shutdown', [], 10.0);
+            self::assertArrayNotHasKey('error', $shutdown, $client->stderr());
+            $client->notify('exit');
+        } finally {
+            $client->close();
+        }
+    }
+
     public function testRealPhpactorStdioServerLoadsExtensionAndResolvesResourceDefinition(): void
     {
         $fixture = self::fixtureDir();

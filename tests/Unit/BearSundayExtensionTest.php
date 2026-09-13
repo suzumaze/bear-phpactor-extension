@@ -6,6 +6,7 @@ namespace Suzumaze\BearPhpactor\Tests\Unit;
 
 use Suzumaze\BearPhpactor\Alps\AlpsDefinitionLocator;
 use Suzumaze\BearPhpactor\Alps\AlpsDescriptorAtOffset;
+use Suzumaze\BearPhpactor\Alps\AlpsReferenceFinder;
 use Suzumaze\BearPhpactor\BearSundayExtension;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaConventionTypeLocator;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaReferenceFinder;
@@ -17,6 +18,7 @@ use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceDefinitionLocator;
 use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceReferenceFinder;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
+use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsProfileQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
@@ -67,6 +69,10 @@ final class BearSundayExtensionTest extends TestCase
         self::assertInstanceOf(
             AlpsDescriptorAtOffset::class,
             $container->get('bear_sunday.alps.descriptor_at_offset'),
+        );
+        self::assertInstanceOf(
+            AlpsDescriptorReferencesQuery::class,
+            $container->get('bear_sunday.semantic.alps_descriptor_references_query'),
         );
     }
 
@@ -263,6 +269,11 @@ final class BearSundayExtensionTest extends TestCase
         );
         self::assertArrayHasKey(
             'bear_sunday.json_schema.reference_finder',
+            $container->getServiceIdsForTag(ReferenceFinderExtension::TAG_REFERENCE_FINDER),
+        );
+        self::assertInstanceOf(AlpsReferenceFinder::class, $container->get('bear_sunday.alps.reference_finder'));
+        self::assertArrayHasKey(
+            'bear_sunday.alps.reference_finder',
             $container->getServiceIdsForTag(ReferenceFinderExtension::TAG_REFERENCE_FINDER),
         );
     }
