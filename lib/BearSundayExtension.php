@@ -242,6 +242,7 @@ final class BearSundayExtension implements Extension
                     $container->get('bear_sunday.semantic.project_info_query'),
                     $container->get('bear_sunday.semantic.schema_facts_query'),
                     $container->get('bear_sunday.semantic.alps_facts_query'),
+                    $container->get('bear_sunday.semantic.resource_references_query'),
                 );
             },
             [LanguageServerExtension::TAG_METHOD_HANDLER => []],

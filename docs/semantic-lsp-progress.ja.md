@@ -56,9 +56,10 @@ flowchart TD
     p90["documentSymbol / workspace symbol判断\n完了: 現状は拡張しない"]
     p91["Resource References Query抽出\n完了"]
     p92["Semantic error / provenance / freshness\n完了"]
+    p93["URI起点Resource References request\n完了"]
     p8["別 repository の薄い MCP-LSP adapter\n将来"]
 
-    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p86 --> p87 --> p88 --> p89 --> p90 --> p91 --> p92 --> p8
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p86 --> p87 --> p88 --> p89 --> p90 --> p91 --> p92 --> p93 --> p8
 ```
 
 ## 現在利用できる入口
@@ -160,6 +161,7 @@ shutdown・cancellation middleware より前に実行される。そのため前
 - `bear/resource/list`
 - `bear/resource/describe`
 - `bear/resource/incomingRelations`
+- `bear/resource/references`
 - `bear/route/resolve`
 - `bear/sql/resolve`
 - `bear/template/resolve`
@@ -173,6 +175,11 @@ shutdown・cancellation middleware より前に実行される。そのため前
 
 custom request は、文書内 Position を起点にできない BEAR identifier 問い合わせのための
 read-only API である。標準 LSP で自然に表現できる操作の代替にはしない。
+
+`bear/resource/references`は、AI clientなどがResource URIを既に持つ一方で、開いた文書と
+Positionを持たない場合に使う。Positionがある場合は標準`textDocument/references`を優先する。
+同じQuery層でResource URIとRouteの静的参照を解決し、既定50・最大200件、完全件数`total`、
+切り捨て状態`truncated`を返す。標準References側はPhpactorの既存chainを維持し、上限を設けない。
 
 custom requestの共通envelopeは既存の`status`・`data`・`candidates`を維持したまま、
 `provenance`を追加する。失敗時は安定したsnake_caseの`error.code`とstack traceを含まない

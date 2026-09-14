@@ -22,6 +22,9 @@ use Suzumaze\BearPhpactor\Semantic\Resource\ResourceIncomingRelationsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventory;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceReference;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceReferences;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceRelationFact;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
 use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
@@ -68,6 +71,7 @@ final class SemanticQueryHandler implements Handler
         private ProjectInfoQuery $projectInfoQuery = new ProjectInfoQuery(),
         private SchemaFactsQuery $schemaFactsQuery = new SchemaFactsQuery(),
         private AlpsFactsQuery $alpsFactsQuery = new AlpsFactsQuery(),
+        private ResourceReferencesQuery $resourceReferencesQuery = new ResourceReferencesQuery(),
     ) {
         $this->workspace = WorkspaceContext::fromRoot($workspaceRoot);
         $this->resourceDescriptionQuery = $resourceDescriptionQuery ?? new ResourceDescriptionQuery(
@@ -85,6 +89,7 @@ final class SemanticQueryHandler implements Handler
             'bear/resource/list' => 'listResources',
             'bear/resource/describe' => 'describeResource',
             'bear/resource/incomingRelations' => 'findIncomingResourceRelations',
+            'bear/resource/references' => 'findResourceReferences',
             'bear/route/resolve' => 'resolveRoute',
             'bear/sql/resolve' => 'resolveSql',
             'bear/template/resolve' => 'resolveTemplate',
@@ -187,6 +192,27 @@ final class SemanticQueryHandler implements Handler
             fn (ResourceIncomingRelations $relations): array => [
                 'resource' => $this->resourceData($relations->resource),
                 ...$this->incomingRelationsData($relations),
+            ],
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function findResourceReferences(
+        string $uri,
+        ?string $contextPath = null,
+        int $limit = ResourceReferencesQuery::DEFAULT_LIMIT,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->resourceReferencesQuery->findInWorkspace($workspace, $uri, $contextPath, $limit),
+            fn (ResourceReferences $references): array => [
+                'resource' => $this->resourceData($references->resource),
+                'references' => array_map(
+                    $this->resourceReferenceData(...),
+                    $references->references,
+                ),
+                'total' => $references->total,
+                'truncated' => $references->truncated,
             ],
         ));
     }
@@ -376,11 +402,11 @@ final class SemanticQueryHandler implements Handler
     /** @return array<string,mixed> */
     private function provenanceData(Provenance $provenance): array
     {
-        $data = [
-            'source' => $provenance->source,
-            'path' => $provenance->path,
-            'freshness' => $provenance->freshness->value,
-        ];
+        $data = ['source' => $provenance->source];
+        if ($provenance->path !== null) {
+            $data['path'] = $provenance->path;
+        }
+        $data['freshness'] = $provenance->freshness->value;
         if ($provenance->byteStart !== null && $provenance->byteEnd !== null) {
             $data['byteRange'] = [
                 'start' => $provenance->byteStart,
@@ -470,6 +496,20 @@ final class SemanticQueryHandler implements Handler
             'targetMethod' => $relation->targetMethod,
             'sourcePath' => $this->relativePath($relation->sourceFile),
             'byteOffset' => $relation->byteOffset,
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function resourceReferenceData(ResourceReference $reference): array
+    {
+        return [
+            'kind' => $reference->kind,
+            'identifier' => $reference->identifier,
+            'path' => $this->relativePath($reference->file),
+            'byteRange' => [
+                'start' => $reference->contentStart,
+                'end' => $reference->contentEnd,
+            ],
         ];
     }
 

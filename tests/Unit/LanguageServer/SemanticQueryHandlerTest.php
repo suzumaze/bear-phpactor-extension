@@ -26,7 +26,7 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertGreaterThan(0, $response['data']['resourceCount']);
         self::assertContains('resourceDescription', $response['data']['capabilities']);
         self::assertSame([
-            ['source' => 'derived', 'path' => null, 'freshness' => 'saved'],
+            ['source' => 'derived', 'freshness' => 'saved'],
             ['source' => 'file', 'path' => 'composer.json', 'freshness' => 'saved'],
         ], $response['provenance']);
         self::assertStringNotContainsString(
@@ -141,7 +141,7 @@ final class SemanticQueryHandlerTest extends TestCase
             ],
             'candidates' => [],
             'provenance' => [
-                ['source' => 'derived', 'path' => null, 'freshness' => 'saved'],
+                ['source' => 'derived', 'freshness' => 'saved'],
                 ['source' => 'file', 'path' => 'composer.json', 'freshness' => 'saved'],
                 [
                     'source' => 'file',
@@ -194,6 +194,37 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertCount(2, $response['data']['items']);
         self::assertSame('app://self/dashboard', $response['data']['items'][0]['sourceUri']);
         self::assertSame('src/Resource/App/Dashboard.php', $response['data']['items'][0]['sourcePath']);
+    }
+
+    public function testFindsBoundedResourceReferencesWithoutADocumentPosition(): void
+    {
+        $handler = new SemanticQueryHandler($this->fixture('References'));
+        $response = wait($handler->findResourceReferences(
+            'app://self/article',
+            'src/Resource/App/Article.php',
+            2,
+        ));
+
+        self::assertSame('ok', $response['status']);
+        self::assertSame('app://self/article', $response['data']['resource']['uri']);
+        self::assertSame(3, $response['data']['total']);
+        self::assertTrue($response['data']['truncated']);
+        self::assertSame([
+            'src/Resource/App/Articles.php',
+            'src/Resource/Page/Admin/Article.php',
+        ], array_column($response['data']['references'], 'path'));
+        self::assertSame(
+            ['resource_uri', 'resource_uri'],
+            array_column($response['data']['references'], 'kind'),
+        );
+        self::assertStringNotContainsString(
+            $this->fixture('References'),
+            json_encode($response, JSON_THROW_ON_ERROR),
+        );
+
+        $invalid = wait($handler->findResourceReferences('app://self/article', limit: 0));
+        self::assertSame('invalid_input', $invalid['status']);
+        self::assertSame('semantic_invalid_input', $invalid['error']['code']);
     }
 
     public function testResourceDescriptionIncludesConventionSchema(): void
@@ -350,6 +381,7 @@ final class SemanticQueryHandlerTest extends TestCase
             'bear/resource/list' => 'listResources',
             'bear/resource/describe' => 'describeResource',
             'bear/resource/incomingRelations' => 'findIncomingResourceRelations',
+            'bear/resource/references' => 'findResourceReferences',
             'bear/route/resolve' => 'resolveRoute',
             'bear/sql/resolve' => 'resolveSql',
             'bear/template/resolve' => 'resolveTemplate',

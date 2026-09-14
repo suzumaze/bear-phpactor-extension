@@ -120,6 +120,7 @@ final class ProjectInfoQuery
             'projectInfo',
             'resourceDescription',
             'resourceInventory',
+            'resourceReferences',
             'resourceResolution',
             'routeResolution',
             'schemaFacts',

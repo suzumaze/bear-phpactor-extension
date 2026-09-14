@@ -13,11 +13,13 @@ final readonly class ResourceReferences
     public function __construct(
         public ResourceResolution $resource,
         public array $references,
+        public int $total,
+        public bool $truncated,
     ) {
     }
 
     public static function unavailable(ResourceResolution $resource): self
     {
-        return new self($resource, []);
+        return new self($resource, [], 0, false);
     }
 }

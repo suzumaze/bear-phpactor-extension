@@ -24,6 +24,8 @@ final class ResourceReferencesQueryTest extends TestCase
         self::assertSame(SemanticStatus::Ok, $result->status);
         self::assertInstanceOf(ResourceReferences::class, $result->value);
         self::assertSame('app://self/article', $result->value->resource->uri->uri());
+        self::assertSame(3, $result->value->total);
+        self::assertFalse($result->value->truncated);
         self::assertSame(
             [
                 'src/Resource/App/Articles.php',
@@ -45,6 +47,38 @@ final class ResourceReferencesQueryTest extends TestCase
             array_column($result->value->references, 'identifier'),
         );
         $this->assertRangesSelectIdentifiers($result->value);
+    }
+
+    public function testAppliesAnExplicitHeadlessResultLimit(): void
+    {
+        $result = (new ResourceReferencesQuery())->findInWorkspace(
+            $this->fixtureContext(),
+            'app://self/article',
+            'src/Resource/App/Articles.php',
+            2,
+        );
+
+        self::assertSame(SemanticStatus::Ok, $result->status);
+        self::assertInstanceOf(ResourceReferences::class, $result->value);
+        self::assertSame(3, $result->value->total);
+        self::assertTrue($result->value->truncated);
+        self::assertSame(
+            ['src/Resource/App/Articles.php', 'src/Resource/Page/Admin/Article.php'],
+            array_map($this->fixtureRelative(), $result->value->references),
+        );
+    }
+
+    public function testRejectsAnInvalidHeadlessResultLimitBeforeScanning(): void
+    {
+        $result = (new ResourceReferencesQuery())->findInWorkspace(
+            $this->fixtureContext(),
+            'app://self/article',
+            'src/Resource/App/Articles.php',
+            0,
+        );
+
+        self::assertSame(SemanticStatus::InvalidInput, $result->status);
+        self::assertNull($result->value);
     }
 
     public function testFindsRouteAndUriReferencesToPageResource(): void

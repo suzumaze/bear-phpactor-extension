@@ -135,7 +135,7 @@ snake_case `code` and a safe human-readable `message`; no exception trace is exp
 
 `provenance` records the workspace-relative evidence used by the semantic query.
 Disk-backed facts use `freshness: saved`; `buffer` is reserved for a future query that
-actually reads an LSP document buffer. `source: derived` has a null path and marks a
+actually reads an LSP document buffer. `source: derived` carries no path and marks a
 result composed from other evidence. Token-specific evidence can additionally contain
 `byteRange: {start, end}`. Provenance is deduplicated and sorted deterministically, and
 its DTO rejects absolute paths, parent traversal, and Windows absolute paths.
@@ -156,6 +156,7 @@ present.
 | `bear/resource/list` | `{scheme?, prefix?, limit?}` | `{resources, total, truncated}` |
 | `bear/resource/describe` | `{uri, contextPath?, incomingLimit?}` | `{resource, methods, relationsOut, relationsIn, templates, schemas}` |
 | `bear/resource/incomingRelations` | `{uri, contextPath?, limit?}` | `{resource, available, items, total, truncated}` |
+| `bear/resource/references` | `{uri, contextPath?, limit?}` | `{resource, references, total, truncated}` |
 | `bear/route/resolve` | `{route, contextPath?}` | `{route, resource}` |
 | `bear/sql/resolve` | `{queryId, contextPath?}` | `{queryId, path}` |
 | `bear/template/resolve` | `{engine, name, contextPath?}` | `{engine, name, path}` |
@@ -223,6 +224,16 @@ relations. `relationsIn` contains the bounded incoming relation set with `availa
 `items`, `total`, and `truncated`. It is unavailable for an ambiguous Resource URI;
 the server does not claim that a URI-only relation belongs to one physical candidate.
 Dynamic target expressions and invalid resource URIs are not guessed.
+
+`bear/resource/references` is the identifier-based counterpart for clients that have
+a Resource URI but no open text document or LSP position. When a position is available,
+clients should continue to use standard `textDocument/references`. Each returned static
+reference contains `kind` (`resource_uri` or `route`), the original `identifier`, a
+workspace-relative `path`, and a content-only byte range. Equal URI text is included only
+after resolving from that source file's project context to the same canonical Resource;
+mini applications are not conflated. Results default to 50 items, accept at most 200,
+and expose the complete `total` plus `truncated`. The standard positional request remains
+unlimited and preserves Phpactor's reference-finder chain.
 For a Link with a dynamic explicit method, `targetMethod` is `null`; an omitted
 method uses BEAR.Resource's `get` default. Relation byte offsets refer to the saved
 PHP file. Incoming results default to 50 items and accept at most 200; the complete

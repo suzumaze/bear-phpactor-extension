@@ -490,6 +490,21 @@ final class StdioLanguageServerTest extends TestCase
                 ]],
             ], $semantic['result'] ?? null);
 
+            $resourceReferences = $client->request('bear/resource/references', [
+                'uri' => 'app://self/user',
+                'contextPath' => 'src/Client.php',
+                'limit' => 2,
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $resourceReferences, $client->stderr());
+            self::assertSame('ok', $resourceReferences['result']['status'] ?? null);
+            self::assertSame(3, $resourceReferences['result']['data']['total'] ?? null);
+            self::assertTrue($resourceReferences['result']['data']['truncated'] ?? false);
+            self::assertSame([
+                'src/Client.php',
+                'src/Resource/App/Article.php',
+            ], array_column($resourceReferences['result']['data']['references'] ?? [], 'path'));
+            self::assertNotEmpty($resourceReferences['result']['provenance'] ?? []);
+
             $inventory = $client->request('bear/resource/list', [
                 'scheme' => 'app',
                 'prefix' => 'user',

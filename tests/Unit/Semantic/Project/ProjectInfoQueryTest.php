@@ -73,6 +73,7 @@ final class ProjectInfoQueryTest extends TestCase
             'projectInfo',
             'resourceDescription',
             'resourceInventory',
+            'resourceReferences',
             'resourceResolution',
             'routeResolution',
             'schemaFacts',

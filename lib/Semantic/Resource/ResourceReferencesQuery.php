@@ -26,6 +26,9 @@ use Throwable;
  */
 final class ResourceReferencesQuery
 {
+    public const DEFAULT_LIMIT = 50;
+    public const MAX_LIMIT = 200;
+
     private const MAX_ROUTE_BYTES = 1_048_576;
 
     public function __construct(
@@ -42,10 +45,14 @@ final class ResourceReferencesQuery
         WorkspaceContext $workspace,
         string $uri,
         ?string $contextPath = null,
+        ?int $limit = null,
     ): SemanticResult {
+        if (!$this->validLimit($limit)) {
+            return SemanticResult::invalidInput();
+        }
         $resource = $this->resourceQuery->resolveInWorkspace($workspace, $uri, $contextPath);
         if ($resource->status === SemanticStatus::Ok && $resource->value !== null) {
-            return $this->findForResolutionInWorkspace($workspace, $resource->value, $contextPath);
+            return $this->findForResolutionInWorkspace($workspace, $resource->value, $contextPath, $limit);
         }
         if ($resource->status !== SemanticStatus::Ambiguous) {
             return SemanticResult::failure($resource->status);
@@ -67,7 +74,11 @@ final class ResourceReferencesQuery
         WorkspaceContext $workspace,
         string $resourcePath,
         ?string $contextPath = null,
+        ?int $limit = null,
     ): SemanticResult {
+        if (!$this->validLimit($limit)) {
+            return SemanticResult::invalidInput();
+        }
         $targetPath = $workspace->accessPolicy()->resolveExisting($resourcePath);
         if ($targetPath->value === null) {
             return SemanticResult::failure($targetPath->status);
@@ -112,7 +123,7 @@ final class ResourceReferencesQuery
             ));
         }
 
-        return $this->findForResolutionInWorkspace($workspace, $matches[0], $contextPath);
+        return $this->findForResolutionInWorkspace($workspace, $matches[0], $contextPath, $limit);
     }
 
     /** @return SemanticResult<ResourceReferences|null> */
@@ -120,7 +131,11 @@ final class ResourceReferencesQuery
         WorkspaceContext $workspace,
         ResourceResolution $target,
         ?string $contextPath = null,
+        ?int $limit = null,
     ): SemanticResult {
+        if (!$this->validLimit($limit)) {
+            return SemanticResult::invalidInput();
+        }
         $targetPath = $workspace->accessPolicy()->inspectExisting($target->file);
         if ($targetPath->value === null) {
             return SemanticResult::failure($targetPath->status);
@@ -210,8 +225,10 @@ final class ResourceReferencesQuery
             ],
         );
 
+        $total = count($references);
+        $selected = $limit === null ? $references : array_slice($references, 0, $limit);
         $provenance = [Provenance::savedFile($targetPath->value->relative), Provenance::derived()];
-        foreach ($references as $reference) {
+        foreach ($selected as $reference) {
             $path = $workspace->accessPolicy()->inspectExisting($reference->file);
             if ($path->value !== null) {
                 $provenance[] = Provenance::savedFile(
@@ -225,7 +242,9 @@ final class ResourceReferencesQuery
         return SemanticResult::ok(
             new ResourceReferences(
                 new ResourceResolution($target->uri, $targetPath->value->absolute, $target->fqn),
-                $references,
+                $selected,
+                $total,
+                $limit !== null && $total > $limit,
             ),
             $provenance,
         );
@@ -297,5 +316,10 @@ final class ResourceReferencesQuery
             (string) $reference->contentEnd,
             $reference->kind,
         ]);
+    }
+
+    private function validLimit(?int $limit): bool
+    {
+        return $limit === null || ($limit >= 1 && $limit <= self::MAX_LIMIT);
     }
 }
