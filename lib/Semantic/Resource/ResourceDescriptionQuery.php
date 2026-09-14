@@ -6,6 +6,7 @@ namespace Suzumaze\BearPhpactor\Semantic\Resource;
 
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateQuery;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
@@ -103,11 +104,43 @@ final class ResourceDescriptionQuery
             return SemanticResult::failure($schema->status);
         }
 
-        return SemanticResult::ok(new ResourceDescription(
-            $facts,
-            $incoming,
-            $templates,
-            $responseSchema,
-        ));
+        $provenance = [Provenance::derived()];
+        $this->addFileProvenance($workspace, $provenance, $facts->resource->file);
+        foreach ($incoming->relations as $relation) {
+            $this->addFileProvenance(
+                $workspace,
+                $provenance,
+                $relation->sourceFile,
+                $relation->byteOffset,
+                $relation->byteOffset,
+            );
+        }
+        foreach ($templates as $template) {
+            if ($template->templateFile !== null) {
+                $this->addFileProvenance($workspace, $provenance, $template->templateFile);
+            }
+        }
+        if ($responseSchema?->file !== null) {
+            $this->addFileProvenance($workspace, $provenance, $responseSchema->file);
+        }
+
+        return SemanticResult::ok(
+            new ResourceDescription($facts, $incoming, $templates, $responseSchema),
+            $provenance,
+        );
+    }
+
+    /** @param list<Provenance> $provenance */
+    private function addFileProvenance(
+        WorkspaceContext $workspace,
+        array &$provenance,
+        string $file,
+        ?int $byteStart = null,
+        ?int $byteEnd = null,
+    ): void {
+        $path = $workspace->accessPolicy()->inspectExisting($file);
+        if ($path->value !== null) {
+            $provenance[] = Provenance::savedFile($path->value->relative, $byteStart, $byteEnd);
+        }
     }
 }

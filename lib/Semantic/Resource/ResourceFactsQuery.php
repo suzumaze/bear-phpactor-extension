@@ -19,6 +19,7 @@ use Microsoft\PhpParser\TokenKind;
 use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 use Suzumaze\BearPhpactor\Util\PhpClassDeclaration;
 
@@ -102,7 +103,8 @@ final class ResourceFactsQuery
         $modified = filemtime($path->value->absolute);
         $fingerprint = hash('sha256', $source) . ':' . ($modified === false ? 'unknown' : (string) $modified)
             . ':' . strlen($source);
-        $cacheKey = $path->value->absolute . "\0" . $resource->uri->uri() . "\0" . $resource->fqn;
+        $cacheKey = $workspace->root() . "\0" . $path->value->absolute . "\0"
+            . $resource->uri->uri() . "\0" . $resource->fqn;
         if (isset($this->cache[$cacheKey]) && $this->cache[$cacheKey]['fingerprint'] === $fingerprint) {
             return $this->cache[$cacheKey]['result'];
         }
@@ -153,7 +155,10 @@ final class ResourceFactsQuery
             ],
         );
 
-        $result = SemanticResult::ok(new ResourceFacts($resource, $methods, $relations));
+        $result = SemanticResult::ok(
+            new ResourceFacts($resource, $methods, $relations),
+            [Provenance::savedFile($path->value->relative)],
+        );
         $this->cache[$cacheKey] = ['fingerprint' => $fingerprint, 'result' => $result];
 
         return $result;

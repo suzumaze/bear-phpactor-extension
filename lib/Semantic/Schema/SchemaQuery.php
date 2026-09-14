@@ -10,6 +10,7 @@ use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 use Suzumaze\BearPhpactor\Util\PathGuard;
 
@@ -352,13 +353,16 @@ final readonly class SchemaQuery
             return SemanticResult::failure($path->status);
         }
 
-        return SemanticResult::ok(new SchemaResolution(
-            $resolution->kind,
-            $resolution->source,
-            $path->value->absolute,
-            $resolution->titleOffset,
-            $resolution->resource,
-        ));
+        return SemanticResult::ok(
+            new SchemaResolution(
+                $resolution->kind,
+                $resolution->source,
+                $path->value->absolute,
+                $resolution->titleOffset,
+                $resolution->resource,
+            ),
+            [Provenance::savedFile($path->value->relative)],
+        );
     }
 
     private function isInside(string $root, string $path): bool

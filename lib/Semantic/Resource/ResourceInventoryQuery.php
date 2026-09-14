@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Suzumaze\BearPhpactor\Semantic\Resource;
 
 use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
+use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 
@@ -74,11 +75,23 @@ final class ResourceInventoryQuery
 
         $total = count($resources);
 
-        return SemanticResult::ok(new ResourceInventory(
-            array_slice($resources, 0, $limit),
-            $total,
-            $total > $limit,
-        ));
+        $selected = array_slice($resources, 0, $limit);
+        $composer = $workspace->accessPolicy()->inspectExisting($project->value->root() . '/composer.json');
+        if ($composer->value === null) {
+            return SemanticResult::failure($composer->status);
+        }
+        $provenance = [Provenance::savedFile($composer->value->relative), Provenance::derived()];
+        foreach ($selected as $resource) {
+            $path = $workspace->accessPolicy()->inspectExisting($resource->file);
+            if ($path->value !== null) {
+                $provenance[] = Provenance::savedFile($path->value->relative);
+            }
+        }
+
+        return SemanticResult::ok(
+            new ResourceInventory($selected, $total, $total > $limit),
+            $provenance,
+        );
     }
 
     private function validFilters(?string $scheme, string $prefix, int $limit): bool

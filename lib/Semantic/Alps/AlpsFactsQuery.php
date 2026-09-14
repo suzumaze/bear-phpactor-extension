@@ -6,6 +6,7 @@ namespace Suzumaze\BearPhpactor\Semantic\Alps;
 
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 
 /**
@@ -64,7 +65,10 @@ final class AlpsFactsQuery
         }
 
         return count($facts) === 1
-            ? SemanticResult::ok($facts[0])
+            ? SemanticResult::ok(
+                $facts[0],
+                [Provenance::savedFile($profilePath->value->relative)],
+            )
             : SemanticResult::ambiguous($facts);
     }
 

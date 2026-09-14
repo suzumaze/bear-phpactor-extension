@@ -11,6 +11,7 @@ use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
 use Suzumaze\BearPhpactor\Router\RouteReferenceAtOffset;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
 use Suzumaze\BearPhpactor\Semantic\Workspace\Psr4PhpSourceScanner;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
@@ -209,10 +210,25 @@ final class ResourceReferencesQuery
             ],
         );
 
-        return SemanticResult::ok(new ResourceReferences(
-            new ResourceResolution($target->uri, $targetPath->value->absolute, $target->fqn),
-            $references,
-        ));
+        $provenance = [Provenance::savedFile($targetPath->value->relative), Provenance::derived()];
+        foreach ($references as $reference) {
+            $path = $workspace->accessPolicy()->inspectExisting($reference->file);
+            if ($path->value !== null) {
+                $provenance[] = Provenance::savedFile(
+                    $path->value->relative,
+                    $reference->contentStart,
+                    $reference->contentEnd,
+                );
+            }
+        }
+
+        return SemanticResult::ok(
+            new ResourceReferences(
+                new ResourceResolution($target->uri, $targetPath->value->absolute, $target->fqn),
+                $references,
+            ),
+            $provenance,
+        );
     }
 
     /** @return list<ResourceReference> */

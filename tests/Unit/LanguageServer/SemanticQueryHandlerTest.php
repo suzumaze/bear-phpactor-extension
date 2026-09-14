@@ -25,9 +25,13 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame(0, $response['data']['excludedPsr4Roots']);
         self::assertGreaterThan(0, $response['data']['resourceCount']);
         self::assertContains('resourceDescription', $response['data']['capabilities']);
+        self::assertSame([
+            ['source' => 'derived', 'path' => null, 'freshness' => 'saved'],
+            ['source' => 'file', 'path' => 'composer.json', 'freshness' => 'saved'],
+        ], $response['provenance']);
         self::assertStringNotContainsString(
             self::fixtureDir(),
-            json_encode($response['data'], JSON_THROW_ON_ERROR),
+            json_encode($response, JSON_THROW_ON_ERROR),
         );
     }
 
@@ -46,6 +50,11 @@ final class SemanticQueryHandlerTest extends TestCase
                 'path' => 'src/Resource/App/User.php',
             ],
             'candidates' => [],
+            'provenance' => [[
+                'source' => 'file',
+                'path' => 'src/Resource/App/User.php',
+                'freshness' => 'saved',
+            ]],
         ], $response);
     }
 
@@ -54,17 +63,65 @@ final class SemanticQueryHandlerTest extends TestCase
         $handler = new SemanticQueryHandler(self::fixtureDir());
 
         self::assertSame(
-            ['status' => 'invalid_input', 'data' => null, 'candidates' => []],
+            [
+                'status' => 'invalid_input',
+                'data' => null,
+                'candidates' => [],
+                'provenance' => [],
+                'error' => [
+                    'code' => 'semantic_invalid_input',
+                    'message' => 'The semantic query input is invalid.',
+                ],
+            ],
             wait($handler->resolveResource('not-a-resource-uri')),
         );
         self::assertSame(
-            ['status' => 'not_found', 'data' => null, 'candidates' => []],
+            [
+                'status' => 'not_found',
+                'data' => null,
+                'candidates' => [],
+                'provenance' => [],
+                'error' => [
+                    'code' => 'semantic_not_found',
+                    'message' => 'No semantic target was found.',
+                ],
+            ],
             wait($handler->resolveResource('app://self/missing')),
         );
         self::assertSame(
-            ['status' => 'invalid_input', 'data' => null, 'candidates' => []],
+            [
+                'status' => 'invalid_input',
+                'data' => null,
+                'candidates' => [],
+                'provenance' => [],
+                'error' => [
+                    'code' => 'semantic_invalid_input',
+                    'message' => 'The semantic query input is invalid.',
+                ],
+            ],
             wait($handler->resolveResource('app://self/user', '../outside.php')),
         );
+    }
+
+    public function testAmbiguousResponseHasCandidatesAndStableError(): void
+    {
+        $handler = new SemanticQueryHandler($this->fixture('References'));
+        $response = wait($handler->resolveResource(
+            'page://self/x',
+            'src/Resource/App/AmbiguousPage.php',
+        ));
+
+        self::assertSame('ambiguous', $response['status']);
+        self::assertNull($response['data']);
+        self::assertSame([
+            'semantic_ambiguous',
+            'More than one semantic target matched.',
+        ], array_values($response['error']));
+        self::assertSame([], $response['provenance']);
+        self::assertSame([
+            'src/Resource/Page/Admin/X.php',
+            'src/Resource/Page/Content/X.php',
+        ], array_column($response['candidates'], 'path'));
     }
 
     public function testListsWorkspaceRelativeResourceFacts(): void
@@ -83,6 +140,15 @@ final class SemanticQueryHandlerTest extends TestCase
                 'truncated' => false,
             ],
             'candidates' => [],
+            'provenance' => [
+                ['source' => 'derived', 'path' => null, 'freshness' => 'saved'],
+                ['source' => 'file', 'path' => 'composer.json', 'freshness' => 'saved'],
+                [
+                    'source' => 'file',
+                    'path' => 'src/Resource/App/User.php',
+                    'freshness' => 'saved',
+                ],
+            ],
         ], $response);
     }
 
@@ -169,6 +235,11 @@ final class SemanticQueryHandlerTest extends TestCase
             'queryId' => 'point_distance',
             'path' => 'var/db/sql/point_distance.sql',
         ], $response['data']);
+        self::assertSame([[
+            'source' => 'file',
+            'path' => 'var/db/sql/point_distance.sql',
+            'freshness' => 'saved',
+        ]], $response['provenance']);
     }
 
     public function testResolvesTemplateReferenceFact(): void

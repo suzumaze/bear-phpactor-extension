@@ -7,6 +7,7 @@ namespace Suzumaze\BearPhpactor\Semantic\Sql;
 use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 use Suzumaze\BearPhpactor\Util\PathGuard;
 
@@ -77,7 +78,10 @@ final class SqlQuery
             return SemanticResult::failure($path->status);
         }
 
-        return SemanticResult::ok(new SqlResolution($queryId, $path->value->absolute));
+        return SemanticResult::ok(
+            new SqlResolution($queryId, $path->value->absolute),
+            [Provenance::savedFile($path->value->relative)],
+        );
     }
 
     private function isValidQueryId(string $queryId): bool

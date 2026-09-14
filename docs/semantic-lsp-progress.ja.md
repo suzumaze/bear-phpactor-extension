@@ -55,9 +55,10 @@ flowchart TD
     p89["Twig / Qiq Template References\n完了"]
     p90["documentSymbol / workspace symbol判断\n完了: 現状は拡張しない"]
     p91["Resource References Query抽出\n完了"]
+    p92["Semantic error / provenance / freshness\n完了"]
     p8["別 repository の薄い MCP-LSP adapter\n将来"]
 
-    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p86 --> p87 --> p88 --> p89 --> p90 --> p91 --> p8
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p86 --> p87 --> p88 --> p89 --> p90 --> p91 --> p92 --> p8
 ```
 
 ## 現在利用できる入口
@@ -172,6 +173,12 @@ shutdown・cancellation middleware より前に実行される。そのため前
 
 custom request は、文書内 Position を起点にできない BEAR identifier 問い合わせのための
 read-only API である。標準 LSP で自然に表現できる操作の代替にはしない。
+
+custom requestの共通envelopeは既存の`status`・`data`・`candidates`を維持したまま、
+`provenance`を追加する。失敗時は安定したsnake_caseの`error.code`とstack traceを含まない
+`error.message`も返す。ファイル根拠のpathはworkspace相対だけを許し、現行Queryがディスクから
+読んだ事実は`freshness: saved`とする。`buffer`は実際にLSP document bufferを読む将来機能のために
+予約し、未保存かどうかを推測しない。複合結果は`source: derived`と実ファイル根拠を区別する。
 
 `bear/resource/describe` は、Resource class と public `on*` method、外向き・内向きの
 Link/Embed、既存の Qiq/Twig template、規約で解決できる response Schema を1回の

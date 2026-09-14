@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Suzumaze\BearPhpactor\Semantic\Resource;
 
 use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
+use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
@@ -104,13 +105,29 @@ final class ResourceIncomingRelationsQuery
         usort($relations, self::compareRelations(...));
         $total = count($relations);
 
-        return SemanticResult::ok(new ResourceIncomingRelations(
-            new ResourceResolution($target->uri, $targetPath->value->absolute, $target->fqn),
-            true,
-            array_slice($relations, 0, $limit),
-            $total,
-            $total > $limit,
-        ));
+        $selected = array_slice($relations, 0, $limit);
+        $provenance = [Provenance::savedFile($targetPath->value->relative), Provenance::derived()];
+        foreach ($selected as $relation) {
+            $path = $workspace->accessPolicy()->inspectExisting($relation->sourceFile);
+            if ($path->value !== null) {
+                $provenance[] = Provenance::savedFile(
+                    $path->value->relative,
+                    $relation->byteOffset,
+                    $relation->byteOffset,
+                );
+            }
+        }
+
+        return SemanticResult::ok(
+            new ResourceIncomingRelations(
+                new ResourceResolution($target->uri, $targetPath->value->absolute, $target->fqn),
+                true,
+                $selected,
+                $total,
+                $total > $limit,
+            ),
+            $provenance,
+        );
     }
 
     private static function compareRelations(ResourceRelationFact $left, ResourceRelationFact $right): int

@@ -18,5 +18,7 @@ enum SemanticStatus: string
     case InvalidInput = 'invalid_input';
     case Unsupported = 'unsupported';
     case ParseError = 'parse_error';
+    case EngineUnavailable = 'engine_unavailable';
     case OutsideWorkspace = 'outside_workspace';
+    case Timeout = 'timeout';
 }

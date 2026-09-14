@@ -78,17 +78,28 @@ final class RouteQuery
     private function mapResult(string $routeName, SemanticResult $resourceResult): SemanticResult
     {
         if ($resourceResult->status === SemanticStatus::Ok && $resourceResult->value !== null) {
-            return SemanticResult::ok(new RouteResolution($routeName, $resourceResult->value));
+            return SemanticResult::ok(
+                new RouteResolution($routeName, $resourceResult->value),
+                $resourceResult->provenance,
+            );
         }
 
         if ($resourceResult->status === SemanticStatus::Ambiguous) {
-            return SemanticResult::ambiguous(array_map(
-                static fn (ResourceResolution $candidate): RouteResolution =>
-                    new RouteResolution($routeName, $candidate),
-                $resourceResult->candidates,
-            ));
+            return SemanticResult::ambiguous(
+                array_map(
+                    static fn (ResourceResolution $candidate): RouteResolution =>
+                        new RouteResolution($routeName, $candidate),
+                    $resourceResult->candidates,
+                ),
+                $resourceResult->error,
+                $resourceResult->provenance,
+            );
         }
 
-        return SemanticResult::failure($resourceResult->status);
+        return SemanticResult::failure(
+            $resourceResult->status,
+            $resourceResult->error,
+            $resourceResult->provenance,
+        );
     }
 }

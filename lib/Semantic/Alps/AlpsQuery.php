@@ -7,6 +7,7 @@ namespace Suzumaze\BearPhpactor\Semantic\Alps;
 use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 
 /**
@@ -105,10 +106,13 @@ final class AlpsQuery
             return SemanticResult::failure($path->status);
         }
 
-        return SemanticResult::ok(new AlpsDescriptorResolution(
-            $resolution->descriptorId,
-            $path->value->absolute,
-            $resolution->offset,
-        ));
+        return SemanticResult::ok(
+            new AlpsDescriptorResolution(
+                $resolution->descriptorId,
+                $path->value->absolute,
+                $resolution->offset,
+            ),
+            [Provenance::savedFile($path->value->relative, $resolution->offset, $resolution->offset)],
+        );
     }
 }

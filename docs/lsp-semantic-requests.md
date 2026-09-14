@@ -117,12 +117,28 @@ in responses are also workspace-relative. Every response has this envelope:
 {
   "status": "ok",
   "data": {},
-  "candidates": []
+  "candidates": [],
+  "provenance": [
+    {
+      "source": "file",
+      "path": "src/Resource/App/User.php",
+      "freshness": "saved"
+    }
+  ]
 }
 ```
 
 `status` is one of `ok`, `not_found`, `ambiguous`, `invalid_input`, `unsupported`,
-`parse_error`, or `outside_workspace`. `data` is non-null only for `ok`.
+`parse_error`, `engine_unavailable`, `outside_workspace`, or `timeout`. `data` is
+non-null only for `ok`. Failed results also contain an `error` object with a stable
+snake_case `code` and a safe human-readable `message`; no exception trace is exposed.
+
+`provenance` records the workspace-relative evidence used by the semantic query.
+Disk-backed facts use `freshness: saved`; `buffer` is reserved for a future query that
+actually reads an LSP document buffer. `source: derived` has a null path and marks a
+result composed from other evidence. Token-specific evidence can additionally contain
+`byteRange: {start, end}`. Provenance is deduplicated and sorted deterministically, and
+its DTO rejects absolute paths, parent traversal, and Windows absolute paths.
 
 `bear/project/info` is the connection and capability check for headless clients. It
 reports only workspace-relative project and PSR-4 paths. Missing, invalid, symlinked,

@@ -9,6 +9,7 @@ use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 use Suzumaze\BearPhpactor\Template\TemplateReference;
 
@@ -244,12 +245,23 @@ final readonly class ResourceTemplateQuery
         if ($path->value === null) {
             return SemanticResult::failure($path->status);
         }
+        $resourcePath = $workspace->accessPolicy()->inspectExisting($resolution->resource->file);
+        if ($resourcePath->value === null) {
+            return SemanticResult::failure($resourcePath->status);
+        }
 
-        return SemanticResult::ok(new ResourceTemplateResolution(
-            $resolution->resource,
-            $resolution->engine,
-            $path->value->absolute,
-        ));
+        return SemanticResult::ok(
+            new ResourceTemplateResolution(
+                $resolution->resource,
+                $resolution->engine,
+                $path->value->absolute,
+            ),
+            [
+                Provenance::savedFile($resourcePath->value->relative),
+                Provenance::savedFile($path->value->relative),
+                Provenance::derived(),
+            ],
+        );
     }
 
     private function supports(string $engine): bool

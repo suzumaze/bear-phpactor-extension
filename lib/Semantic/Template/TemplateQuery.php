@@ -7,6 +7,7 @@ namespace Suzumaze\BearPhpactor\Semantic\Template;
 use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 use Suzumaze\BearPhpactor\Template\TemplatePathResolver;
 use Suzumaze\BearPhpactor\Template\TemplateReference;
@@ -106,11 +107,14 @@ final readonly class TemplateQuery
             return SemanticResult::failure($path->status);
         }
 
-        return SemanticResult::ok(new TemplateResolution(
-            $result->value->engine,
-            $result->value->name,
-            $path->value->absolute,
-        ));
+        return SemanticResult::ok(
+            new TemplateResolution(
+                $result->value->engine,
+                $result->value->name,
+                $path->value->absolute,
+            ),
+            [Provenance::savedFile($path->value->relative)],
+        );
     }
 
     private function validate(string $engine, string $name, ?string $documentPath): ?SemanticStatus

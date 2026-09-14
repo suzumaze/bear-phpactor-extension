@@ -483,6 +483,11 @@ final class StdioLanguageServerTest extends TestCase
                     'path' => 'src/Resource/App/User.php',
                 ],
                 'candidates' => [],
+                'provenance' => [[
+                    'source' => 'file',
+                    'path' => 'src/Resource/App/User.php',
+                    'freshness' => 'saved',
+                ]],
             ], $semantic['result'] ?? null);
 
             $inventory = $client->request('bear/resource/list', [

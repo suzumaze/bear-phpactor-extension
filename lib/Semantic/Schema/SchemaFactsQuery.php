@@ -6,6 +6,7 @@ namespace Suzumaze\BearPhpactor\Semantic\Schema;
 
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 use JsonException;
 use stdClass;
@@ -114,18 +115,21 @@ final class SchemaFactsQuery
             return SemanticResult::failure($document->status);
         }
 
-        return SemanticResult::ok(new SchemaFacts(
-            new SchemaResolution(
-                $schema->kind,
-                $schema->source,
-                $path->value->absolute,
-                $schema->titleOffset,
-                $schema->resource,
+        return SemanticResult::ok(
+            new SchemaFacts(
+                new SchemaResolution(
+                    $schema->kind,
+                    $schema->source,
+                    $path->value->absolute,
+                    $schema->titleOffset,
+                    $schema->resource,
+                ),
+                true,
+                $document->value->types,
+                $document->value->properties,
             ),
-            true,
-            $document->value->types,
-            $document->value->properties,
-        ));
+            [Provenance::savedFile($path->value->relative)],
+        );
     }
 
     /** @return SemanticResult<SchemaDocumentFacts|null> */

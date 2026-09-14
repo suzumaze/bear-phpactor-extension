@@ -9,6 +9,7 @@ use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceAccessPolicy;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 
@@ -130,11 +131,14 @@ final class ResourceQuery
                 return SemanticResult::failure($path->status);
             }
 
-            return SemanticResult::ok(new ResourceResolution(
-                $result->value->uri,
-                $path->value->absolute,
-                $result->value->fqn,
-            ));
+            return SemanticResult::ok(
+                new ResourceResolution(
+                    $result->value->uri,
+                    $path->value->absolute,
+                    $result->value->fqn,
+                ),
+                [Provenance::savedFile($path->value->relative)],
+            );
         }
 
         if ($result->status !== SemanticStatus::Ambiguous) {

@@ -24,6 +24,7 @@ use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceRelationFact;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
+use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
@@ -356,11 +357,38 @@ final class SemanticQueryHandler implements Handler
             $data = $normalize($result->value);
         }
 
-        return [
+        $envelope = [
             'status' => $result->status->value,
             'data' => $data,
             'candidates' => array_map($normalize, $result->candidates),
+            'provenance' => array_map($this->provenanceData(...), $result->provenance),
         ];
+        if ($result->error !== null) {
+            $envelope['error'] = [
+                'code' => $result->error->code,
+                'message' => $result->error->message,
+            ];
+        }
+
+        return $envelope;
+    }
+
+    /** @return array<string,mixed> */
+    private function provenanceData(Provenance $provenance): array
+    {
+        $data = [
+            'source' => $provenance->source,
+            'path' => $provenance->path,
+            'freshness' => $provenance->freshness->value,
+        ];
+        if ($provenance->byteStart !== null && $provenance->byteEnd !== null) {
+            $data['byteRange'] = [
+                'start' => $provenance->byteStart,
+                'end' => $provenance->byteEnd,
+            ];
+        }
+
+        return $data;
     }
 
     /** @return array{uri:string,fqn:string,path:?string} */
