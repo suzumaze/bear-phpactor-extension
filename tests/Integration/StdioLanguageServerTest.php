@@ -461,6 +461,7 @@ final class StdioLanguageServerTest extends TestCase
             $projectInfo = $client->request('bear/project/info', [], 20.0);
             self::assertArrayNotHasKey('error', $projectInfo, $client->stderr());
             self::assertSame('ok', $projectInfo['result']['status'] ?? null);
+            self::assertSame(1, $projectInfo['result']['data']['semanticApiVersion'] ?? null);
             self::assertSame('Resource', $projectInfo['result']['data']['workspaceName'] ?? null);
             self::assertSame('.', $projectInfo['result']['data']['projectPath'] ?? null);
             self::assertSame('composer.json', $projectInfo['result']['data']['composerPath'] ?? null);

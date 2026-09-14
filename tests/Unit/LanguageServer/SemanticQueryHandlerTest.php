@@ -16,6 +16,7 @@ final class SemanticQueryHandlerTest extends TestCase
         $response = wait((new SemanticQueryHandler(self::fixtureDir()))->describeProject());
 
         self::assertSame('ok', $response['status']);
+        self::assertSame(1, $response['data']['semanticApiVersion']);
         self::assertSame('Resource', $response['data']['workspaceName']);
         self::assertSame('.', $response['data']['projectPath']);
         self::assertSame('composer.json', $response['data']['composerPath']);

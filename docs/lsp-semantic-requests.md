@@ -9,6 +9,27 @@ identifier instead of a text-document position. A client should not create a fak
 document merely to call a standard positional method. These methods are not a
 replacement for standard LSP navigation.
 
+## Contract versioning
+
+The public `bear/*` custom-request contract is Semantic API version `1`.
+Clients discover it through `bear/project/info.data.semanticApiVersion`; it is
+independent of both the LSP protocol version and this Composer package's version.
+There is no version negotiation: a client that does not support the reported major
+version should stop using the custom requests, while standard LSP methods remain
+available.
+
+Within one Semantic API version, the server may add a new request, an optional request
+parameter with a default, an optional response member, or a new advertised capability.
+Clients must ignore unknown object members. Removing or renaming a request or response
+member, changing an existing value's type or meaning, making an optional parameter
+required, or adding a `status` value requires a new Semantic API version.
+
+The versioned contract snapshot is
+[`tests/Contract/semantic-query-v1.json`](../tests/Contract/semantic-query-v1.json).
+Its test verifies all public method names, handler argument names/types/defaults,
+success envelope and top-level data members, failure envelope, error members, and the
+complete status set against live handler responses.
+
 For standard `textDocument/hover`, a recognized Resource URI literal returns its
 resolved class, workspace-relative path, public `on*` methods, and outgoing
 Link/Embed count. Non-BEAR positions continue through Phpactor's built-in PHP Hover.
@@ -140,7 +161,7 @@ result composed from other evidence. Token-specific evidence can additionally co
 `byteRange: {start, end}`. Provenance is deduplicated and sorted deterministically, and
 its DTO rejects absolute paths, parent traversal, and Windows absolute paths.
 
-`bear/project/info` is the connection and capability check for headless clients. It
+`bear/project/info` is the connection, API-version, and capability check for headless clients. It
 reports only workspace-relative project and PSR-4 paths. Missing, invalid, symlinked,
 or otherwise outside-workspace PSR-4 roots are counted in `excludedPsr4Roots` and are
 not exposed. `versions` contains only runtime packages whose versions can be detected;
@@ -151,7 +172,7 @@ present.
 
 | Method | Params | Successful data |
 |---|---|---|
-| `bear/project/info` | `{contextPath?}` | `{workspaceName, projectPath, composerPath, psr4Roots, excludedPsr4Roots, resourceCount, capabilities, versions, compatibilityIssues}` |
+| `bear/project/info` | `{contextPath?}` | `{semanticApiVersion, workspaceName, projectPath, composerPath, psr4Roots, excludedPsr4Roots, resourceCount, capabilities, versions, compatibilityIssues}` |
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
 | `bear/resource/list` | `{scheme?, prefix?, limit?}` | `{resources, total, truncated}` |
 | `bear/resource/describe` | `{uri, contextPath?, incomingLimit?}` | `{resource, methods, relationsOut, relationsIn, templates, schemas}` |

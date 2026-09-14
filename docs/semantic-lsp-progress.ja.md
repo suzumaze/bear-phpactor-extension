@@ -57,9 +57,10 @@ flowchart TD
     p91["Resource References Query抽出\n完了"]
     p92["Semantic error / provenance / freshness\n完了"]
     p93["URI起点Resource References request\n完了"]
+    p94["Custom LSP Semantic API v1契約\n完了"]
     p8["別 repository の薄い MCP-LSP adapter\n将来"]
 
-    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p86 --> p87 --> p88 --> p89 --> p90 --> p91 --> p92 --> p93 --> p8
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p86 --> p87 --> p88 --> p89 --> p90 --> p91 --> p92 --> p93 --> p94 --> p8
 ```
 
 ## 現在利用できる入口
@@ -175,6 +176,17 @@ shutdown・cancellation middleware より前に実行される。そのため前
 
 custom request は、文書内 Position を起点にできない BEAR identifier 問い合わせのための
 read-only API である。標準 LSP で自然に表現できる操作の代替にはしない。
+
+公開custom request契約はSemantic API v1として固定した。clientは最初に
+`bear/project/info.data.semanticApiVersion`を確認できる。このversionはLSP 3.17やComposer
+package versionとは独立し、交渉は行わない。v1内では新method、default付きoptional parameter、
+optional response field、capabilityを追加できる。既存method/fieldの削除・改名、型や意味の変更、
+optional parameterの必須化、status追加にはSemantic API versionの更新を必要とする。clientは
+未知のobject fieldを無視する。
+
+`tests/Contract/semantic-query-v1.json`とcontract testが、全16 methodの登録名、handler引数の
+名前・型・default、成功envelopeとtop-level data key、failure envelope、error key、全statusを
+実際のhandler responseに対して検証する。実stdio統合テストでもAPI versionを確認する。
 
 `bear/resource/references`は、AI clientなどがResource URIを既に持つ一方で、開いた文書と
 Positionを持たない場合に使う。Positionがある場合は標準`textDocument/references`を優先する。
