@@ -2,258 +2,193 @@
 
 English | [日本語](README.ja.md)
 
-BEAR.Sunday conventions for [phpactor](https://github.com/phpactor/phpactor), the PHP language server. This Composer package plugs BEAR.Sunday's naming and directory conventions into phpactor's LSP: definition jumps and completion that know where `app://self/user` lives, where SQL files go, and how JSON Schemas are named.
+Adds [BEAR.Sunday](https://bearsunday.github.io/manuals/1.0/en/) semantics to [Phpactor](https://phpactor.readthedocs.io/), so standard [LSP](https://microsoft.github.io/language-server-protocol/) operations understand Resource URIs, SQL, JSON Schema, ALPS, Router, Twig, and Qiq conventions.
 
-It implements no LSP protocol code itself — it registers a few locators and completors with phpactor's extension container.
+```text
+BEAR.Sunday semantics
+        ↓
+bear-phpactor-extension
+        ↓
+Phpactor / LSP
+        ↓
+VS Code / Neovim / Emacs / other LSP clients
+```
 
-## Features (v0.1)
+This package registers Phpactor locators, providers, and completors. It does not implement editor-specific APIs, render templates, execute application PHP, or provide MCP tools.
 
-| Feature | What happens |
+## Requirements
+
+- [PHP](https://www.php.net/) 8.2 or later
+- [Composer](https://getcomposer.org/)
+- Phpactor compatible with the versions in [`composer.json`](composer.json)
+- A BEAR.Sunday project with `autoload.psr-4` configured
+
+## Features
+
+| BEAR.Sunday semantic | LSP operation and result |
 |---|---|
-| Resource URI definition jump | Cursor on `'app://self/user'` → jumps to `src/Resource/App/User.php` (psr-4 aware). Fires anywhere a resource URI string literal appears — including inside `#[Embed(src: ...)]` / `#[Link(href: ...)]` attributes, not just in plain code |
-| Resource URI completion | `'app://self/<caret>'` → completes URIs of resource classes that exist in the project |
-| SQL definition jump | Cursor on `#[DbQuery('point_distance')]` (Ray.MediaQuery — the fully-qualified form written without a `use`, `#[\Ray\MediaQuery\Annotation\DbQuery('point_distance')]`, works too) or `@Query("point_distance")` (Ray.QueryModule) → jumps to `var/db/sql/point_distance.sql` |
-| JSON Schema definition jump (attribute) | Cursor on `#[JsonSchema('user.json')]` → jumps to `var/json_schema/user.json`; a `params:` named argument resolves under `var/json_validate/` instead |
-| JSON Schema type definition jump (convention) | Cursor on a resource class declaration name → Go to Type Definition jumps to `var/json_schema/<kebab-case>.json` (e.g. `BodyTypeDemo` → `body-type-demo.json`, `Page\Admin\UserProfile` → `admin/user-profile.json`) |
-| ALPS profile definition jump | Cursor on `#[Alps('doDeleteArticle')]` (`bear/api-doc`'s attribute) → jumps to the matching descriptor's `id` in the ALPS profile JSON that `apidoc.xml`'s `<alps>` element points to. The short name, the fully-qualified name, and the fully-qualified name with a leading backslash (the form Ray.Di-generated code uses) all work |
-| Twig / Qiq template definition jump | Cursor on a static template name → jumps through `extends`, `include`, `block()`, `render()`, `setLayout()`, and related references. In addition, cursor on an embedded relation such as `{{ rel }}` / `{{= $rel }}` → jumps to the same-engine template declared by the parent Resource's `#[Embed]` |
-| Router definition jump | Cursor on a **route name** in `aura.route.php` — the first argument of `$map->route()` / `$map->get()` / `$map->post()` / … → jumps to the corresponding Page resource class. Context prefixes are followed (`'/article-redirector'` finds `Page/Content/ArticleRedirector.php`), and inner capitals are preserved (`'/articleRedirector'` → `ArticleRedirector`, not `Articleredirector`). The second argument (the URL pattern, e.g. `'/blogs/{blogger}'`) is deliberately **not** a jump site: it is an HTTP path, not a resource path, and jumping from it lands on the wrong class. `$map->attach()` is excluded too — its first argument is a name prefix |
-| Resource reference search | Cursor on a resource URI string (`'app://self/article'`) or a resource class declaration name → lists every place in the project that references that resource (`#[Link]`/`#[Embed]`/`$this->resource->get()`, …) |
+| [Resource URI](https://bearsunday.github.io/manuals/1.0/en/resource.html) | Definition, References, Hover, URI Completion, and Document Link for `app://self/user` |
+| [SQL](https://bearsunday.github.io/manuals/1.0/en/database.html) | Definition, References, and Hover for `#[DbQuery('point_distance')]` and `@Query("point_distance")` |
+| [JSON Schema](https://bearsunday.github.io/manuals/1.0/en/validation.html) | Definition, Type Definition, References, Hover, and body-property Completion |
+| [ALPS](https://bearsunday.github.io/manuals/1.0/en/apidoc.html) | Definition, References, and Hover for descriptors selected through `apidoc.xml` |
+| [Twig and Qiq](https://bearsunday.github.io/manuals/1.0/en/html.html) | Definition, References, Hover, and Document Link for static template references; Definition from `#[Embed]` relations |
+| [Aura Router](https://bearsunday.github.io/manuals/1.0/en/router.html) | Definition, References, and Hover from a route name to its Page Resource |
 
-All jumps are pure path/namespace mapping — no PHP type inference is involved. Project roots and namespace prefixes come from the project's `composer.json` `autoload.psr-4`.
+Project roots and namespace prefixes come from the project's `composer.json`. Normal PHP definitions remain handled by Phpactor.
 
-## Twig / Qiq template jumps
+## Headless semantic queries
 
-This is BEAR.Sunday semantics implemented in phpactor's LSP definition chain, not a VS Code `DefinitionProvider`. Any LSP client can use it when it sends the Twig/Qiq document to phpactor; if the client does not open and send those documents, this package cannot provide jumps from them. In particular, the current Phpactor VS Code client does not select Twig documents by default. Qiq templates use `.php` files and reach phpactor normally; the VS Code workaround for Twig is documented under [Editor setup](#editor-setup).
+Standard position-based LSP methods remain the primary interface. For clients that
+already have a BEAR identifier but no open document position, the Language Server also
+provides 16 read-only `bear/*` requests for project, Resource, Route, SQL, Template,
+ALPS, and Schema facts. `bear/project/info` reports Semantic API version `1` and the
+available capabilities. The complete versioned contract is documented in
+[`docs/lsp-semantic-requests.md`](docs/lsp-semantic-requests.md).
 
-Two kinds of reference are supported: explicit template paths and relations backed by BEAR.Sunday's `#[Embed]`. The supported standard layouts and cursor positions are deliberately narrow:
+An IDE is not required. The included client starts a real Phpactor stdio process:
 
-| Kind | Supported cursor position | Target |
+```bash
+php tools/semantic-lsp-query.php /path/to/bear-project \
+  bear/resource/describe \
+  '{"uri":"app://self/user","contextPath":"src/Resource/App/User.php"}'
+```
+
+These requests inspect saved workspace files only. They do not execute the BEAR
+application, modify files, access the network, or provide an MCP server.
+
+## Twig and Qiq
+
+Template navigation implements only confirmed BEAR.Sunday relationships from the standard [Qiq](https://bearsunday.github.io/manuals/1.0/en/html-qiq.html) and [Twig](https://bearsunday.github.io/manuals/1.0/en/html-twig-v2.html) layouts.
+
+| Reference | Supported cursor position | Target |
 |---|---|---|
-| Explicit Twig path | static string in the first argument of `extends`, `include`, or `include()`, or the second argument of `block()` | template found under `src/Resource`, then `var/templates` |
-| Explicit Qiq path | static string in `setLayout()`, `render()`, or `extends()`, using either Qiq helper syntax or native PHP | `.php` template under `var/qiq/template`; `./` and `../` resolve from the current template |
-| Twig Embed relation | leading relation in `{{ rel }}` or `{{ rel|raw }}` under `var/templates/{App,Page}/.../*.html.twig` | `var/templates/` template for the matching `#[Embed]` relation |
-| Qiq Embed relation | `{{= $rel }}` or `{{h $rel }}` under `var/qiq/template/{App,Page}/.../*.php`; legacy `$this->rel` is also supported | `var/qiq/template/` template for the same `#[Embed]` relation |
+| Twig path | Static string in the first argument of `extends`, `include`, or `include()`, or the second argument of `block()` | Existing template under `src/Resource`, then `var/templates` |
+| Qiq path | Static string in `setLayout()`, `render()`, or `extends()`, in Qiq helper syntax or native PHP | Existing `.php` template under `var/qiq/template`; `./` and `../` are relative to the current template |
+| Twig Embed relation | Leading variable in `{{ rel }}` or `{{ rel|raw }}` under `var/templates/{App,Page}/.../*.html.twig` | Twig template for the Resource declared by the parent Resource's `#[Embed]` |
+| Qiq Embed relation | `$rel` in `{{= $rel }}` or `{{h $rel }}` under `var/qiq/template/{App,Page}/.../*.php`; legacy `$this->rel` is also accepted | Qiq template for the Resource declared by the parent Resource's `#[Embed]` |
 
-For Embed relations, both the parent and embedded Resource and the target template must exist inside the project. Only named string `rel:` and `src:` arguments on `#[Embed]` are used. Absolute `app://self/...` / `page://self/...` sources and relative `/...` sources are supported; a relative source inherits the parent Resource's scheme and resolves against the `self` host. A repeated `rel` resolves only when every occurrence names the same normalized URI; otherwise it returns no location. Dynamic template expressions, Twig `import` and property expressions, Qiq/PHP expressions outside the known helpers, imported-app resources, custom template roots, and ambiguous conventions are intentionally unsupported.
+Embed navigation reads only named static string arguments `rel:` and `src:`. Absolute `app://self/...` and `page://self/...` URIs are supported. A relative `/...` source inherits the parent Resource scheme and resolves against `self`.
 
-The VS Code extension pack's Twig navigation and `idea-php-bearsunday-plugin` are not replaced by this feature: those use editor-specific architecture and provide different capabilities. This package is an LSP-side option for clients such as VS Code, Neovim, and Emacs.
+Dynamic expressions, Twig imports and property expressions, unknown Qiq/PHP calls, imported-app Resources, custom template roots, and ambiguous conventions are not resolved.
 
 ## Installation
 
-phpactor and this extension must share one Composer autoloader (the extension is loaded by phpactor, not the other way around). The simplest way is your project's own `composer.json`:
+Phpactor and this package must share one Composer autoloader.
 
-**Installing phpactor into the project goes against phpactor's own advice.** phpactor's [README](https://github.com/phpactor/phpactor/blob/master/README.md) states plainly: "Phpactor is a general tool, it is not intended that it be installed as a project dependency." The reason this package still supports installing it this way is structural, not a preference: `PhpactorDispatcherFactory` instantiates every class listed in `.phpactor.json` while phpactor boots, so each class must already be autoloadable at that point — phpactor and this extension simply need to share one autoloader, and your project's `vendor/` is the easiest one to reach for. It does not have to be, though: see [Installing outside the project](#installing-outside-the-project) below for a way to keep your project's `composer.json` untouched entirely.
-
-```bash
-composer require --dev phpactor/phpactor suzumaze/bear-phpactor-extension
-vendor/bin/bear-phpactor-init
-phpactor config:trust --trust
-```
-
-Notes:
-
-- phpactor depends on `dev-master` packages, so your project needs `"minimum-stability": "dev"` (or a `repositories` override) for the install to resolve.
-- `phpactor config:trust --trust` marks the directory as trusted; phpactor ignores `.phpactor.json` in untrusted directories.
-- The `extra.phpactor.extension_class` key in this package's `composer.json` is kept for ecosystem convention only — phpactor no longer reads it. The only working load path is `container.extension_classes` in `.phpactor.json`, and it applies to the language server only (not the CLI).
-- Pin `phpactor/language-server-protocol` to `3.17.4` (`composer require --dev phpactor/language-server-protocol:3.17.4`). With language-server 7.0.1 and protocol 3.17.5, `textDocument/didChange` never reaches the server: unsaved edits are ignored and every feature answers from the `didOpen` text until you save — with no error anywhere. `bear-phpactor-init` detects this combination and warns on stderr (the command still succeeds). The regression is fixed upstream in the pull request that makes the handler read `contentChanges` as objects ([phpactor/language-server#68](https://github.com/phpactor/language-server/pull/68)), but no release has been cut yet. Drop the pin once a fixed language-server is released.
-
-### Installing outside the project
-
-phpactor and this extension can instead live together in one directory outside any project, leaving every project's `composer.json` untouched:
-
-```bash
-mkdir -p ~/phpactor-global && cd ~/phpactor-global
-composer require phpactor/phpactor suzumaze/bear-phpactor-extension
-vendor/bin/bear-phpactor-init
-```
-
-Copy the `.phpactor.json` this generates into phpactor's *global* config file — `$XDG_CONFIG_HOME/phpactor/phpactor.json`, or `~/.config/phpactor/phpactor.json` if that variable is unset. phpactor reads this file before any per-project trust check, so `config:trust` is not required for it to take effect. Point your editor's phpactor path at this external `vendor/bin/phpactor` instead of a project-local one.
-
-Verified twice, independently: a project with no `vendor/` at all, and only `php` and `autoload.psr-4` in its `composer.json`, gets working definition jumps this way. **Tested on one machine only (macOS)** — Windows and Linux are unverified.
-
-## Why `.phpactor.json` lists every extension class
-
-phpactor's `container.extension_classes` parameter **replaces** the built-in defaults instead of appending to them. There is no "add my extension" option, so a project using this extension must enumerate every built-in extension class plus this one — 69 entries at the time of writing.
-
-The built-in list is a literal array inside `Phpactor::boot()` with no public API, so `vendor/bin/bear-phpactor-init` obtains it at runtime: it runs `phpactor config:dump --config-only` in a clean temporary directory (so no project config can shadow the defaults) and writes the resolved list to `.phpactor.json` with `Suzumaze\BearPhpactor\BearSundayExtension` first.
-
-**After upgrading phpactor, re-run `vendor/bin/bear-phpactor-init`.** Re-running regenerates the list from the new environment. The command is idempotent: it de-duplicates the extension list, keeps your own extension first, and preserves every other key of an existing `.phpactor.json`.
-
-Skipping it fails in two different ways, and the second one is worse:
-
-- An extension the upgrade **added** is missing from your list, so its features are absent. Nothing reports this.
-- A class in your list **no longer exists** — renamed or removed upstream, or by this package. Then the language server does not start at all: `PhpactorDispatcherFactory` calls `new $class()` on every enumerated name and a fatal `Class "..." not found` takes the process down before it answers `initialize`. You lose every PHP language feature, not just this extension's, and the editor reports it as the server having crashed rather than as a configuration problem.
-
-Verified by putting one non-existent class name in an otherwise valid `.phpactor.json`: the server died during startup, while the same project with the generated file answered normally.
-
-### A trap in `config:trust`
-
-Run `config:trust` **from inside the project directory**, or pass an absolute path:
-
-```sh
-cd /path/to/your-project && vendor/bin/phpactor config:trust --trust
-```
-
-Passing a *relative* path to `--working-dir` records that relative string verbatim in
-phpactor's trust store (`~/.local/share/phpactor/trust.json`), and it never matches
-afterwards. The failure mode is silent: `.phpactor.json` is not read, so this extension
-is not loaded and every feature simply does nothing. If jumps and completion do nothing
-at all, check that file for a relative entry.
-
-## Definition jump behavior
-
-Because this extension is listed **first**, its locators run before phpactor's built-in ones. The chain is first-match-wins, and this ordering is what makes the convention jumps work:
-
-- **Cursor on a resource class declaration name** (e.g. `final class User` in `src/Resource/App/User.php`) → *Go to Definition* behaves like the built-in: it stays put. `F12` is only VS Code's default keyboard shortcut for that editor action; the same action is available from the context menu and command palette. The built-in answer in that situation is "you are already here", and that is what you get.
-- **The class-name convention jump lives on Go to Type Definition instead.** Right-click → *Go to Type Definition* (no default keybinding) on a resource class declaration name jumps to `var/json_schema/user.json`. The JSON Schema decides the shape of the resource body, so "where is this resource's type" is the natural question for it to answer.
-- **Why not Go to Definition?** The convention jump used to override that action on class declaration names. In VS Code, the default shortcuts are `Shift+F12` for reference search and `F12` for definition; missing Shift then landed in a JSON file, which read as "reference search is broken". Moving the jump to a separate editor action removes the collision.
-- **Everything else is unaffected.** Usage sites such as `new User()` are not class declarations, so the convention jump does not fire and the built-in locator handles them as usual. Normal PHP definition jumps (variables, methods, parameters, non-resource classes) are untouched.
-
-## Editor setup
-
-The extension loads inside phpactor's language server, so any editor with an LSP client
-works. Point the client at **your project's** `vendor/bin/phpactor` — the one whose
-autoloader can see this package — not at a phpactor installed elsewhere.
+Commands in this section run in a terminal, not in an editor command palette.
 
 ### VS Code
 
-Install the official client, then tell it which binary to run:
+Use [Phpactor Setup for BEAR.Sunday](https://github.com/suzumaze/phpactor-setup-for-bear-sunday). It installs a tested Phpactor/core combination outside the project, configures the official VS Code client, and provides commands to inspect or update this core package.
 
-```sh
-code --install-extension phpactor.vscode-phpactor
+### Manual global installation
+
+[Phpactor recommends](https://github.com/phpactor/phpactor#installation) installing the language server outside project dependencies. The following creates a dedicated installation:
+
+```bash
+mkdir -p ~/.local/share/phpactor-bear
+cd ~/.local/share/phpactor-bear
+composer init --no-interaction --name=local/phpactor-bear
+composer config minimum-stability dev
+composer config prefer-stable true
+composer require \
+  phpactor/phpactor:2026.07.22.0 \
+  phpactor/language-server-protocol:3.17.4 \
+  suzumaze/bear-phpactor-extension
 ```
 
-`.vscode/settings.json` in your project:
+Generate Phpactor's global extension list while preserving other keys in an existing valid config:
+
+```bash
+mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/phpactor"
+cd "${XDG_CONFIG_HOME:-$HOME/.config}/phpactor"
+PHPACTOR_BIN="$HOME/.local/share/phpactor-bear/vendor/bin/phpactor" \
+  "$HOME/.local/share/phpactor-bear/vendor/bin/bear-phpactor-init"
+```
+
+Point the editor's Phpactor path to:
+
+```text
+~/.local/share/phpactor-bear/vendor/bin/phpactor
+```
+
+To update only this package within the compatible range:
+
+```bash
+cd ~/.local/share/phpactor-bear
+composer update suzumaze/bear-phpactor-extension --with-dependencies
+cd "${XDG_CONFIG_HOME:-$HOME/.config}/phpactor"
+PHPACTOR_BIN="$HOME/.local/share/phpactor-bear/vendor/bin/phpactor" \
+  "$HOME/.local/share/phpactor-bear/vendor/bin/bear-phpactor-init"
+```
+
+### Project-local installation
+
+If Phpactor is already managed by the project, install the packages together and run the initializer from the project root:
+
+```bash
+composer require --dev \
+  phpactor/phpactor:2026.07.22.0 \
+  phpactor/language-server-protocol:3.17.4 \
+  suzumaze/bear-phpactor-extension
+vendor/bin/bear-phpactor-init
+vendor/bin/phpactor config:trust --trust
+```
+
+Set the LSP client to the same installation's `vendor/bin/phpactor`. Re-run `bear-phpactor-init` after changing Phpactor versions because `container.extension_classes` replaces, rather than extends, Phpactor's built-in list.
+
+## Editor requirements
+
+An LSP client must start this Phpactor binary with `language-server` and send the relevant document to it.
+
+Qiq templates use `.php` and normally reach Phpactor. The official [Phpactor VS Code client](https://github.com/phpactor/vscode-phpactor) does not select Twig documents by default. For the BEAR standard `.html.twig` layout, VS Code users can apply this workspace-local workaround:
 
 ```json
 {
-    "phpactor.path": "vendor/bin/phpactor"
-}
-```
-
-The client bundles its own phpactor, and that copy cannot autoload this package. Setting
-`phpactor.path` is what makes the difference between the extension working and silently
-doing nothing.
-
-The official client currently selects only `php` and `blade` documents. To opt Twig files
-into phpactor, add this workspace setting alongside `phpactor.path`:
-
-```json
-{
-    "phpactor.path": "vendor/bin/phpactor",
     "files.associations": {
         "*.html.twig": "php"
     }
 }
 ```
 
-Twig itself does not require the `.html.twig` suffix. This glob deliberately matches the
-[default BEAR.Sunday TwigModule convention](https://bearsunday.github.io/manuals/1.0/ja/html-twig-v2.html) documented for Resource templates; it is not an
-attempt to recognize arbitrary Twig projects or custom template-loader configuration.
+This sends Twig as PHP and can affect highlighting, diagnostics, formatting, and other Twig extensions. Clients with configurable document selectors should attach Phpactor directly to Twig instead.
 
-This makes VS Code send `.html.twig` documents to phpactor, and the definition locators
-still recognize them from their file extension. It is a workaround, not native Twig
-selector support: VS Code treats those files as PHP, which can change syntax highlighting,
-diagnostics, formatting, and the behavior of other Twig extensions. Keep it workspace-local
-and remove it if those trade-offs are unacceptable.
+## Resolution rules
 
-**Trust the folder.** VS Code opens an unfamiliar folder in Restricted Mode, and no
-language server starts there — verified by opening a project and finding no phpactor
-process at all. Nothing errors; the features are simply absent. Accept the trust prompt,
-or use *Manage Workspace Trust* from the command palette.
+- Definitions are returned only when the cursor is on a supported reference and the target exists.
+- Targets must remain inside the workspace; traversal and arbitrary external paths are rejected.
+- Invalid syntax, missing files, and unsupported expressions return no result instead of throwing.
+- Static analysis only is used. Templates are not rendered and application PHP is not executed.
+- Multiple Resource candidates are sorted and presented by fully qualified name for definitions. Ambiguous reference-search sites are treated as unresolved.
+- Repeated Embed relations resolve only when every occurrence points to the same normalized Resource URI.
 
-Between these two, "I installed it and nothing happens" has two likely causes. Check
-Restricted Mode first, since it costs one click.
+## Definition behavior
 
-`phpactor.config` in the same settings file does **not** work for loading this extension.
-The server reads `container.extension_classes` before it merges the client's
-initialization options, so `.phpactor.json` remains the only route.
-
-### Neovim
-
-```lua
-vim.lsp.start({
-  name = 'phpactor',
-  cmd = { 'vendor/bin/phpactor', 'language-server' },
-  root_dir = vim.fs.dirname(vim.fs.find({ 'composer.json' }, { upward = true })[1]),
-})
-```
-
-### What an ambiguous jump looks like
-
-When a URI names more than one class — the context-prefix case above — the server does not
-return a list of locations. It asks the editor to show a picker and waits for an answer:
-
-```
-Goto type
-  ▸ MyVendor\MyProject\Resource\Page\Admin\Error400
-  ▸ MyVendor\MyProject\Resource\Page\Content\Error400
-```
-
-Choosing an entry jumps to that class. Candidates are listed by fully qualified name, in
-directory order.
-
-Reference search (`textDocument/references`) uses the same resolution and the same rule:
-a site whose URI names two or more classes is treated as unresolved and does not count
-as a reference. Keeping the two features on one judgment avoids explaining and
-implementing them twice.
-
-The reference search finds every site that **resolves to the same file** as the one
-under the cursor — not every site with the same URI string. Two mini-apps may both use
-`'app://self/article'`; each string is resolved from its own file's position, so a
-reference is reported only when it points at the file you asked about.
-
-## Measuring how much of a real project this covers
-
-Fixtures prove a feature fires once. They do not say what fraction of a real
-application it reaches. `tools/coverage.php` answers that for four of the five
-features (resource URIs, query names, route paths, resource class declarations —
-the ALPS profile jump is not yet covered by this tool): it parses every PHP file
-in a target project, collects every site those features claim to answer, asks a real
-language server for a definition at each one, and reports the hit rate plus every miss
-with its file and line.
-
-```sh
-cd /path/to/your-app && php /path/to/bear-phpactor-extension/bin/bear-phpactor-init
-cd /path/to/your-app && vendor/bin/phpactor config:trust --trust
-php /path/to/bear-phpactor-extension/tools/coverage.php /path/to/your-app
-```
-
-Measured on [BEAR.Kata](https://github.com/bearsunday/BEAR.Kata), BEAR.Sunday's own
-public tutorial application: 474 sites, **0 mismatches**. 388 sites got the expected
-answer; the remaining 85 are sites where returning nothing is the correct answer (most
-are resource classes with no matching JSON Schema file under the naming convention —
-Kata's tutorial-sized codebase does not give every resource one). The expected file for
-each site is computed independently of this extension's own code, directly from the
-BEAR.Sunday naming convention, so a mistake shared by both would still surface as a
-mismatch here.
-
-A separate probe for false positives — jumping from a site that should not jump — found
-**0 misfires** across 948 checks (`tools/misfire.php`). Completion candidates are not
-covered by either tool; verifying those needs inspecting each suggestion list, which is
-a different kind of check.
+- Resource URI, SQL, attribute-based JSON Schema, ALPS, Router, and template relationships use **Go to Definition**.
+- A Resource class declaration uses **Go to Type Definition** for its convention-based JSON Schema. Normal **Go to Definition** remains owned by Phpactor.
+- Router navigation uses the first argument as the route name. The second argument is an HTTP path and is intentionally not a jump site; `$map->attach()` is also excluded.
 
 ## Known limitations
 
-- **Template jumps follow the BEAR modules' default loader configuration only.** Twig searches `src/Resource` and then `var/templates`, matching `Madapaja.TwigModule`'s default `AppPathProvider`. Qiq searches `var/qiq/template` with the `.php` extension, matching `BEAR.QiqModule`. Custom Twig paths/namespaces and custom Qiq paths/extensions/collections cannot be inferred from DI bindings and are not resolved. Explicit template paths must be static string literals.
-- **The official VS Code phpactor client does not select Twig documents by default.** Its document selector currently includes only `php` and `blade`. The `files.associations` workaround in [Editor setup](#editor-setup) sends `.html.twig` files as PHP, with the corresponding language-mode trade-offs. Clients that support configuring their LSP document selector directly should attach phpactor to Twig instead. Qiq files under the BEAR default layout use `.php` and reach phpactor normally.
-- **SQL jumps land at file start (0,0).** The Router and Resource URI locators land on the class-declaration name, both JSON Schema locators (attribute and convention) land on the `title` key inside the schema file, and the ALPS profile locator lands on the matching descriptor's `id` key. Only the SQL locator returns the `.sql` file's first line. Cosmetic, but visible in the editor.
-- **The resource-class scan regex can false-positive.** `Project::resourcePhpFiles()` matches files whose text contains `extends ... ResourceObject`; a docblock sentence or a class extending `MyResourceObject` can match, which bloats URI completion candidates.
-- **Reference search only reads files from disk, and only inside psr-4 directories.** A `#[Link]` you have typed but not saved does not appear in the results, and neither do sites in files outside the `autoload`/`autoload-dev` psr-4 roots — `bin/*.php`, `public/index.php`, and the like. Measured on BEAR.Kata: 16 of the sites a plain text search finds live in `bin/`. The definition jump is unaffected; it works from the buffer the editor sends.
-- **Windows absolute-path detection is incomplete in psr-4 resolution.** Paths starting with `/` are treated as absolute; drive-letter paths (`C:/src`) are handled by `PathGuard` but not by the psr-4 directory resolution side.
-- **"Find all references" with `includeDeclaration: true` lists the class itself as the declaration.** On a resource class declaration name, the definition chain no longer resolves to `var/json_schema/<name>.json` (the convention jump moved to Go to Type Definition), so the built-in locator answers and VS Code's "Find All References" shows the class itself in the declaration slot before the actual reference sites.
+- Template paths follow only the default BEAR Twig and Qiq loader layouts.
+- The official VS Code client needs the Twig workaround described above.
+- SQL definitions land at the beginning of the `.sql` file.
+- Reference search reads saved files only and scans only `autoload` / `autoload-dev` PSR-4 roots.
+- Resource completion uses a text scan for `extends ... ResourceObject`, which can produce extra candidates.
+- Windows drive-letter paths are guarded for template resolution but remain incomplete in PSR-4 directory resolution.
 
-## Support
+## Related projects
 
-This is a personal side project, maintained on a best-effort basis. Bug reports and pull requests are welcome, but there is no support commitment.
+- [Phpactor Setup for BEAR.Sunday](https://github.com/suzumaze/phpactor-setup-for-bear-sunday): VS Code installation and update wrapper for this package
+- [BEAR.Sunday Extension Pack](https://marketplace.visualstudio.com/items?itemName=YukiAdachi.vscode-bear-sunday-extension-pack): earlier VS Code-specific implementation
+- [idea-php-bearsunday-plugin](https://github.com/bearsunday/idea-php-bearsunday-plugin): PhpStorm plugin with JetBrains-specific features
 
-If you use PhpStorm, [idea-php-bearsunday-plugin](https://github.com/bearsunday/idea-php-bearsunday-plugin) is a more complete, actively maintained option — it reads BEAR.Sunday's structure directly through JetBrains' PSI and includes features (such as MCP tool integration) this package does not attempt. This package exists for editors that speak LSP and have no BEAR.Sunday-aware plugin of their own.
+These projects use different architectures and do not replace one another.
 
 ## Development
 
 ```bash
-vendor/bin/phpunit
-vendor/bin/phpcs
-vendor/bin/phpstan analyse
+composer check
 ```
+
+The suite includes unit tests and real Phpactor stdio sessions from initialize through shutdown. `tools/coverage.php` and `tools/misfire.php` provide project-level checks against [BEAR.Kata](https://github.com/bearsunday/BEAR.Kata).
