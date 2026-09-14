@@ -31,6 +31,7 @@ use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescriptionQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceIncomingRelationsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryIndex;
@@ -328,6 +329,16 @@ final class BearSundayExtension implements Extension
                 );
             },
         );
+        $container->register(
+            'bear_sunday.semantic.resource_references_query',
+            function (Container $container): ResourceReferencesQuery {
+                return new ResourceReferencesQuery(
+                    $container->get('bear_sunday.semantic.resource_query'),
+                    $container->get('bear_sunday.semantic.route_query'),
+                    $container->get('bear_sunday.router.reference_at_offset'),
+                );
+            },
+        );
 
         // Aura.Router: aura.route.php のルート名から Page リソースクラスへの定義ジャンプ。
         $container->register(RouterDefinitionLocator::class, function (Container $container) {
@@ -537,11 +548,16 @@ final class BearSundayExtension implements Extension
         $container->register(
             'bear_sunday.resource.reference_finder',
             function (Container $container): ResourceReferenceFinder {
+                $pathResolver = $container->get(FilePathResolverExtension::SERVICE_FILE_PATH_RESOLVER);
+
                 return new ResourceReferenceFinder(
                     $container->get('bear_sunday.resource.string_literal_at_offset'),
                     $container->get('bear_sunday.resource.target_resolver'),
                     routeReferenceAtOffset: $container->get('bear_sunday.router.reference_at_offset'),
                     routeQuery: $container->get('bear_sunday.semantic.route_query'),
+                    resourceReferencesQuery: $container->get('bear_sunday.semantic.resource_references_query'),
+                    resourceQuery: $container->get('bear_sunday.semantic.resource_query'),
+                    workspaceRoot: $pathResolver->resolve('%project_root%'),
                 );
             },
             [ReferenceFinderExtension::TAG_REFERENCE_FINDER => []]

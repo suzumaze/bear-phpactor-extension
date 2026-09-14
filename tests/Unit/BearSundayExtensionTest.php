@@ -24,6 +24,7 @@ use Suzumaze\BearPhpactor\Semantic\Alps\AlpsProfileQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescriptionQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceIncomingRelationsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryIndex;
@@ -97,6 +98,10 @@ final class BearSundayExtensionTest extends TestCase
         $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
 
         self::assertInstanceOf(ResourceQuery::class, $container->get('bear_sunday.semantic.resource_query'));
+        self::assertInstanceOf(
+            ResourceReferencesQuery::class,
+            $container->get('bear_sunday.semantic.resource_references_query'),
+        );
     }
 
     public function testRegistersTransportIndependentProjectInfoQuery(): void

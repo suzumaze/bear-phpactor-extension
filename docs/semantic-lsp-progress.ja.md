@@ -1,6 +1,6 @@
 # BEAR.Sunday Semantic LSP 進捗
 
-最終更新: 2026-09-13
+最終更新: 2026-09-14
 
 この文書は、BEAR.Sunday 固有セマンティクスを Phpactor Language Server から
 IDE と AI の双方へ提供する作業の現在地を示す。実装が進んだら、この図と一覧も更新する。
@@ -54,9 +54,10 @@ flowchart TD
     p88["ALPS descriptor属性 References\n完了"]
     p89["Twig / Qiq Template References\n完了"]
     p90["documentSymbol / workspace symbol判断\n完了: 現状は拡張しない"]
+    p91["Resource References Query抽出\n完了"]
     p8["別 repository の薄い MCP-LSP adapter\n将来"]
 
-    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p86 --> p87 --> p88 --> p89 --> p90 --> p8
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p86 --> p87 --> p88 --> p89 --> p90 --> p91 --> p8
 ```
 
 ## 現在利用できる入口
@@ -104,6 +105,12 @@ route名、対応するPage Resource URI・FQN・workspace相対pathを返す。
 Route名からのReferencesは、Definitionと同じRoute QueryでPage Resourceを一意に解決し、同じPage Resourceへ
 解決されるRoute宣言とResource URI参照を返す。HTTP pathは対象にせず、未解決・曖昧なRouteからは空結果を返す。
 Route fileの走査はworkspace内の`aura.route.php`だけに限定し、入力を1 MiBに制限する。
+
+ResourceのReferences走査は`ResourceReferencesQuery`へ集約した。URI、解決済みResource、workspace相対の
+Resource class fileを入口にでき、LSPのPositionやLocationを必要としない。各URI参照は参照元自身のproject
+contextから再解決してcanonical target fileを比較するため、mini app間の同名URIを混同しない。PHP sourceと
+Route fileはいずれもworkspace境界内だけを読み、1ファイル1 MiBに制限し、結果をfile・byte range順に固定する。
+Phpactor adapterにはカーソル位置の識別とLocation変換だけを残している。
 
 SQL Hover は Ray.MediaQuery の `DbQuery` 属性にある第1位置引数または `id:` と、既存のtokenized
 docblock形式 `@Query("id")` の静的IDだけを対象にし、query IDとworkspace相対SQL pathを返す。
