@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace Suzumaze\BearPhpactor\JsonSchema;
 
+use Suzumaze\BearPhpactor\Resource\Model\Project;
+use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
-use Suzumaze\BearPhpactor\Util\ProjectLocator;
-use Microsoft\PhpParser\Node;
-use Microsoft\PhpParser\Node\Attribute;
-use Microsoft\PhpParser\Node\Expression\ArgumentExpression;
 use Microsoft\PhpParser\Parser;
 use Phpactor\ReferenceFinder\DefinitionLocator;
 use Phpactor\ReferenceFinder\Exception\CouldNotLocateDefinition;
@@ -48,11 +47,20 @@ use Phpactor\WorseReflection\Core\TypeFactory;
  */
 final class JsonSchemaDefinitionLocator implements DefinitionLocator
 {
+    private SchemaQuery $schemaQuery;
+    private JsonSchemaReferenceAtOffset $referenceAtOffset;
+
     public function __construct(
-        private StringLiteralAtOffset $stringLiteralAtOffset = new StringLiteralAtOffset(),
-        private Parser $parser = new Parser(),
-        private JsonSchemaPathResolver $schemaPathResolver = new JsonSchemaPathResolver(),
+        StringLiteralAtOffset $stringLiteralAtOffset = new StringLiteralAtOffset(),
+        Parser $parser = new Parser(),
+        JsonSchemaPathResolver $schemaPathResolver = new JsonSchemaPathResolver(),
+        ?SchemaQuery $schemaQuery = null,
+        ?JsonSchemaReferenceAtOffset $referenceAtOffset = null,
     ) {
+        // Keep the former parser argument for positional and named constructor compatibility.
+        unset($parser);
+        $this->schemaQuery = $schemaQuery ?? new SchemaQuery($schemaPathResolver);
+        $this->referenceAtOffset = $referenceAtOffset ?? new JsonSchemaReferenceAtOffset($stringLiteralAtOffset);
     }
 
     public function locateDefinition(TextDocument $document, ByteOffset $byteOffset): TypeLocations
@@ -73,66 +81,32 @@ final class JsonSchemaDefinitionLocator implements DefinitionLocator
         if ($uri === null) {
             throw new CouldNotLocateDefinition('Document has no URI');
         }
-        $found = ProjectLocator::locate($uri->path());
-        if ($found === null) {
+        $project = Project::locate($uri->path());
+        if ($project === null) {
             throw new CouldNotLocateDefinition(
                 sprintf('No composer.json with autoload.psr-4 above "%s"', $uri->path())
             );
         }
-        $root = $found['root'];
-
-        $rootNode = $this->parser->parseSourceFile($document->__toString());
         $offset = $byteOffset->toInt();
 
-        $schemaPath = $this->schemaPathFromAttribute($document, $offset, $root);
+        $reference = ($this->referenceAtOffset)($document, $offset);
 
-        if ($schemaPath === null) {
+        if ($reference === null) {
             throw new CouldNotLocateDefinition('No JSON Schema reference found at offset');
         }
 
-        // 着地はスキーマの "title" キーの位置 (無ければファイル先頭 (0,0))。
-        // ファイル先頭に着地すると「なぜここに来たか」が読めないため。
-        $titleOffset = $this->schemaPathResolver->titleKeyOffset($schemaPath);
+        $result = $this->schemaQuery->resolveNamed($project, $reference[1], $reference[3]);
+        if ($result->status !== SemanticStatus::Ok || $result->value === null || $result->value->file === null) {
+            throw new CouldNotLocateDefinition('No JSON Schema reference found at offset');
+        }
+
+        $titleOffset = $result->value->titleOffset ?? 0;
 
         return new TypeLocations([
             new TypeLocation(
                 TypeFactory::string(),
-                Location::fromPathAndOffsets($schemaPath, $titleOffset, $titleOffset),
+                Location::fromPathAndOffsets($result->value->file, $titleOffset, $titleOffset),
             ),
         ]);
-    }
-
-    /**
-     * Resolves the string literal of a #[JsonSchema(...)] attribute under the
-     * cursor to a schema file on disk. Null when the cursor is not on such a
-     * literal, the file name is not a schema file, or the file does not exist.
-     */
-    private function schemaPathFromAttribute(TextDocument $document, int $offset, string $root): ?string
-    {
-        $literal = $this->stringLiteralAtOffset->literal($document, $offset);
-        if ($literal === null) {
-            return null;
-        }
-
-        $argument = null;
-        for ($node = $literal; $node instanceof Node; $node = $node->getParent()) {
-            if ($argument === null && $node instanceof ArgumentExpression) {
-                $argument = $node;
-            }
-            if ($node instanceof Attribute) {
-                if (!$this->schemaPathResolver->isJsonSchemaAttribute($node)) {
-                    return null;
-                }
-
-                return $this->schemaPathResolver->attributePath(
-                    $root,
-                    $document->__toString(),
-                    $literal,
-                    $argument,
-                );
-            }
-        }
-
-        return null;
     }
 }

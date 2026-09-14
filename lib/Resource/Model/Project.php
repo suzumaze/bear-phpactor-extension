@@ -50,11 +50,54 @@ final class Project
     }
 
     /**
+     * Locate a project around a file without walking above a workspace root.
+     */
+    public static function locateWithin(string $filePath, string $workspaceRoot): ?self
+    {
+        $found = ProjectLocator::locateWithin($filePath, $workspaceRoot);
+        if ($found === null) {
+            return null;
+        }
+
+        return new self($found['root'], $found['psr4'], $filePath);
+    }
+
+    /**
+     * Create a project only when the given directory itself is a PSR-4 root.
+     */
+    public static function fromRoot(string $root): ?self
+    {
+        $canonicalRoot = realpath($root);
+        if ($canonicalRoot === false) {
+            return null;
+        }
+        $canonicalRoot = rtrim(str_replace('\\', '/', $canonicalRoot), '/');
+        $canonicalRoot = $canonicalRoot === '' ? '/' : $canonicalRoot;
+
+        $composerJson = rtrim($canonicalRoot, '/') . '/composer.json';
+        if ($canonicalRoot === '/') {
+            $composerJson = '/composer.json';
+        }
+        $found = ProjectLocator::locateWithin($composerJson, $canonicalRoot);
+        if ($found === null || $found['root'] !== $canonicalRoot) {
+            return null;
+        }
+
+        return new self($found['root'], $found['psr4'], $composerJson);
+    }
+
+    /**
      * プロジェクトルート (composer.json のあるディレクトリ)。
      */
     public function root(): string
     {
         return $this->root;
+    }
+
+    /** @return array<string, list<string>> */
+    public function psr4(): array
+    {
+        return $this->psr4;
     }
 
     /**
@@ -171,6 +214,43 @@ final class Project
         ksort($classes);
 
         return $classes;
+    }
+
+    /**
+     * Return every physical Resource candidate without collapsing duplicate
+     * URIs from different PSR-4 roots.
+     *
+     * @return list<array{uri: string, file: string, fqn: string}>
+     */
+    public function resourceClassCandidates(): array
+    {
+        $candidates = [];
+        foreach ($this->resourceRoots() as $root) {
+            foreach (['App', 'Page'] as $schemeDir) {
+                $dir = $root['dir'] . '/' . $schemeDir;
+                if (!is_dir($dir)) {
+                    continue;
+                }
+
+                foreach ($this->resourcePhpFiles($dir) as $file) {
+                    $relativePath = substr($file, strlen($dir) + 1, -4);
+                    $uriPath = implode('/', array_map('lcfirst', explode('/', $relativePath)));
+                    $candidates[] = [
+                        'uri' => sprintf('%s://self/%s', strtolower($schemeDir), $uriPath),
+                        'file' => $file,
+                        'fqn' => $root['ns'] . $schemeDir . '\\' . str_replace('/', '\\', $relativePath),
+                    ];
+                }
+            }
+        }
+
+        usort(
+            $candidates,
+            static fn (array $left, array $right): int =>
+                [$left['uri'], $left['file'], $left['fqn']] <=> [$right['uri'], $right['file'], $right['fqn']],
+        );
+
+        return $candidates;
     }
 
     /**
@@ -293,6 +373,16 @@ final class Project
      */
     private function resourcePhpFiles(string $dir): array
     {
+        $canonicalRoot = realpath($this->root);
+        $canonicalDirectory = realpath($dir);
+        if (
+            $canonicalRoot === false
+            || $canonicalDirectory === false
+            || !$this->contains($canonicalRoot, $canonicalDirectory)
+        ) {
+            return [];
+        }
+
         $files = [];
         $iterator = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS)
@@ -302,6 +392,10 @@ final class Project
                 continue;
             }
             $path = $file->getPathname();
+            $canonicalPath = realpath($path);
+            if ($canonicalPath === false || !$this->contains($canonicalRoot, $canonicalPath)) {
+                continue;
+            }
             if (!$this->extendsResourceObject($path)) {
                 continue;
             }
@@ -310,6 +404,17 @@ final class Project
         sort($files);
 
         return $files;
+    }
+
+    private function contains(string $root, string $path): bool
+    {
+        $root = rtrim(str_replace('\\', '/', $root), '/');
+        $root = $root === '' ? '/' : $root;
+        $path = str_replace('\\', '/', $path);
+
+        return $root === '/'
+            ? str_starts_with($path, '/')
+            : $path === $root || str_starts_with($path, $root . '/');
     }
 
     /**

@@ -30,6 +30,8 @@ use Microsoft\PhpParser\Token;
  */
 final class JsonSchemaPathResolver
 {
+    private const MAX_SCHEMA_BYTES = 1048576;
+
     public const RESPONSE_SCHEMA_DIR = 'var/json_schema';
 
     public const REQUEST_SCHEMA_DIR = 'var/json_validate';
@@ -105,8 +107,8 @@ final class JsonSchemaPathResolver
      */
     public function titleKeyOffset(string $schemaPath): int
     {
-        $contents = @file_get_contents($schemaPath);
-        if ($contents === false) {
+        $contents = @file_get_contents($schemaPath, false, null, 0, self::MAX_SCHEMA_BYTES + 1);
+        if ($contents === false || strlen($contents) > self::MAX_SCHEMA_BYTES) {
             return 0;
         }
 

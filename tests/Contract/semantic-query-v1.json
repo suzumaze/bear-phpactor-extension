@@ -1,0 +1,206 @@
+{
+    "semanticApiVersion": 1,
+    "statuses": [
+        "ok",
+        "not_found",
+        "ambiguous",
+        "invalid_input",
+        "unsupported",
+        "parse_error",
+        "engine_unavailable",
+        "outside_workspace",
+        "timeout"
+    ],
+    "failureEnvelopeKeys": [
+        "status",
+        "data",
+        "candidates",
+        "provenance",
+        "error"
+    ],
+    "errorKeys": [
+        "code",
+        "message"
+    ],
+    "methods": {
+        "bear/project/info": {
+            "handler": "describeProject",
+            "parameters": [
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": [
+                "semanticApiVersion",
+                "workspaceName",
+                "projectPath",
+                "composerPath",
+                "psr4Roots",
+                "excludedPsr4Roots",
+                "resourceCount",
+                "capabilities",
+                "versions",
+                "compatibilityIssues"
+            ]
+        },
+        "bear/resource/resolve": {
+            "handler": "resolveResource",
+            "parameters": [
+                {"name": "uri", "type": "string", "required": true},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["uri", "fqn", "path"]
+        },
+        "bear/resource/list": {
+            "handler": "listResources",
+            "parameters": [
+                {"name": "scheme", "type": "string|null", "required": false, "default": null},
+                {"name": "prefix", "type": "string", "required": false, "default": ""},
+                {"name": "limit", "type": "int", "required": false, "default": 50}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["resources", "total", "truncated"]
+        },
+        "bear/resource/describe": {
+            "handler": "describeResource",
+            "parameters": [
+                {"name": "uri", "type": "string", "required": true},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null},
+                {"name": "incomingLimit", "type": "int", "required": false, "default": 50}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["resource", "methods", "relationsOut", "relationsIn", "templates", "schemas"]
+        },
+        "bear/resource/incomingRelations": {
+            "handler": "findIncomingResourceRelations",
+            "parameters": [
+                {"name": "uri", "type": "string", "required": true},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null},
+                {"name": "limit", "type": "int", "required": false, "default": 50}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["resource", "available", "items", "total", "truncated"]
+        },
+        "bear/resource/references": {
+            "handler": "findResourceReferences",
+            "parameters": [
+                {"name": "uri", "type": "string", "required": true},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null},
+                {"name": "limit", "type": "int", "required": false, "default": 50}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["resource", "references", "total", "truncated"]
+        },
+        "bear/route/resolve": {
+            "handler": "resolveRoute",
+            "parameters": [
+                {"name": "route", "type": "string", "required": true},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["route", "resource"]
+        },
+        "bear/sql/resolve": {
+            "handler": "resolveSql",
+            "parameters": [
+                {"name": "queryId", "type": "string", "required": true},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["queryId", "path"]
+        },
+        "bear/template/resolve": {
+            "handler": "resolveTemplate",
+            "parameters": [
+                {"name": "engine", "type": "string", "required": true},
+                {"name": "name", "type": "string", "required": true},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["engine", "name", "path"]
+        },
+        "bear/template/forResource": {
+            "handler": "resolveResourceTemplate",
+            "parameters": [
+                {"name": "uri", "type": "string", "required": true},
+                {"name": "engine", "type": "string", "required": true},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["resource", "engine", "path"]
+        },
+        "bear/alps/resolveDescriptor": {
+            "handler": "resolveAlpsDescriptor",
+            "parameters": [
+                {"name": "descriptorId", "type": "string", "required": true},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["descriptorId", "profilePath", "byteOffset"]
+        },
+        "bear/alps/describeDescriptor": {
+            "handler": "describeAlpsDescriptor",
+            "parameters": [
+                {"name": "descriptorId", "type": "string", "required": true},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": [
+                "descriptorId",
+                "profilePath",
+                "byteOffset",
+                "type",
+                "name",
+                "rt",
+                "href",
+                "rel",
+                "doc",
+                "def",
+                "tag",
+                "title",
+                "relationsOut",
+                "relationsIn"
+            ]
+        },
+        "bear/schema/resolveNamed": {
+            "handler": "resolveNamedSchema",
+            "parameters": [
+                {"name": "fileName", "type": "string", "required": true},
+                {"name": "kind", "type": "string", "required": true},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["kind", "source", "path", "titleByteOffset", "resource"]
+        },
+        "bear/schema/forResource": {
+            "handler": "resolveResourceSchema",
+            "parameters": [
+                {"name": "uri", "type": "string", "required": true},
+                {"name": "kind", "type": "string", "required": false, "default": "response"},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["kind", "source", "path", "titleByteOffset", "resource"]
+        },
+        "bear/schema/describeNamed": {
+            "handler": "describeNamedSchema",
+            "parameters": [
+                {"name": "fileName", "type": "string", "required": true},
+                {"name": "kind", "type": "string", "required": true},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["kind", "source", "path", "titleByteOffset", "resource", "available", "types", "properties"]
+        },
+        "bear/schema/describeForResource": {
+            "handler": "describeResourceSchema",
+            "parameters": [
+                {"name": "uri", "type": "string", "required": true},
+                {"name": "kind", "type": "string", "required": false, "default": "response"},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["kind", "source", "path", "titleByteOffset", "resource", "available", "types", "properties"]
+        }
+    }
+}

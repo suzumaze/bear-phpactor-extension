@@ -112,6 +112,59 @@ final class ResourceReferenceFinderTest extends TestCase
         self::assertSame($this->expectedReferences(), $this->asReferences($response->result));
     }
 
+    public function testFindsPageResourceReferencesFromRouteName(): void
+    {
+        $response = $this->requestReferences(
+            'aura.route.php',
+            "'/article'",
+            false,
+            1,
+        );
+
+        $expected = [];
+        $routeFile = self::fixtureDir() . '/aura.route.php';
+        $routeSource = (string) file_get_contents($routeFile);
+        $searchOffset = 0;
+        while (($matchOffset = strpos($routeSource, "'/article'", $searchOffset)) !== false) {
+            [$line, $char] = $this->positionAtOffset($matchOffset, $routeSource);
+            $expected[] = [
+                'file://' . $routeFile,
+                $line,
+                $char,
+                $line,
+                $char + strlen("'/article'"),
+            ];
+            $searchOffset = $matchOffset + strlen("'/article'");
+        }
+
+        $caller = self::fixtureDir() . '/src/Resource/App/PageCaller.php';
+        $callerSource = (string) file_get_contents($caller);
+        [$line, $char] = $this->positionOf("'page://self/article'", $callerSource);
+        $expected[] = [
+            'file://' . $caller,
+            $line,
+            $char,
+            $line,
+            $char + strlen("'page://self/article'"),
+        ];
+
+        self::assertSame($expected, $this->asReferences($response->result));
+    }
+
+    public function testRouteHttpPathAndAmbiguousRouteHaveNoResourceReferences(): void
+    {
+        $httpPath = $this->requestReferences(
+            'aura.route.php',
+            "'/articles/{id}'",
+            false,
+            1,
+        );
+        self::assertSame([], $this->asReferences($httpPath->result));
+
+        $ambiguous = $this->requestReferences('aura.route.php', "'/x'", false, 1);
+        self::assertSame([], $this->asReferences($ambiguous->result));
+    }
+
     public function testMiniAppArticleIsNotMixedIn(): void
     {
         // ミニアプリ (tests/Fake/Mini) の同名リソースのクラス名の上で参照検索すると、
@@ -548,6 +601,13 @@ final class ResourceReferenceFinderTest extends TestCase
     {
         $byteOffset = strpos($content, $needle);
         self::assertNotFalse($byteOffset, sprintf('Needle "%s" not found in fixture', $needle));
+
+        return $this->positionAtOffset($byteOffset, $content);
+    }
+
+    /** @return array{0: int, 1: int} */
+    private function positionAtOffset(int $byteOffset, string $content): array
+    {
         $before = substr($content, 0, $byteOffset);
         $lastNewline = strrpos($before, "\n");
 

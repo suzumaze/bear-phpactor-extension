@@ -36,6 +36,13 @@ final class PhpactorVersionConflictDetectorTest extends TestCase
         self::assertNull($this->detector('safe-new-server')->brokenCombination());
     }
 
+    public function testChecksRuntimeVersionPairWithoutReadingInstalledJson(): void
+    {
+        self::assertTrue(PhpactorVersionConflictDetector::isBrokenCombination('7.0.1', '3.17.5'));
+        self::assertFalse(PhpactorVersionConflictDetector::isBrokenCombination('7.0.2', '3.17.5'));
+        self::assertFalse(PhpactorVersionConflictDetector::isBrokenCombination('7.0.1', 'dev-main'));
+    }
+
     public function testSilentWhenInstalledJsonIsMissing(): void
     {
         $detector = new PhpactorVersionConflictDetector(self::FIXTURE . '/no-such-project');

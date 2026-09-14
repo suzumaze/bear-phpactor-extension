@@ -4,29 +4,29 @@ declare(strict_types=1);
 
 namespace Suzumaze\BearPhpactor\Resource\ReferenceFinder;
 
-use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Resource\Model\ResourceTargetResolver;
 use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
-use Suzumaze\BearPhpactor\Util\PathGuard;
+use Suzumaze\BearPhpactor\Router\RouteReferenceAtOffset;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceReferencesQuery;
+use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
+use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 use Suzumaze\BearPhpactor\Util\PhpClassDeclaration;
 use Suzumaze\BearPhpactor\Util\ProjectLocator;
 use Suzumaze\BearPhpactor\Util\ResourceObjectInheritance;
-use FilesystemIterator;
 use Generator;
-use Microsoft\PhpParser\Node\StringLiteral;
 use Microsoft\PhpParser\Parser;
 use Phpactor\ReferenceFinder\PotentialLocation;
 use Phpactor\ReferenceFinder\ReferenceFinder;
 use Phpactor\TextDocument\ByteOffset;
 use Phpactor\TextDocument\Location;
 use Phpactor\TextDocument\TextDocument;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
 
 /**
- * リソースURIの文字列リテラル・リソースクラス宣言名から、そのリソースを参照する
- * 箇所 (textDocument/references) を探す。
+ * リソースURIの文字列リテラル・リソースクラス宣言名・Route名から、その
+ * リソースを参照する箇所 (textDocument/references) を探す。
  *
  * 参照の同一性は「URI文字列が同じ」ではなく「そのサイトの位置から URI を定義解決
  * した先のファイルが対象と同じ」で判定する。テスト用のミニアプリが同じ
@@ -38,17 +38,36 @@ use RecursiveIteratorIterator;
  */
 final class ResourceReferenceFinder implements ReferenceFinder
 {
+    private RouteReferenceAtOffset $routeReferenceAtOffset;
+    private RouteQuery $routeQuery;
+    private ResourceReferencesQuery $resourceReferencesQuery;
+    private ResourceQuery $resourceQuery;
+
     public function __construct(
         private StringLiteralAtOffset $stringLiteralAtOffset,
-        private ResourceTargetResolver $resourceTargetResolver = new ResourceTargetResolver(),
+        ResourceTargetResolver $resourceTargetResolver = new ResourceTargetResolver(),
         private Parser $parser = new Parser(),
+        ?RouteReferenceAtOffset $routeReferenceAtOffset = null,
+        ?RouteQuery $routeQuery = null,
+        ?ResourceReferencesQuery $resourceReferencesQuery = null,
+        ?ResourceQuery $resourceQuery = null,
+        private ?string $workspaceRoot = null,
     ) {
+        $this->routeReferenceAtOffset = $routeReferenceAtOffset ?? new RouteReferenceAtOffset();
+        $this->resourceQuery = $resourceQuery ?? new ResourceQuery();
+        $this->routeQuery = $routeQuery ?? new RouteQuery($resourceTargetResolver, $this->resourceQuery);
+        $this->resourceReferencesQuery = $resourceReferencesQuery ?? new ResourceReferencesQuery(
+            $this->resourceQuery,
+            $this->routeQuery,
+            $this->routeReferenceAtOffset,
+            $this->parser,
+        );
     }
 
     public function findReferences(TextDocument $document, ByteOffset $byteOffset): Generator
     {
-        // 入口の安価な事前判定: リソースURI文字列 (app:// page://) も ResourceObject
-        // の継承も無いドキュメントは参照検索の対象ではない。構文解析より先に降りる
+        // 入口の安価な事前判定: Resource URI、ResourceObject継承、aura.route.phpの
+        // いずれでもないドキュメントは参照検索の対象ではない。構文解析より先に降りる
         // (LocatorEntryPointTest と同じ流儀。当拡張は連鎖の先頭に居るので、全PHP
         // ファイルの全参照検索で最初に走ることになる)。
         //
@@ -67,12 +86,8 @@ final class ResourceReferenceFinder implements ReferenceFinder
             && !str_contains($text, 'ResourceObject')
             && !str_contains($path, '/Resource/App/')
             && !str_contains($path, '/Resource/Page/')
+            && basename($path) !== 'aura.route.php'
         ) {
-            return false;
-        }
-
-        $target = $this->targetAtOffset($document, $byteOffset);
-        if ($target === null) {
             return false;
         }
 
@@ -81,86 +96,71 @@ final class ResourceReferenceFinder implements ReferenceFinder
             return false;
         }
 
-        $found = ProjectLocator::locate($uri->path());
-        if ($found === null) {
-            return false;
-        }
-
-        $targetRealPath = realpath($target);
-        if ($targetRealPath === false) {
-            return false;
-        }
-
-        // Project::locate() は dirname($file) をキーにリクエスト内でキャッシュする。
-        // 同じディレクトリのファイルは同じ enclosing app dir を持つため安全。
-        // キャッシュは findReferences() の呼び出しごとに作り直す (プロセスをまたが
-        // ない)。同じ場所 (ファイル×開始位置) を二度yieldしないための履歴もここ。
-        $projectCache = [];
-        $seen = [];
-
-        foreach ($found['psr4'] as $dirs) {
-            foreach ($dirs as $dir) {
-                $base = PathGuard::isAbsolutePath($dir) ? $dir : $found['root'] . '/' . $dir;
-                if (!is_dir($base)) {
-                    continue;
-                }
-
-                $iterator = new RecursiveIteratorIterator(
-                    new RecursiveDirectoryIterator($base, FilesystemIterator::SKIP_DOTS)
-                );
-                foreach ($iterator as $file) {
-                    if (!$file->isFile() || $file->getExtension() !== 'php') {
-                        continue;
-                    }
-                    $path = $file->getPathname();
-
-                    // 生テキストに app:// / page:// を含むファイルだけを構文解析する。
-                    // 文字列リテラルのノードから位置を取るため、コメントやdocblock中
-                    // の記述は拾わない (BEAR.Kata実測: 245ファイル中78ファイル)。
-                    $source = @file_get_contents($path);
-                    if ($source === false) {
-                        continue;
-                    }
-                    if (!str_contains($source, 'app://') && !str_contains($source, 'page://')) {
-                        continue;
-                    }
-
-                    $rootNode = $this->parser->parseSourceFile($source, $path);
-                    foreach ($rootNode->getDescendantNodes() as $node) {
-                        if (!$node instanceof StringLiteral) {
-                            continue;
-                        }
-
-                        $resourceUri = ResourceUri::fromString($node->getStringContentsText());
-                        if ($resourceUri === null) {
-                            continue;
-                        }
-
-                        $project = $projectCache[dirname($path)] ??= Project::locate($path);
-                        if ($project === null) {
-                            continue;
-                        }
-
-                        // そのファイルの位置から解決した先が対象Tと同じなら参照。
-                        $resolved = $this->resourceTargetResolver->resolve($project, $resourceUri);
-                        if ($resolved === null || realpath($resolved['file']) !== $targetRealPath) {
-                            continue;
-                        }
-
-                        $start = $node->getStartPosition();
-                        $key = $path . ':' . $start;
-                        if (isset($seen[$key])) {
-                            continue;
-                        }
-                        $seen[$key] = true;
-
-                        // クォート込みのリテラル全体を範囲にする (エディタの見た目)。
-                        yield PotentialLocation::surely(
-                            Location::fromPathAndOffsets($path, $start, $node->getEndPosition())
-                        );
-                    }
-                }
+        $workspaceRoot = $this->workspaceRoot;
+        if ($workspaceRoot === null) {
+            $found = ProjectLocator::locate($uri->path());
+            if ($found === null) {
+                return false;
             }
+            $workspaceRoot = $found['root'];
+        }
+        $workspace = WorkspaceContext::fromRoot($workspaceRoot);
+        if ($workspace->value === null) {
+            return false;
+        }
+        $context = $workspace->value->accessPolicy()->inspectExisting($uri->path());
+        if ($context->value === null) {
+            return false;
+        }
+
+        $origin = $this->originAtOffset(
+            $document,
+            $byteOffset,
+            $workspace->value,
+            $context->value->relative,
+        );
+        if ($origin === null) {
+            return false;
+        }
+
+        if ($origin['kind'] === 'uri') {
+            $result = $this->resourceReferencesQuery->findInWorkspace(
+                $workspace->value,
+                $origin['value'],
+                $context->value->relative,
+            );
+        } elseif ($origin['kind'] === 'route') {
+            $route = $this->routeQuery->resolveInWorkspace(
+                $workspace->value,
+                $origin['value'],
+                $context->value->relative,
+            );
+            if ($route->status !== SemanticStatus::Ok || $route->value === null) {
+                return false;
+            }
+            $result = $this->resourceReferencesQuery->findForResolutionInWorkspace(
+                $workspace->value,
+                $route->value->resource,
+                $context->value->relative,
+            );
+        } else {
+            $result = $this->resourceReferencesQuery->findForFileInWorkspace(
+                $workspace->value,
+                $origin['value'],
+                $context->value->relative,
+            );
+        }
+
+        if ($result->status !== SemanticStatus::Ok || $result->value === null) {
+            return false;
+        }
+
+        foreach ($result->value->references as $reference) {
+            yield PotentialLocation::surely(Location::fromPathAndOffsets(
+                $reference->file,
+                $reference->contentStart - 1,
+                $reference->contentEnd + 1,
+            ));
         }
 
         // 組込みの IndexedReferenceFinder を殺さない。false で鎖を続ける。
@@ -168,33 +168,30 @@ final class ResourceReferenceFinder implements ReferenceFinder
     }
 
     /**
-     * カーソル位置から対象Tを決める。
+     * カーソル位置からResource URI、Route名、Resourceクラスを識別する。
+     * 解決と参照走査はResourceReferencesQueryに委譲する。
      *
-     * (a) リソースURIの文字列リテラルの中 → そのドキュメント自身の位置から
-     *     定義解決した先のファイル。解決できなければ null。
-     * (b) BEAR\Resource\ResourceObject を継承したクラスの宣言名の上 →
-     *     そのドキュメント自身のファイルパス。継承の判定は構文解析で行うため、
-     *     docblock 中の "extends ResourceObject" という文言には反応しない。
+     * @return array{kind: 'uri'|'route'|'file', value: string}|null
      */
-    private function targetAtOffset(TextDocument $document, ByteOffset $byteOffset): ?string
-    {
+    private function originAtOffset(
+        TextDocument $document,
+        ByteOffset $byteOffset,
+        WorkspaceContext $workspace,
+        string $contextPath,
+    ): ?array {
         $offset = $byteOffset->toInt();
+
+        $route = ($this->routeReferenceAtOffset)($document, $offset);
+        if ($route !== null) {
+            return ['kind' => 'route', 'value' => $route[1]];
+        }
 
         // (a) リソースURI文字列リテラル
         $string = ($this->stringLiteralAtOffset)($document, $offset);
         if ($string !== null) {
             $resourceUri = ResourceUri::fromString($string[1]);
             if ($resourceUri !== null) {
-                $uri = $document->uri();
-                if ($uri !== null && $uri->scheme() === 'file') {
-                    $project = Project::locate($uri->path());
-                    if ($project !== null) {
-                        $target = $this->resourceTargetResolver->resolve($project, $resourceUri);
-                        if ($target !== null) {
-                            return $target['file'];
-                        }
-                    }
-                }
+                return ['kind' => 'uri', 'value' => $resourceUri->uri()];
             }
         }
 
@@ -227,15 +224,19 @@ final class ResourceReferenceFinder implements ReferenceFinder
         // とき Foo もリソース。PLAN.md §2.17)。親クラスはディスクから読むため、
         // 未保存の編集は親クラス側には反映されない (ResourceObjectInheritance の
         // コメント参照)。
-        $found = ProjectLocator::locate($path);
-        if ($found === null) {
+        $project = $workspace->project($contextPath);
+        if ($project->value === null) {
             return null;
         }
-        $inheritance = new ResourceObjectInheritance($found['root'], $found['psr4'], $this->parser);
+        $inheritance = new ResourceObjectInheritance(
+            $project->value->root(),
+            $project->value->psr4(),
+            $this->parser,
+        );
         if (!$inheritance->extendsResourceObject($class)) {
             return null;
         }
 
-        return $path;
+        return ['kind' => 'file', 'value' => $contextPath];
     }
 }

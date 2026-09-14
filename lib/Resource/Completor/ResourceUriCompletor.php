@@ -6,6 +6,7 @@ namespace Suzumaze\BearPhpactor\Resource\Completor;
 
 use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryIndex;
 use Generator;
 use Phpactor\Completion\Core\Completor;
 use Phpactor\Completion\Core\Range;
@@ -21,6 +22,7 @@ final class ResourceUriCompletor implements Completor
 {
     public function __construct(
         private StringLiteralAtOffset $stringLiteralAtOffset,
+        private ?ResourceInventoryIndex $inventoryIndex = null,
     ) {
     }
 
@@ -54,7 +56,10 @@ final class ResourceUriCompletor implements Completor
             return false;
         }
 
-        foreach ($project->resourceClasses() as $uri => $classFqn) {
+        $classes = $this->inventoryIndex === null
+            ? $project->resourceClasses()
+            : $this->inventoryIndex->classes($project, $uriObject->path());
+        foreach ($classes as $uri => $classFqn) {
             if (!str_starts_with($uri, $partial)) {
                 continue;
             }

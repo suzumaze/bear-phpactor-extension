@@ -118,14 +118,41 @@ final class ResourceObjectInheritance
         }
 
         $relative = substr($fqn, strlen($bestPrefix));
+        $canonicalRoot = realpath($this->root);
+        if ($canonicalRoot === false) {
+            return null;
+        }
         foreach ($this->psr4[$bestPrefix] as $dir) {
             $base = PathGuard::isAbsolutePath($dir) ? $dir : $this->root . '/' . $dir;
-            $file = $base . '/' . str_replace('\\', '/', $relative) . '.php';
-            if (is_file($file)) {
-                return $file;
+            $canonicalBase = realpath($base);
+            if ($canonicalBase === false || !$this->contains($canonicalRoot, $canonicalBase)) {
+                continue;
+            }
+            $file = PathGuard::resolveInside($canonicalBase, str_replace('\\', '/', $relative) . '.php');
+            if ($file === null) {
+                continue;
+            }
+            $canonicalFile = realpath($file);
+            if (
+                $canonicalFile !== false
+                && is_file($canonicalFile)
+                && $this->contains($canonicalRoot, $canonicalFile)
+            ) {
+                return $canonicalFile;
             }
         }
 
         return null;
+    }
+
+    private function contains(string $root, string $path): bool
+    {
+        $root = rtrim(str_replace('\\', '/', $root), '/');
+        $root = $root === '' ? '/' : $root;
+        $path = str_replace('\\', '/', $path);
+
+        return $root === '/'
+            ? str_starts_with($path, '/')
+            : $path === $root || str_starts_with($path, $root . '/');
     }
 }
