@@ -20,10 +20,10 @@ use function str_starts_with;
 final class TemplatePathResolver
 {
     /** @var list<string> Madapaja.TwigModule AppPathProvider と同じ優先順 */
-    private const TWIG_ROOTS = ['src/Resource', 'var/templates'];
+    public const TWIG_ROOTS = ['src/Resource', 'var/templates'];
 
     /** BEAR.QiqModuleのマニュアル・標準構成 */
-    private const QIQ_ROOT = 'var/qiq/template';
+    public const QIQ_ROOT = 'var/qiq/template';
 
     public function resolve(TemplateReference $reference, string $projectRoot, string $documentPath): ?string
     {

@@ -37,8 +37,10 @@ use Suzumaze\BearPhpactor\Semantic\Sql\SqlReferencesQuery;
 use Suzumaze\BearPhpactor\Sql\SqlReferenceFinder;
 use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateQuery;
+use Suzumaze\BearPhpactor\Semantic\Template\TemplateReferencesQuery;
 use Suzumaze\BearPhpactor\Template\EmbedTemplateDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\TemplateDefinitionLocator;
+use Suzumaze\BearPhpactor\Template\TemplateReferenceFinder;
 use Phpactor\Container\PhpactorContainer;
 use Phpactor\Extension\Completion\CompletionExtension;
 use Phpactor\Extension\FilePathResolver\FilePathResolverExtension;
@@ -208,6 +210,10 @@ final class BearSundayExtensionTest extends TestCase
         $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
 
         self::assertInstanceOf(TemplateQuery::class, $container->get('bear_sunday.semantic.template_query'));
+        self::assertInstanceOf(
+            TemplateReferencesQuery::class,
+            $container->get('bear_sunday.semantic.template_references_query'),
+        );
     }
 
     public function testRegistersTransportIndependentResourceTemplateQuery(): void
@@ -274,6 +280,14 @@ final class BearSundayExtensionTest extends TestCase
         self::assertInstanceOf(AlpsReferenceFinder::class, $container->get('bear_sunday.alps.reference_finder'));
         self::assertArrayHasKey(
             'bear_sunday.alps.reference_finder',
+            $container->getServiceIdsForTag(ReferenceFinderExtension::TAG_REFERENCE_FINDER),
+        );
+        self::assertInstanceOf(
+            TemplateReferenceFinder::class,
+            $container->get('bear_sunday.template.reference_finder'),
+        );
+        self::assertArrayHasKey(
+            'bear_sunday.template.reference_finder',
             $container->getServiceIdsForTag(ReferenceFinderExtension::TAG_REFERENCE_FINDER),
         );
     }

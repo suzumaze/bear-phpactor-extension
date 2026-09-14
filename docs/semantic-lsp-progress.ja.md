@@ -52,9 +52,11 @@ flowchart TD
     p86["SQL ID References\n完了"]
     p87["明示 JSON Schema References\n完了"]
     p88["ALPS descriptor属性 References\n完了"]
+    p89["Twig / Qiq Template References\n完了"]
+    p90["documentSymbol / workspace symbol判断\n完了: 現状は拡張しない"]
     p8["別 repository の薄い MCP-LSP adapter\n将来"]
 
-    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p86 --> p87 --> p88 --> p8
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p86 --> p87 --> p88 --> p89 --> p90 --> p8
 ```
 
 ## 現在利用できる入口
@@ -63,7 +65,7 @@ flowchart TD
 
 - `textDocument/definition`: Resource URI、Route、SQL、ALPS、Template、明示 Schema
 - `textDocument/typeDefinition`: Resource 規約の response Schema
-- `textDocument/references`: Resource、Route、SQL、明示Schema、ALPS descriptor属性の同一セマンティック対象への参照元
+- `textDocument/references`: Resource、Route、SQL、明示Schema、ALPS descriptor属性、Twig/Qiq Templateの同一セマンティック対象への参照元
 - `textDocument/hover`: Resource URI の facts、Route、SQL、ALPS descriptor の fields と明示関係、静的 Template 参照、明示 JSON Schema の構造
 - `textDocument/completion`: Resource URI と body Schema property
 - `textDocument/documentLink`: Resource URI と Template 参照
@@ -125,6 +127,17 @@ ALPS descriptorからのReferencesは、`#[Alps('descriptorId')]`の静的な第
 別project/profileの同名descriptorは混ざらない。欠落・重複descriptorは空結果にし、`includeDeclaration: true`では
 profile内のdescriptor定義も返す。profile JSON内の`contains`・`href`・`rt`は属性利用とは異なる関係edgeなので、
 標準Referencesへ混ぜず`bear/alps/describeDescriptor`とHoverの構造化関係として提供する。
+
+Twig/Qiq TemplateからのReferencesは、Definition/Hoverと同じ静的構文を参照元ごとにTemplate Queryで
+再解決し、同じcanonical templateを指す箇所だけを返す。Twigは`src/Resource`と`var/templates`、Qiqは
+`var/qiq/template`だけを走査し、各入力は1 MiBまでとする。通常PHPの偶然の`render()`、動的式、コメント、
+未解決・workspace外参照は含めない。Qiqの相対名は各参照元の位置から解決する。
+
+`textDocument/documentSymbol`と`workspace/symbol`には、現時点でBEAR用providerを追加しない。現在のPhpactorは
+どちらも単一provider/handlerで、extension向けの合成chainを公開していない。置換すると既存PHP class・method
+symbolまたはindex検索を失う。Resource classと`on*` methodは既存PHP symbolに既に現れ、Resource URI一覧は
+`bear/resource/list`、descriptor詳細は`bear/alps/describeDescriptor`で構造を保って取得できる。RouteやURIを
+疑似PHP symbolとして押し込まず、Phpactorがprovider chainを公開した時点で再検討する。
 
 対応中の Phpactor には Hover provider chain がなく、拡張 middleware は標準の trace・
 shutdown・cancellation middleware より前に実行される。そのため前段では構文上の認識だけを

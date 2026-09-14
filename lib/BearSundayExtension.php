@@ -43,12 +43,14 @@ use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateQuery;
+use Suzumaze\BearPhpactor\Semantic\Template\TemplateReferencesQuery;
 use Suzumaze\BearPhpactor\Sql\SqlDefinitionLocator;
 use Suzumaze\BearPhpactor\Sql\SqlQueryAtOffset;
 use Suzumaze\BearPhpactor\Sql\SqlReferenceFinder;
 use Suzumaze\BearPhpactor\Template\EmbedTemplateDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\TemplateDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\TemplateReferenceScanner;
+use Suzumaze\BearPhpactor\Template\TemplateReferenceFinder;
 use Phpactor\Container\Container;
 use Phpactor\Container\ContainerBuilder;
 use Phpactor\Container\Extension;
@@ -288,6 +290,28 @@ final class BearSundayExtension implements Extension
             function (): TemplateReferenceScanner {
                 return new TemplateReferenceScanner();
             },
+        );
+        $container->register(
+            'bear_sunday.semantic.template_references_query',
+            function (Container $container): TemplateReferencesQuery {
+                return new TemplateReferencesQuery(
+                    $container->get('bear_sunday.semantic.template_query'),
+                    $container->get('bear_sunday.template.reference_scanner'),
+                );
+            },
+        );
+        $container->register(
+            'bear_sunday.template.reference_finder',
+            function (Container $container): TemplateReferenceFinder {
+                $pathResolver = $container->get(FilePathResolverExtension::SERVICE_FILE_PATH_RESOLVER);
+
+                return new TemplateReferenceFinder(
+                    $container->get('bear_sunday.template.reference_scanner'),
+                    $container->get('bear_sunday.semantic.template_references_query'),
+                    $pathResolver->resolve('%project_root%'),
+                );
+            },
+            [ReferenceFinderExtension::TAG_REFERENCE_FINDER => []],
         );
 
         $container->register('bear_sunday.semantic.route_query', function (Container $container): RouteQuery {

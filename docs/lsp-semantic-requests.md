@@ -74,6 +74,13 @@ guessing another target. For PHP-associated template documents, ALPS, explicit S
 SQL, Route, and Resource URI semantics are checked first so existing BEAR Hover
 behavior remains unchanged.
 
+Standard `textDocument/references` on those static template names resolves every
+candidate in its own document context and returns only sites targeting the same
+canonical template. Twig scanning is limited to `src/Resource` and `var/templates`;
+Qiq scanning is limited to `var/qiq/template`. Each source is capped at 1 MiB, Qiq
+relative names are resolved from each source file, and ordinary PHP `render()` calls,
+dynamic expressions, comments, unresolved targets, and unsafe paths are excluded.
+
 Explicit BEAR `#[JsonSchema(...)]` file references return standard Hover with the
 request/response kind, resolved workspace-relative path, top-level types, and up to
 20 deterministically ordered top-level properties with their declared types and
@@ -185,6 +192,14 @@ has a maximum of 200. Duplicate URIs from different PSR-4 roots remain separate,
 and results are ordered by URI, path, then FQN. The supported Phpactor version does
 not expose a provider chain for `workspace/symbol`, so this identifier-based request
 is kept separate instead of replacing Phpactor's PHP symbol search.
+
+No BEAR provider is registered for `textDocument/documentSymbol` either. In the
+supported Phpactor release, both document and workspace symbol methods have a single
+provider/handler and no extension composition chain. Replacing them would discard
+Phpactor's PHP class/method symbols or indexed symbol search. Resource classes and
+`on*` methods already appear as PHP symbols; BEAR identifiers retain their structure
+through the read-only custom queries. Route names and URIs are not emitted as fake PHP
+symbols. This decision should be revisited if Phpactor exposes composable providers.
 
 Resource description reports public `on*` methods, declared parameter types, and
 statically resolvable method-level `BEAR\\Resource\\Annotation\\Link` and `Embed`

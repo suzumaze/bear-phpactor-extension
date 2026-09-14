@@ -354,6 +354,86 @@ final class StdioLanguageServerTest extends TestCase
         }
     }
 
+    public function testRealPhpactorStdioFindsTwigAndQiqTemplateReferences(): void
+    {
+        $fixture = dirname(__DIR__) . '/Fixture/Template';
+        $twigFile = $fixture . '/src/Resource/Page/TwigReferences.html.twig';
+        $twigSource = (string) file_get_contents($twigFile);
+        $qiqFile = $fixture . '/var/qiq/template/Page/QiqReferences.php';
+        $qiqSource = (string) file_get_contents($qiqFile);
+        $client = StdioLspClient::start(
+            $this->command($fixture),
+            $fixture,
+            $this->environment(),
+        );
+
+        try {
+            $initialize = $client->request('initialize', [
+                'processId' => getmypid(),
+                'rootUri' => $this->fileUri($fixture),
+                'capabilities' => (object) [],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $initialize, $client->stderr());
+            self::assertTrue($initialize['result']['capabilities']['referencesProvider'] ?? false);
+            $client->notify('initialized');
+            $client->notify('textDocument/didOpen', [
+                'textDocument' => [
+                    'uri' => $this->fileUri($twigFile),
+                    'languageId' => 'twig',
+                    'version' => 1,
+                    'text' => $twigSource,
+                ],
+            ]);
+
+            $twigReferences = $client->request('textDocument/references', [
+                'textDocument' => ['uri' => $this->fileUri($twigFile)],
+                'position' => $this->positionOf('element/component/card.html.twig', $twigSource),
+                'context' => ['includeDeclaration' => false],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $twigReferences, $client->stderr());
+            self::assertSame([
+                $this->fileUri($twigFile),
+                $this->fileUri($fixture . '/src/Resource/Page/TwigReferencesSecond.html.twig'),
+            ], array_column($twigReferences['result'] ?? [], 'uri'));
+
+            $withDeclaration = $client->request('textDocument/references', [
+                'textDocument' => ['uri' => $this->fileUri($twigFile)],
+                'position' => $this->positionOf('element/component/card.html.twig', $twigSource),
+                'context' => ['includeDeclaration' => true],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $withDeclaration, $client->stderr());
+            self::assertContains(
+                $this->fileUri($fixture . '/var/templates/element/component/card.html.twig'),
+                array_column($withDeclaration['result'] ?? [], 'uri'),
+            );
+
+            $client->notify('textDocument/didOpen', [
+                'textDocument' => [
+                    'uri' => $this->fileUri($qiqFile),
+                    'languageId' => 'qiq',
+                    'version' => 1,
+                    'text' => $qiqSource,
+                ],
+            ]);
+            $qiqReferences = $client->request('textDocument/references', [
+                'textDocument' => ['uri' => $this->fileUri($qiqFile)],
+                'position' => $this->positionOf('partial/card', $qiqSource),
+                'context' => ['includeDeclaration' => false],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $qiqReferences, $client->stderr());
+            self::assertSame([
+                $this->fileUri($qiqFile),
+                $this->fileUri($qiqFile),
+            ], array_column($qiqReferences['result'] ?? [], 'uri'));
+
+            $shutdown = $client->request('shutdown', [], 10.0);
+            self::assertArrayNotHasKey('error', $shutdown, $client->stderr());
+            $client->notify('exit');
+        } finally {
+            $client->close();
+        }
+    }
+
     public function testRealPhpactorStdioServerLoadsExtensionAndResolvesResourceDefinition(): void
     {
         $fixture = self::fixtureDir();
