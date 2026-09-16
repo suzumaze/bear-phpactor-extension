@@ -6,6 +6,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-09-16
+
+### Added
+
+- `bear/resource/attributes` for inspecting saved Resource method attributes and
+  arguments without executing application PHP.
+- `bear/resource/attributeIndex` for a deterministic, bounded inventory of Resource
+  attribute facts across the workspace.
+- `bear/contract/compare` for comparing exact request-name presence across a Resource
+  method, request JSON Schema, and ALPS descriptor without claiming type or semantic
+  equivalence.
+
+### Changed
+
+- Semantic API version 1 discovery and its contract snapshot now advertise nineteen
+  read-only `bear/*` requests.
+- Resource and Schema facts expose the additional static metadata needed for bounded
+  contract-surface comparisons.
+
 ## [0.1.5] - 2026-09-14
 
 ### Added
@@ -41,5 +60,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Invalid, missing, ambiguous, malformed, and outside-workspace inputs return structured
   failure results instead of executing application PHP or exposing exception traces.
 
-[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.4...v0.1.5
