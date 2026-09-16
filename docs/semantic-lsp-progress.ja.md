@@ -1,6 +1,6 @@
 # BEAR.Sunday Semantic LSP 進捗
 
-最終更新: 2026-09-14
+最終更新: 2026-09-16
 
 この文書は、BEAR.Sunday 固有セマンティクスを Phpactor Language Server から
 IDE と AI の双方へ提供する作業の現在地を示す。実装が進んだら、この図と一覧も更新する。
@@ -15,7 +15,7 @@ flowchart LR
     standard["Standard LSP\ndefinition / references / hover / completion\ntypeDefinition / documentLink"]
     custom["Read-only BEAR LSP requests\nresource / route / SQL / template\nALPS / schema"]
     clients["IDE / editor / CLI / AI LSP client"]
-    mcp["Future thin MCP-LSP adapter"]
+    mcp["Separate thin MCP-LSP adapter"]
 
     project --> core --> phpactor
     phpactor --> standard --> clients
@@ -58,9 +58,10 @@ flowchart TD
     p92["Semantic error / provenance / freshness\n完了"]
     p93["URI起点Resource References request\n完了"]
     p94["Custom LSP Semantic API v1契約\n完了"]
-    p8["別 repository の薄い MCP-LSP adapter\n将来"]
+    p95["Resource属性facts / inventory\n完了"]
+    p8["別 repository の薄い MCP-LSP adapter\n稼働中・拡張継続"]
 
-    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p86 --> p87 --> p88 --> p89 --> p90 --> p91 --> p92 --> p93 --> p94 --> p8
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p86 --> p87 --> p88 --> p89 --> p90 --> p91 --> p92 --> p93 --> p94 --> p95 --> p8
 ```
 
 ## 現在利用できる入口
@@ -161,6 +162,8 @@ shutdown・cancellation middleware より前に実行される。そのため前
 - `bear/resource/resolve`
 - `bear/resource/list`
 - `bear/resource/describe`
+- `bear/resource/attributes`
+- `bear/resource/attributeIndex`
 - `bear/resource/incomingRelations`
 - `bear/resource/references`
 - `bear/route/resolve`
@@ -184,7 +187,7 @@ optional response field、capabilityを追加できる。既存method/fieldの�
 optional parameterの必須化、status追加にはSemantic API versionの更新を必要とする。clientは
 未知のobject fieldを無視する。
 
-`tests/Contract/semantic-query-v1.json`とcontract testが、全16 methodの登録名、handler引数の
+`tests/Contract/semantic-query-v1.json`とcontract testが、全18 methodの登録名、handler引数の
 名前・型・default、成功envelopeとtop-level data key、failure envelope、error key、全statusを
 実際のhandler responseに対して検証する。実stdio統合テストでもAPI versionを確認する。
 
@@ -203,6 +206,16 @@ custom requestの共通envelopeは既存の`status`・`data`・`candidates`を�
 Link/Embed、既存の Qiq/Twig template、規約で解決できる response Schema を1回の
 問い合わせに集約する。内向き関係は件数上限と切り捨て状態を明示する。
 
+`bear/resource/attributes`は、Resource classとpublic `on*` methodに付いた対応属性を、
+FQN、引数、保存済みfileのbyte rangeとともに返す。対象は`Alps`、`Cacheable`、
+`CacheableResponse`、`DonutCache`、`HttpCache`、`Purge`、`Refresh`、`Embed`、
+`JsonSchema`、`Link`のallowlistである。静的な文字列・数値・真偽値・nullだけを値として
+確定し、定数や式は`dynamic`として明示する。application PHPはloadも実行もしない。
+
+`bear/resource/attributeIndex`は、Resource一覧と同じscheme・prefix・limit境界でworkspaceを
+走査し、各Resourceに個別statusと属性factsを付ける。途中の1ファイルが壊れていてもouter resultは
+`ok`のまま、該当itemだけ`parse_error`になるため、AIの監査処理が他の証明済みfactsを失わない。
+
 `bear/alps/describeDescriptor` は、ALPS descriptor の型・表示情報と、同一profile内で
 明示された親子 (`contains`)、ローカル `href`、ローカル `rt` の入出力関係を返す。
 外部参照は取得せず、名前の類似からResourceとの対応を推測しない。未解決・重複した
@@ -219,6 +232,7 @@ PSR-4構成はcache keyにも含める。監視非対応のheadless clientやSem
 
 ## AI からの利用
 
-現時点でも LSP client または `tools/semantic-lsp-query.php` を使えば、IDE を起動せずに
-実際の Phpactor stdio process へ問い合わせられる。MCP server はまだ作成していない。
-将来の MCP adapter は、この LSP API を呼び出して schema を変換するだけの薄い層にする。
+LSP client または `tools/semantic-lsp-query.php` を使えば、IDE を起動せずに実際の Phpactor
+stdio process へ問い合わせられる。別repositoryのMCP adapterも、このLSP APIを呼び出して
+schemaを変換する薄い層として稼働している。本package自身にはMCP serverを含めず、semantic
+rulesと契約のsingle source of truthをPhpactor extension側に保つ。

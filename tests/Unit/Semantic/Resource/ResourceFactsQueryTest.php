@@ -31,14 +31,20 @@ final class ResourceFactsQueryTest extends TestCase
 <?php
 namespace Acme\App\Resource\App;
 
+use BEAR\RepositoryModule\Annotation\Cacheable;
+use BEAR\RepositoryModule\Annotation\Refresh;
 use BEAR\Resource\Annotation\Embed;
+use BEAR\Resource\Annotation\JsonSchema;
 use BEAR\Resource\Annotation\Link;
 
+#[Cacheable(expiry: 'short', expirySecond: 30, enabled: true, dynamic: SOME_VALUE)]
 final class Dashboard extends \BEAR\Resource\ResourceObject
 {
     #[Embed(rel: 'user', src: 'app://self/user{?id}')]
+    #[JsonSchema(schema: 'dashboard.json')]
     #[Link(rel: 'create', href: '/users', method: 'post')]
     #[Link(rel: 'dynamic', href: 'app://self/dynamic', method: SOME_METHOD)]
+    #[Refresh(uri: 'app://self/dashboard')]
     public function onGet(int $id, ?string $name = null): static
     {
         return $this;
@@ -90,6 +96,56 @@ PHP,
         self::assertSame('onGet', $result->value->outgoingRelations[1]->targetMethod);
         self::assertSame('onPost', $result->value->outgoingRelations[2]->targetMethod);
         self::assertSame('onGet', $result->value->outgoingRelations[2]->sourceMethod);
+    }
+
+    public function testDescribesSupportedAttributesAndMarksDynamicArguments(): void
+    {
+        $result = (new ResourceFactsQuery())->describeInWorkspace(
+            $this->workspace(),
+            'app://self/dashboard',
+        );
+
+        self::assertSame(SemanticStatus::Ok, $result->status);
+        self::assertInstanceOf(ResourceFacts::class, $result->value);
+        self::assertSame(
+            ['Cacheable', 'Refresh', 'Embed', 'JsonSchema', 'Link', 'Link'],
+            array_map(static fn ($attribute): string => $attribute->name, $result->value->attributes),
+        );
+
+        $cacheable = $result->value->attributes[0];
+        self::assertSame('class', $cacheable->target);
+        self::assertNull($cacheable->methodName);
+        self::assertSame('BEAR\\RepositoryModule\\Annotation\\Cacheable', $cacheable->fqn);
+        self::assertSame(
+            [
+                ['expiry', 'string', 'short'],
+                ['expirySecond', 'number', '30'],
+                ['enabled', 'boolean', true],
+                ['dynamic', 'dynamic', null],
+            ],
+            array_map(
+                static fn ($argument): array => [$argument->name, $argument->valueType, $argument->value],
+                $cacheable->arguments,
+            ),
+        );
+        self::assertGreaterThanOrEqual(0, $cacheable->byteStart);
+        self::assertGreaterThan($cacheable->byteStart, $cacheable->byteEnd);
+
+        $methodAttributes = array_slice($result->value->attributes, 1);
+        self::assertSame(
+            ['onGet'],
+            array_values(array_unique(array_map(
+                static fn ($attribute): ?string => $attribute->methodName,
+                $methodAttributes,
+            ))),
+        );
+        self::assertSame(
+            ['method'],
+            array_values(array_unique(array_map(
+                static fn ($attribute): string => $attribute->target,
+                $methodAttributes,
+            ))),
+        );
     }
 
     public function testIgnoresClassAttributesAndUnsupportedDynamicTargets(): void

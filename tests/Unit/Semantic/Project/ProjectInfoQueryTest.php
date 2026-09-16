@@ -71,6 +71,8 @@ final class ProjectInfoQueryTest extends TestCase
             'alpsDescriptorResolution',
             'incomingResourceRelations',
             'projectInfo',
+            'resourceAttributeFacts',
+            'resourceAttributeInventory',
             'resourceDescription',
             'resourceInventory',
             'resourceReferences',

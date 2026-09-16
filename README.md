@@ -40,8 +40,9 @@ Project roots and namespace prefixes come from the project's `composer.json`. No
 
 Standard position-based LSP methods remain the primary interface. For clients that
 already have a BEAR identifier but no open document position, the Language Server also
-provides 16 read-only `bear/*` requests for project, Resource, Route, SQL, Template,
-ALPS, and Schema facts. `bear/project/info` reports Semantic API version `1` and the
+provides 18 read-only `bear/*` requests for project, Resource, Route, SQL, Template,
+ALPS, and Schema facts. Resource attribute facts and their workspace inventory are
+available without executing application PHP. `bear/project/info` reports Semantic API version `1` and the
 available capabilities. The complete versioned contract is documented in
 [`docs/lsp-semantic-requests.md`](docs/lsp-semantic-requests.md).
 
@@ -51,6 +52,14 @@ An IDE is not required. The included client starts a real Phpactor stdio process
 php tools/semantic-lsp-query.php /path/to/bear-project \
   bear/resource/describe \
   '{"uri":"app://self/user","contextPath":"src/Resource/App/User.php"}'
+```
+
+For an AI client auditing cache and Resource metadata across a workspace:
+
+```bash
+php tools/semantic-lsp-query.php /path/to/bear-project \
+  bear/resource/attributeIndex \
+  '{"scheme":"app","limit":50}'
 ```
 
 These requests inspect saved workspace files only. They do not execute the BEAR

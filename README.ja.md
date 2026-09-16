@@ -40,7 +40,8 @@ VS Code / Neovim / Emacs / その他のLSPクライアント
 
 文書内Positionを使える場合は標準LSP methodを優先します。BEAR identifierは分かっているものの
 開いた文書やPositionがないclient向けに、Language Serverはproject、Resource、Route、SQL、
-Template、ALPS、Schemaを問い合わせる16個のread-only `bear/*` requestも提供します。
+Template、ALPS、Schemaを問い合わせる18個のread-only `bear/*` requestも提供します。
+Resource属性のfactsとworkspace全体の一覧は、application PHPを実行せず取得できます。
 `bear/project/info`はSemantic API version `1`と利用可能なcapabilityを返します。versioned contractの
 詳細は[`docs/lsp-semantic-requests.md`](docs/lsp-semantic-requests.md)にあります。
 
@@ -50,6 +51,14 @@ IDEは不要です。同梱clientは実際のPhpactor stdio processを起動し�
 php tools/semantic-lsp-query.php /path/to/bear-project \
   bear/resource/describe \
   '{"uri":"app://self/user","contextPath":"src/Resource/App/User.php"}'
+```
+
+AI clientからcacheやResource metadataをworkspace単位で監査する例:
+
+```bash
+php tools/semantic-lsp-query.php /path/to/bear-project \
+  bear/resource/attributeIndex \
+  '{"scheme":"app","limit":50}'
 ```
 
 問い合わせは保存済みworkspace fileだけを読みます。BEAR applicationの実行、file変更、network access、

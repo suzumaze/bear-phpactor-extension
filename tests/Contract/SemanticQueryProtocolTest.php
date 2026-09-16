@@ -89,6 +89,11 @@ final class SemanticQueryProtocolTest extends TestCase
                 'Template/basic',
                 ['app://self/dashboard', 'src/Resource/App/Dashboard.php'],
             ],
+            'bear/resource/attributes' => [
+                'Template/basic',
+                ['app://self/dashboard', 'src/Resource/App/Dashboard.php'],
+            ],
+            'bear/resource/attributeIndex' => ['Template/basic', ['app', '', 2]],
             'bear/resource/incomingRelations' => [
                 'Template/basic',
                 ['app://self/user', 'src/Resource/App/User.php', 2],

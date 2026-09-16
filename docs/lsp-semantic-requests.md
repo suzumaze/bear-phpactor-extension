@@ -176,6 +176,8 @@ present.
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
 | `bear/resource/list` | `{scheme?, prefix?, limit?}` | `{resources, total, truncated}` |
 | `bear/resource/describe` | `{uri, contextPath?, incomingLimit?}` | `{resource, methods, relationsOut, relationsIn, templates, schemas}` |
+| `bear/resource/attributes` | `{uri, contextPath?}` | `{resource, attributes}` |
+| `bear/resource/attributeIndex` | `{scheme?, prefix?, limit?}` | `{items, total, truncated}` |
 | `bear/resource/incomingRelations` | `{uri, contextPath?, limit?}` | `{resource, available, items, total, truncated}` |
 | `bear/resource/references` | `{uri, contextPath?, limit?}` | `{resource, references, total, truncated}` |
 | `bear/route/resolve` | `{route, contextPath?}` | `{route, resource}` |
@@ -245,6 +247,22 @@ relations. `relationsIn` contains the bounded incoming relation set with `availa
 `items`, `total`, and `truncated`. It is unavailable for an ambiguous Resource URI;
 the server does not claim that a URI-only relation belongs to one physical candidate.
 Dynamic target expressions and invalid resource URIs are not guessed.
+
+Resource attribute facts are deliberately allowlisted. The current set is `Alps`,
+`Cacheable`, `CacheableResponse`, `DonutCache`, `HttpCache`, `Purge`, `Refresh`,
+`Embed`, `JsonSchema`, and `Link`, matched by fully qualified class name. Class-level
+attributes and attributes on public Resource `on*` methods are returned with target,
+method name, FQN, saved-file byte range, and source-order arguments. Static strings,
+numbers, booleans, and `null` are typed explicitly. Expressions, constants, calls,
+and over-limit strings are returned as `{type: "dynamic", value: null}` rather than
+evaluated or guessed. Application PHP is never loaded or executed.
+
+`bear/resource/attributeIndex` applies the same `scheme`, `prefix`, and `limit` bounds
+as Resource listing. Every selected Resource has its own `status` and `attributes`.
+The outer result therefore remains `ok` when one selected file becomes malformed;
+that item reports `parse_error` while facts proven from the other saved files remain
+available. This partial-result model is intended for workspace audits and AI clients
+that need evidence rather than an all-or-nothing text search.
 
 `bear/resource/references` is the identifier-based counterpart for clients that have
 a Resource URI but no open text document or LSP position. When a position is available,

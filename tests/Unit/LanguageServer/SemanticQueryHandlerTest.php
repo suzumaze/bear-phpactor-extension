@@ -26,6 +26,8 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame(0, $response['data']['excludedPsr4Roots']);
         self::assertGreaterThan(0, $response['data']['resourceCount']);
         self::assertContains('resourceDescription', $response['data']['capabilities']);
+        self::assertContains('resourceAttributeFacts', $response['data']['capabilities']);
+        self::assertContains('resourceAttributeInventory', $response['data']['capabilities']);
         self::assertSame([
             ['source' => 'derived', 'freshness' => 'saved'],
             ['source' => 'file', 'path' => 'composer.json', 'freshness' => 'saved'],
@@ -176,6 +178,50 @@ final class SemanticQueryHandlerTest extends TestCase
             ['engine' => 'twig', 'path' => 'var/templates/App/Dashboard.html.twig'],
         ], $response['data']['templates']);
         self::assertSame([], $response['data']['schemas']);
+    }
+
+    public function testDescribesResourceAttributesWithStaticEvidence(): void
+    {
+        $response = wait((new SemanticQueryHandler($this->fixture('Template/basic')))->describeResourceAttributes(
+            'app://self/dashboard',
+            'src/Resource/App/Dashboard.php',
+        ));
+
+        self::assertSame('ok', $response['status']);
+        self::assertSame('app://self/dashboard', $response['data']['resource']['uri']);
+        self::assertCount(7, $response['data']['attributes']);
+        self::assertSame('method', $response['data']['attributes'][0]['target']);
+        self::assertSame('onGet', $response['data']['attributes'][0]['method']);
+        self::assertSame('Embed', $response['data']['attributes'][0]['name']);
+        self::assertSame('BEAR\\Resource\\Annotation\\Embed', $response['data']['attributes'][0]['fqn']);
+        self::assertSame([
+            ['name' => 'rel', 'type' => 'string', 'value' => 'user'],
+            ['name' => 'src', 'type' => 'string', 'value' => 'app://self/user'],
+        ], $response['data']['attributes'][0]['arguments']);
+        self::assertGreaterThan(
+            $response['data']['attributes'][0]['byteRange']['start'],
+            $response['data']['attributes'][0]['byteRange']['end'],
+        );
+    }
+
+    public function testIndexesResourceAttributesWithPerResourceStatus(): void
+    {
+        $response = wait((new SemanticQueryHandler($this->fixture('Template/basic')))->indexResourceAttributes(
+            'app',
+            '',
+            10,
+        ));
+
+        self::assertSame('ok', $response['status']);
+        self::assertSame(2, $response['data']['total']);
+        self::assertFalse($response['data']['truncated']);
+        self::assertSame(
+            ['app://self/dashboard', 'app://self/user'],
+            array_column(array_column($response['data']['items'], 'resource'), 'uri'),
+        );
+        self::assertSame(['ok', 'ok'], array_column($response['data']['items'], 'status'));
+        self::assertCount(7, $response['data']['items'][0]['attributes']);
+        self::assertSame([], $response['data']['items'][1]['attributes']);
     }
 
     public function testFindsIncomingResourceRelations(): void
@@ -381,6 +427,8 @@ final class SemanticQueryHandlerTest extends TestCase
             'bear/resource/resolve' => 'resolveResource',
             'bear/resource/list' => 'listResources',
             'bear/resource/describe' => 'describeResource',
+            'bear/resource/attributes' => 'describeResourceAttributes',
+            'bear/resource/attributeIndex' => 'indexResourceAttributes',
             'bear/resource/incomingRelations' => 'findIncomingResourceRelations',
             'bear/resource/references' => 'findResourceReferences',
             'bear/route/resolve' => 'resolveRoute',

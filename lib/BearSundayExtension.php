@@ -29,6 +29,7 @@ use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsProfileQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceAttributeIndexQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescriptionQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceReferencesQuery;
@@ -113,6 +114,16 @@ final class BearSundayExtension implements Extension
             'bear_sunday.semantic.resource_facts_query',
             function (Container $container): ResourceFactsQuery {
                 return new ResourceFactsQuery($container->get('bear_sunday.semantic.resource_query'));
+            },
+        );
+
+        $container->register(
+            'bear_sunday.semantic.resource_attribute_index_query',
+            function (Container $container): ResourceAttributeIndexQuery {
+                return new ResourceAttributeIndexQuery(
+                    $container->get('bear_sunday.semantic.resource_inventory_query'),
+                    $container->get('bear_sunday.semantic.resource_facts_query'),
+                );
             },
         );
 
@@ -243,6 +254,7 @@ final class BearSundayExtension implements Extension
                     $container->get('bear_sunday.semantic.schema_facts_query'),
                     $container->get('bear_sunday.semantic.alps_facts_query'),
                     $container->get('bear_sunday.semantic.resource_references_query'),
+                    $container->get('bear_sunday.semantic.resource_attribute_index_query'),
                 );
             },
             [LanguageServerExtension::TAG_METHOD_HANDLER => []],

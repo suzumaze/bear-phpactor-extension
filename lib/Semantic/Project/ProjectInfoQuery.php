@@ -118,6 +118,8 @@ final class ProjectInfoQuery
             'alpsDescriptorResolution',
             'incomingResourceRelations',
             'projectInfo',
+            'resourceAttributeFacts',
+            'resourceAttributeInventory',
             'resourceDescription',
             'resourceInventory',
             'resourceReferences',
