@@ -12,8 +12,11 @@ use Microsoft\PhpParser\Node\Expression\ObjectCreationExpression;
 use Microsoft\PhpParser\Node\QualifiedName;
 use Microsoft\PhpParser\Node\StringLiteral;
 use Microsoft\PhpParser\Parser;
+use RecursiveCallbackFilterIterator;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use SplFileInfo;
+use UnexpectedValueException;
 
 /**
  * ImportApp ('tags', 'Acme\Tags', ...) のホスト名 → アプリ名前空間 の対応表。
@@ -197,20 +200,36 @@ final class ImportAppRegistry
     private function phpFiles(): array
     {
         $files = [];
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($this->root, FilesystemIterator::SKIP_DOTS)
-        );
+        try {
+            $directories = new RecursiveDirectoryIterator($this->root, FilesystemIterator::SKIP_DOTS);
+            $filtered = new RecursiveCallbackFilterIterator(
+                $directories,
+                static function (SplFileInfo $entry): bool {
+                    if (!$entry->isDir()) {
+                        return true;
+                    }
+
+                    $name = $entry->getFilename();
+
+                    return $name !== 'vendor'
+                        && $name !== 'node_modules'
+                        && !str_starts_with($name, '.');
+                },
+            );
+            $iterator = new RecursiveIteratorIterator(
+                $filtered,
+                RecursiveIteratorIterator::LEAVES_ONLY,
+                RecursiveIteratorIterator::CATCH_GET_CHILD,
+            );
+        } catch (UnexpectedValueException) {
+            return [];
+        }
+
         foreach ($iterator as $file) {
             if (!$file->isFile() || $file->getExtension() !== 'php') {
                 continue;
             }
-            $path = $file->getPathname();
-            foreach (explode('/', $path) as $segment) {
-                if ($segment === 'vendor' || str_starts_with($segment, '.')) {
-                    continue 2;
-                }
-            }
-            $files[] = $path;
+            $files[] = $file->getPathname();
         }
         sort($files);
 
