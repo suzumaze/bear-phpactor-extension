@@ -96,9 +96,20 @@ final class ResourceIncomingRelationsQuery
                 return SemanticResult::failure($facts->status);
             }
             foreach ($facts->value->outgoingRelations as $relation) {
-                if ($relation->targetUri->uri() === $target->uri->uri()) {
-                    $relations[] = $relation;
+                $resolved = $this->resourceQuery->resolveInWorkspace(
+                    $workspace,
+                    $relation->targetUri->uri(),
+                    $sourcePath->value->relative,
+                );
+                if (
+                    $resolved->status !== SemanticStatus::Ok
+                    || $resolved->value === null
+                    || $resolved->value->file !== $targetPath->value->absolute
+                ) {
+                    continue;
                 }
+
+                $relations[] = $relation;
             }
         }
 
