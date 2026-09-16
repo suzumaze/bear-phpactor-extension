@@ -18,6 +18,7 @@ use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceDefinitionLocator;
 use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceReferenceFinder;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
+use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparisonQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsProfileQuery;
@@ -112,6 +113,16 @@ final class BearSundayExtensionTest extends TestCase
         self::assertInstanceOf(
             ProjectInfoQuery::class,
             $container->get('bear_sunday.semantic.project_info_query'),
+        );
+    }
+
+    public function testRegistersTransportIndependentContractComparisonQuery(): void
+    {
+        $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
+
+        self::assertInstanceOf(
+            ContractComparisonQuery::class,
+            $container->get('bear_sunday.semantic.contract_comparison_query'),
         );
     }
 

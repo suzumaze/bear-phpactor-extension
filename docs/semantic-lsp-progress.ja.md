@@ -59,9 +59,10 @@ flowchart TD
     p93["URI起点Resource References request\n完了"]
     p94["Custom LSP Semantic API v1契約\n完了"]
     p95["Resource属性facts / inventory\n完了"]
+    p96["presence-only contract比較\n完了"]
     p8["別 repository の薄い MCP-LSP adapter\n稼働中・拡張継続"]
 
-    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p86 --> p87 --> p88 --> p89 --> p90 --> p91 --> p92 --> p93 --> p94 --> p95 --> p8
+    p0 --> p1 --> p2 --> p3 --> p4 --> p5 --> p6 --> p7 --> p75 --> p76 --> p77 --> p78 --> p79 --> p80 --> p81 --> p82 --> p83 --> p84 --> p85 --> p86 --> p87 --> p88 --> p89 --> p90 --> p91 --> p92 --> p93 --> p94 --> p95 --> p96 --> p8
 ```
 
 ## 現在利用できる入口
@@ -166,6 +167,7 @@ shutdown・cancellation middleware より前に実行される。そのため前
 - `bear/resource/attributeIndex`
 - `bear/resource/incomingRelations`
 - `bear/resource/references`
+- `bear/contract/compare`
 - `bear/route/resolve`
 - `bear/sql/resolve`
 - `bear/template/resolve`
@@ -187,7 +189,7 @@ optional response field、capabilityを追加できる。既存method/fieldの�
 optional parameterの必須化、status追加にはSemantic API versionの更新を必要とする。clientは
 未知のobject fieldを無視する。
 
-`tests/Contract/semantic-query-v1.json`とcontract testが、全18 methodの登録名、handler引数の
+`tests/Contract/semantic-query-v1.json`とcontract testが、全19 methodの登録名、handler引数の
 名前・型・default、成功envelopeとtop-level data key、failure envelope、error key、全statusを
 実際のhandler responseに対して検証する。実stdio統合テストでもAPI versionを確認する。
 
@@ -215,6 +217,12 @@ FQN、引数、保存済みfileのbyte rangeとともに返す。対象は`Alps`
 `bear/resource/attributeIndex`は、Resource一覧と同じscheme・prefix・limit境界でworkspaceを
 走査し、各Resourceに個別statusと属性factsを付ける。途中の1ファイルが壊れていてもouter resultは
 `ok`のまま、該当itemだけ`parse_error`になるため、AIの監査処理が他の証明済みfactsを失わない。
+
+`bear/contract/compare`は名前のpresenceだけを比較し、型・意味・振る舞いの互換性を主張しない。
+requestではResource method parameter、`JsonSchema(params:)`、ALPS operation内のdescriptorを比較する。
+responseでは明示または規約Schemaと、ALPS operationのローカル`rt`先representationを比較する。
+静的Resource body shapeは未対応なのでResource response面は推測せず`unsupported`になる。各面は独立した
+status・subject・namesを持ち、2面以上が`ok`のときだけintersection、単独出現、名前ごとのpresenceを返す。
 
 `bear/alps/describeDescriptor` は、ALPS descriptor の型・表示情報と、同一profile内で
 明示された親子 (`contains`)、ローカル `href`、ローカル `rt` の入出力関係を返す。

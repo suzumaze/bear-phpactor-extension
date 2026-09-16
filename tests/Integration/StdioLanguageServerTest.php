@@ -569,6 +569,20 @@ final class StdioLanguageServerTest extends TestCase
             );
             self::assertSame('ok', $attributeIndex['result']['data']['items'][0]['status'] ?? null);
 
+            $contract = $client->request('bear/contract/compare', [
+                'uri' => 'app://self/user',
+                'method' => 'onGet',
+                'schemaKind' => 'response',
+                'contextPath' => 'src/Resource/App/User.php',
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $contract, $client->stderr());
+            self::assertSame('ok', $contract['result']['status'] ?? null);
+            self::assertSame(
+                ['unsupported', 'not_found', 'not_found'],
+                array_column($contract['result']['data']['surfaces'] ?? [], 'status'),
+            );
+            self::assertNull($contract['result']['data']['comparison'] ?? null);
+
             $incoming = $client->request('bear/resource/incomingRelations', [
                 'uri' => 'app://self/user',
                 'contextPath' => 'src/Client.php',

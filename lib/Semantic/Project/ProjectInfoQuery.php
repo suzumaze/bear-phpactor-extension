@@ -116,6 +116,7 @@ final class ProjectInfoQuery
         return [
             'alpsDescriptorFacts',
             'alpsDescriptorResolution',
+            'contractComparison',
             'incomingResourceRelations',
             'projectInfo',
             'resourceAttributeFacts',

@@ -1,0 +1,26 @@
+{
+    "alps": {
+        "descriptor": [
+            {
+                "id": "User",
+                "descriptor": [
+                    {"id": "id"},
+                    {"id": "name"}
+                ]
+            },
+            {
+                "id": "getUser",
+                "type": "safe",
+                "rt": "#User"
+            },
+            {
+                "id": "createUser",
+                "type": "unsafe",
+                "descriptor": [
+                    {"id": "email"},
+                    {"id": "id"}
+                ]
+            }
+        ]
+    }
+}

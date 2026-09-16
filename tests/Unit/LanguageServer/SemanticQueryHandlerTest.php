@@ -28,6 +28,7 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertContains('resourceDescription', $response['data']['capabilities']);
         self::assertContains('resourceAttributeFacts', $response['data']['capabilities']);
         self::assertContains('resourceAttributeInventory', $response['data']['capabilities']);
+        self::assertContains('contractComparison', $response['data']['capabilities']);
         self::assertSame([
             ['source' => 'derived', 'freshness' => 'saved'],
             ['source' => 'file', 'path' => 'composer.json', 'freshness' => 'saved'],
@@ -222,6 +223,29 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame(['ok', 'ok'], array_column($response['data']['items'], 'status'));
         self::assertCount(7, $response['data']['items'][0]['attributes']);
         self::assertSame([], $response['data']['items'][1]['attributes']);
+    }
+
+    public function testComparesContractNamePresenceWithoutClaimingTypeEquality(): void
+    {
+        $response = wait((new SemanticQueryHandler($this->fixture('Contract')))->compareContract(
+            'app://self/user',
+            'onPost',
+            'request',
+            contextPath: 'src/Resource/App/User.php',
+        ));
+
+        self::assertSame('ok', $response['status']);
+        self::assertSame('app://self/user', $response['data']['resource']['uri']);
+        self::assertSame('onPost', $response['data']['method']);
+        self::assertSame('request', $response['data']['schemaKind']);
+        self::assertSame(['ok', 'ok', 'ok'], array_column($response['data']['surfaces'], 'status'));
+        self::assertSame(['resource', 'schema', 'alps'], $response['data']['comparison']['compared']);
+        self::assertSame(['id'], $response['data']['comparison']['common']);
+        self::assertSame([
+            ['name' => 'email', 'sources' => ['schema', 'alps']],
+            ['name' => 'id', 'sources' => ['resource', 'schema', 'alps']],
+            ['name' => 'name', 'sources' => ['resource', 'schema']],
+        ], $response['data']['comparison']['presence']);
     }
 
     public function testFindsIncomingResourceRelations(): void
@@ -431,6 +455,7 @@ final class SemanticQueryHandlerTest extends TestCase
             'bear/resource/attributeIndex' => 'indexResourceAttributes',
             'bear/resource/incomingRelations' => 'findIncomingResourceRelations',
             'bear/resource/references' => 'findResourceReferences',
+            'bear/contract/compare' => 'compareContract',
             'bear/route/resolve' => 'resolveRoute',
             'bear/sql/resolve' => 'resolveSql',
             'bear/template/resolve' => 'resolveTemplate',

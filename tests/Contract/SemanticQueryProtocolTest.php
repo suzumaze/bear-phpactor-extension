@@ -102,6 +102,10 @@ final class SemanticQueryProtocolTest extends TestCase
                 'References',
                 ['app://self/article', 'src/Resource/App/Article.php', 2],
             ],
+            'bear/contract/compare' => [
+                'Contract',
+                ['app://self/user', 'onPost', 'request', null, 'src/Resource/App/User.php'],
+            ],
             'bear/route/resolve' => ['Router', ['/thing/detail', 'aura.route.php']],
             'bear/sql/resolve' => [
                 'Sql/App1',

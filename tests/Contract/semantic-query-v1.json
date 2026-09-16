@@ -110,6 +110,18 @@
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["resource", "references", "total", "truncated"]
         },
+        "bear/contract/compare": {
+            "handler": "compareContract",
+            "parameters": [
+                {"name": "uri", "type": "string", "required": true},
+                {"name": "method", "type": "string", "required": false, "default": "onGet"},
+                {"name": "schemaKind", "type": "string", "required": false, "default": "response"},
+                {"name": "descriptorId", "type": "string|null", "required": false, "default": null},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["resource", "method", "schemaKind", "surfaces", "comparison"]
+        },
         "bear/route/resolve": {
             "handler": "resolveRoute",
             "parameters": [

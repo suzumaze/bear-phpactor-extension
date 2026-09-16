@@ -11,6 +11,8 @@ use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorRelationFact;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorResolution;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
+use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparison;
+use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparisonQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfo;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescription;
@@ -84,6 +86,7 @@ final class SemanticQueryHandler implements Handler
         private AlpsFactsQuery $alpsFactsQuery = new AlpsFactsQuery(),
         private ResourceReferencesQuery $resourceReferencesQuery = new ResourceReferencesQuery(),
         private ResourceAttributeIndexQuery $resourceAttributeIndexQuery = new ResourceAttributeIndexQuery(),
+        private ContractComparisonQuery $contractComparisonQuery = new ContractComparisonQuery(),
     ) {
         $this->workspace = WorkspaceContext::fromRoot($workspaceRoot);
         $this->resourceFactsQuery = $resourceFactsQuery;
@@ -105,6 +108,7 @@ final class SemanticQueryHandler implements Handler
             'bear/resource/attributeIndex' => 'indexResourceAttributes',
             'bear/resource/incomingRelations' => 'findIncomingResourceRelations',
             'bear/resource/references' => 'findResourceReferences',
+            'bear/contract/compare' => 'compareContract',
             'bear/route/resolve' => 'resolveRoute',
             'bear/sql/resolve' => 'resolveSql',
             'bear/template/resolve' => 'resolveTemplate',
@@ -267,6 +271,28 @@ final class SemanticQueryHandler implements Handler
                 'total' => $references->total,
                 'truncated' => $references->truncated,
             ],
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function compareContract(
+        string $uri,
+        string $method = 'onGet',
+        string $schemaKind = SchemaQuery::KIND_RESPONSE,
+        ?string $descriptorId = null,
+        ?string $contextPath = null,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->contractComparisonQuery->compareInWorkspace(
+                    $workspace,
+                    $uri,
+                    $method,
+                    $schemaKind,
+                    $descriptorId,
+                    $contextPath,
+                ),
+            fn (ContractComparison $comparison): array => $this->contractComparisonData($comparison),
         ));
     }
 
@@ -571,6 +597,39 @@ final class SemanticQueryHandler implements Handler
             'byteRange' => [
                 'start' => $attribute->byteStart,
                 'end' => $attribute->byteEnd,
+            ],
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function contractComparisonData(ContractComparison $comparison): array
+    {
+        return [
+            'resource' => $this->resourceData($comparison->resource),
+            'method' => $comparison->method,
+            'schemaKind' => $comparison->schemaKind,
+            'surfaces' => array_map(
+                static fn ($surface): array => [
+                    'source' => $surface->source,
+                    'status' => $surface->status->value,
+                    'subject' => $surface->subject,
+                    'names' => $surface->names,
+                ],
+                $comparison->surfaces,
+            ),
+            'comparison' => $comparison->comparison === null ? null : [
+                'compared' => $comparison->comparison->compared,
+                'common' => $comparison->comparison->common,
+                'onlyInResource' => $comparison->comparison->onlyInResource,
+                'onlyInSchema' => $comparison->comparison->onlyInSchema,
+                'onlyInAlps' => $comparison->comparison->onlyInAlps,
+                'presence' => array_map(
+                    static fn ($presence): array => [
+                        'name' => $presence->name,
+                        'sources' => $presence->sources,
+                    ],
+                    $comparison->comparison->presence,
+                ),
             ],
         ];
     }

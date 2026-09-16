@@ -180,6 +180,7 @@ present.
 | `bear/resource/attributeIndex` | `{scheme?, prefix?, limit?}` | `{items, total, truncated}` |
 | `bear/resource/incomingRelations` | `{uri, contextPath?, limit?}` | `{resource, available, items, total, truncated}` |
 | `bear/resource/references` | `{uri, contextPath?, limit?}` | `{resource, references, total, truncated}` |
+| `bear/contract/compare` | `{uri, method?, schemaKind?, descriptorId?, contextPath?}` | `{resource, method, schemaKind, surfaces, comparison}` |
 | `bear/route/resolve` | `{route, contextPath?}` | `{route, resource}` |
 | `bear/sql/resolve` | `{queryId, contextPath?}` | `{queryId, path}` |
 | `bear/template/resolve` | `{engine, name, contextPath?}` | `{engine, name, path}` |
@@ -263,6 +264,26 @@ The outer result therefore remains `ok` when one selected file becomes malformed
 that item reports `parse_error` while facts proven from the other saved files remain
 available. This partial-result model is intended for workspace audits and AI clients
 that need evidence rather than an all-or-nothing text search.
+
+`bear/contract/compare` compares exact name presence and deliberately does not claim
+type compatibility, semantic equivalence, or behavioral compatibility. For
+`schemaKind: "request"`, the Resource surface is the selected public `on*` method's
+parameter names, the Schema surface is the static `#[JsonSchema(params: ...)]` file,
+and the ALPS surface is the selected operation descriptor's contained descriptor IDs.
+The ALPS descriptor defaults to the method/class `#[Alps(...)]` value and can be
+overridden explicitly with `descriptorId`.
+
+For `schemaKind: "response"`, the Schema surface is an explicit response Schema or
+the Resource convention Schema. If the ALPS operation has a local `rt`, its target
+representation's contained descriptor IDs form the ALPS surface. Static Resource body
+shape is not implemented, so the Resource response surface reports `unsupported`
+instead of inferring assignments or executing PHP.
+
+Every surface independently reports `status`, `subject`, and sorted `names`. The
+`comparison` member is `null` until at least two surfaces are `ok`; otherwise it
+contains the compared sources, intersection, names exclusive to one surface, and a
+lossless per-name presence list. These are saved-file observations only. A matching
+name is not evidence that types, constraints, or meanings match.
 
 `bear/resource/references` is the identifier-based counterpart for clients that have
 a Resource URI but no open text document or LSP position. When a position is available,

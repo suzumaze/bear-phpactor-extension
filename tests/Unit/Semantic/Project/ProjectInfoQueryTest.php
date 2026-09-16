@@ -69,6 +69,7 @@ final class ProjectInfoQueryTest extends TestCase
         self::assertSame([
             'alpsDescriptorFacts',
             'alpsDescriptorResolution',
+            'contractComparison',
             'incomingResourceRelations',
             'projectInfo',
             'resourceAttributeFacts',
