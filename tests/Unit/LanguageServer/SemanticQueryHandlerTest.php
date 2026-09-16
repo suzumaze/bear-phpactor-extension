@@ -242,6 +242,7 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame(['resource', 'schema', 'alps'], $response['data']['comparison']['compared']);
         self::assertSame(['id'], $response['data']['comparison']['common']);
         self::assertSame([
+            ['name' => '200', 'sources' => ['schema']],
             ['name' => 'email', 'sources' => ['schema', 'alps']],
             ['name' => 'id', 'sources' => ['resource', 'schema', 'alps']],
             ['name' => 'name', 'sources' => ['resource', 'schema']],

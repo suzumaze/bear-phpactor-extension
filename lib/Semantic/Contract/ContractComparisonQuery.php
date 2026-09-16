@@ -343,6 +343,9 @@ final class ContractComparisonQuery
         $exclusive = ['resource' => [], 'schema' => [], 'alps' => []];
         $presence = [];
         foreach ($sourcesByName as $name => $sourceSet) {
+            // PHP coerces numeric string array keys (for example "200") to integers.
+            // Contract names are always strings on the Semantic API boundary.
+            $name = (string) $name;
             $sources = [];
             foreach ($compared as $source) {
                 if (isset($sourceSet[$source])) {
@@ -387,9 +390,14 @@ final class ContractComparisonQuery
     /** @param list<string> $names @return list<string> */
     private function sortedNames(array $names): array
     {
-        $unique = array_fill_keys($names, true);
+        $unique = [];
+        foreach ($names as $name) {
+            // Keep the original string as the value because a numeric string key is
+            // converted to an integer by PHP arrays.
+            $unique[$name] = $name;
+        }
         ksort($unique, SORT_STRING);
 
-        return array_keys($unique);
+        return array_values($unique);
     }
 }

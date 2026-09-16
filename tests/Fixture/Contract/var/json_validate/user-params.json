@@ -1,6 +1,7 @@
 {
     "type": "object",
     "properties": {
+        "200": {"type": "string"},
         "email": {"type": "string"},
         "id": {"type": "integer"},
         "name": {"type": "string"}

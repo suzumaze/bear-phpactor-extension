@@ -27,7 +27,7 @@ final class ContractComparisonQueryTest extends TestCase
         self::assertSame(
             [
                 ['resource', 'ok', 'onPost:parameters', ['id', 'name']],
-                ['schema', 'ok', 'request:user-params.json', ['email', 'id', 'name']],
+                ['schema', 'ok', 'request:user-params.json', ['200', 'email', 'id', 'name']],
                 ['alps', 'ok', 'createUser', ['email', 'id']],
             ],
             array_map(
@@ -44,10 +44,11 @@ final class ContractComparisonQueryTest extends TestCase
         self::assertSame(['resource', 'schema', 'alps'], $result->value->comparison->compared);
         self::assertSame(['id'], $result->value->comparison->common);
         self::assertSame([], $result->value->comparison->onlyInResource);
-        self::assertSame([], $result->value->comparison->onlyInSchema);
+        self::assertSame(['200'], $result->value->comparison->onlyInSchema);
         self::assertSame([], $result->value->comparison->onlyInAlps);
         self::assertSame(
             [
+                ['200', ['schema']],
                 ['email', ['schema', 'alps']],
                 ['id', ['resource', 'schema', 'alps']],
                 ['name', ['resource', 'schema']],
