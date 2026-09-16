@@ -98,6 +98,28 @@ final class ImportAppRegistryTest extends TestCase
         self::assertNotNull($candidate);
     }
 
+    public function testRefreshesImportedHostsAfterInvalidation(): void
+    {
+        $root = $this->temporaryProject('/workspace');
+        $tags = ResourceUri::fromString('app://tags/api/search');
+        $labels = ResourceUri::fromString('app://labels/api/search');
+        self::assertNotNull($tags);
+        self::assertNotNull($labels);
+        $registry = ImportAppRegistry::forProject($root);
+        self::assertNotNull($registry->resolve($tags));
+
+        $module = $root . '/src/AppModule.php';
+        $source = file_get_contents($module);
+        self::assertIsString($source);
+        self::assertNotFalse(file_put_contents($module, str_replace("'tags'", "'labels'", $source)));
+        self::assertNull($registry->resolve($labels));
+
+        ImportAppRegistry::invalidate($root);
+
+        self::assertNotNull($registry->resolve($labels));
+        self::assertNull($registry->resolve($tags));
+    }
+
     private function temporaryProject(string $suffix): string
     {
         $temporaryRoot = sys_get_temp_dir() . '/bear-import-app-' . bin2hex(random_bytes(8));

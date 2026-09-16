@@ -26,8 +26,9 @@ use UnexpectedValueException;
  * リソースに向く。対象プロジェクトのPHPファイルを構文解析して
  * new ImportApp(...) を探し、第1・第2引数が文字列リテラルのときだけ対応表に載せる。
  *
- * 走査はプロジェクトごとに1度だけ行い、静的キャッシュで保持する (LSPサーバーは
- * 長命プロセスなので、リクエストのたびに走査しない)。
+ * 走査結果はプロジェクトごとに保持し、LSPのファイル変更イベントで無効化する。
+ * 長命プロセスでも保存済みの ImportApp 変更を反映しつつ、リクエストごとの
+ * プロジェクト全走査は避ける。
  */
 final class ImportAppRegistry
 {
@@ -48,6 +49,21 @@ final class ImportAppRegistry
     public static function forProject(string $root): self
     {
         return self::$byRoot[$root] ??= new self($root);
+    }
+
+    public static function invalidate(?string $root = null): void
+    {
+        if ($root !== null) {
+            if (isset(self::$byRoot[$root])) {
+                self::$byRoot[$root]->hostToNamespace = null;
+            }
+
+            return;
+        }
+
+        foreach (self::$byRoot as $registry) {
+            $registry->hostToNamespace = null;
+        }
     }
 
     /**
