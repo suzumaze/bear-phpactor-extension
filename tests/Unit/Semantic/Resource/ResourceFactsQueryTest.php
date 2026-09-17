@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Suzumaze\BearPhpactor\Tests\Unit\Semantic\Resource;
 
+use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFacts;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 use Suzumaze\BearPhpactor\Tests\Unit\Semantic\Resource\Support\CountingParser;
@@ -310,6 +312,28 @@ PHP,
         self::assertSame(SemanticStatus::ParseError, $first->status);
         self::assertSame(SemanticStatus::ParseError, $second->status);
         self::assertSame(1, $parser->parseCount);
+    }
+
+    public function testBoundsResourceFactsCacheWithLeastRecentlyUsedEviction(): void
+    {
+        $parser = new CountingParser();
+        $query = new ResourceFactsQuery(parser: $parser, maxCacheEntries: 2);
+        $workspace = $this->workspace();
+        $file = $this->workspace . '/src/Resource/App/Dashboard.php';
+        $resolution = static function (string $name) use ($file): ResourceResolution {
+            $uri = ResourceUri::fromString('app://self/' . $name);
+            self::assertNotNull($uri);
+
+            return new ResourceResolution($uri, $file, 'Acme\\App\\Resource\\App\\Dashboard');
+        };
+
+        $query->describeResolutionInWorkspace($workspace, $resolution('one'));
+        $query->describeResolutionInWorkspace($workspace, $resolution('two'));
+        $query->describeResolutionInWorkspace($workspace, $resolution('one'));
+        $query->describeResolutionInWorkspace($workspace, $resolution('three'));
+        $query->describeResolutionInWorkspace($workspace, $resolution('two'));
+
+        self::assertSame(4, $parser->parseCount);
     }
 
     private function workspace(): WorkspaceContext

@@ -31,6 +31,7 @@ final class ResourceFactsQuery
 {
     private const MAX_PHP_BYTES = 2097152;
     private const MAX_ARGUMENT_LENGTH = 2048;
+    private const MAX_CACHE_ENTRIES = 128;
     /** @var array<string,string> */
     private const SUPPORTED_ATTRIBUTES = [
         'BEAR\ApiDoc\Annotation\Alps' => 'Alps',
@@ -52,9 +53,13 @@ final class ResourceFactsQuery
      */
     private array $cache = [];
 
+    /** @var list<string> Least recently used to most recently used. */
+    private array $cacheOrder = [];
+
     public function __construct(
         private ResourceQuery $resourceQuery = new ResourceQuery(),
         private Parser $parser = new Parser(),
+        private int $maxCacheEntries = self::MAX_CACHE_ENTRIES,
     ) {
     }
 
@@ -121,13 +126,15 @@ final class ResourceFactsQuery
         $cacheKey = $workspace->root() . "\0" . $path->value->absolute . "\0"
             . $resource->uri->uri() . "\0" . $resource->fqn;
         if (isset($this->cache[$cacheKey]) && $this->cache[$cacheKey]['fingerprint'] === $fingerprint) {
+            $this->touchCache($cacheKey);
+
             return $this->cache[$cacheKey]['result'];
         }
 
         $class = PhpClassDeclaration::findInSource($source, $path->value->absolute, $this->parser);
         if (!$class instanceof ClassDeclaration) {
             $result = SemanticResult::parseError();
-            $this->cache[$cacheKey] = ['fingerprint' => $fingerprint, 'result' => $result];
+            $this->cacheResult($cacheKey, $fingerprint, $result);
 
             return $result;
         }
@@ -193,9 +200,35 @@ final class ResourceFactsQuery
             new ResourceFacts($resource, $methods, $relations, $attributes),
             [Provenance::savedFile($path->value->relative)],
         );
-        $this->cache[$cacheKey] = ['fingerprint' => $fingerprint, 'result' => $result];
+        $this->cacheResult($cacheKey, $fingerprint, $result);
 
         return $result;
+    }
+
+    /** @param SemanticResult<ResourceFacts|null> $result */
+    private function cacheResult(string $key, string $fingerprint, SemanticResult $result): void
+    {
+        if ($this->maxCacheEntries < 1) {
+            return;
+        }
+        $this->cache[$key] = ['fingerprint' => $fingerprint, 'result' => $result];
+        $this->touchCache($key);
+        while (count($this->cacheOrder) > $this->maxCacheEntries) {
+            $oldest = array_shift($this->cacheOrder);
+            if ($oldest !== null) {
+                unset($this->cache[$oldest]);
+            }
+        }
+    }
+
+    private function touchCache(string $key): void
+    {
+        $position = array_search($key, $this->cacheOrder, true);
+        if ($position !== false) {
+            unset($this->cacheOrder[$position]);
+            $this->cacheOrder = array_values($this->cacheOrder);
+        }
+        $this->cacheOrder[] = $key;
     }
 
     private function isResourceMethod(MethodDeclaration $method): bool
