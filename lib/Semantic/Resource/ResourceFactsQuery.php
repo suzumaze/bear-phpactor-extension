@@ -264,7 +264,7 @@ final class ResourceFactsQuery
             }
 
             $targetArgument = $kind === 'embed' ? 'src' : 'href';
-            $target = $this->namedStringArgument($attribute, $targetArgument, $source);
+            $target = $this->stringArgument($attribute, $targetArgument, 2, $source);
             if ($target === null) {
                 continue;
             }
@@ -275,8 +275,8 @@ final class ResourceFactsQuery
 
             $targetMethod = 'onGet';
             if ($kind === 'link') {
-                $linkMethod = $this->namedStringArgument($attribute, 'method', $source);
-                if ($this->hasNamedArgument($attribute, 'method', $source) && $linkMethod === null) {
+                $linkMethod = $this->stringArgument($attribute, 'method', 3, $source);
+                if ($this->hasArgument($attribute, 'method', 3, $source) && $linkMethod === null) {
                     $targetMethod = null;
                 } elseif ($linkMethod !== null && $linkMethod !== '') {
                     $targetMethod = 'on' . ucfirst(strtolower($linkMethod));
@@ -285,7 +285,7 @@ final class ResourceFactsQuery
 
             $relations[] = new ResourceRelationFact(
                 $kind,
-                $this->namedStringArgument($attribute, 'rel', $source) ?? '',
+                $this->stringArgument($attribute, 'rel', 1, $source) ?? '',
                 $resource->uri,
                 $methodName,
                 $targetUri,
@@ -407,12 +407,13 @@ final class ResourceFactsQuery
         };
     }
 
-    private function namedStringArgument(Attribute $attribute, string $name, string $source): ?string
+    private function stringArgument(Attribute $attribute, string $name, int $position, string $source): ?string
     {
         if (!$attribute->argumentExpressionList instanceof DelimitedList) {
             return null;
         }
-        foreach ($attribute->argumentExpressionList->getElements() as $argument) {
+        $arguments = iterator_to_array($attribute->argumentExpressionList->getElements(), false);
+        foreach ($arguments as $argument) {
             if (
                 !$argument instanceof ArgumentExpression
                 || !$argument->name instanceof Token
@@ -426,15 +427,23 @@ final class ResourceFactsQuery
                 : null;
         }
 
-        return null;
+        $argument = $arguments[$position] ?? null;
+        if (!$argument instanceof ArgumentExpression || $argument->name instanceof Token) {
+            return null;
+        }
+
+        return $argument->expression instanceof StringLiteral
+            ? $argument->expression->getStringContentsText()
+            : null;
     }
 
-    private function hasNamedArgument(Attribute $attribute, string $name, string $source): bool
+    private function hasArgument(Attribute $attribute, string $name, int $position, string $source): bool
     {
         if (!$attribute->argumentExpressionList instanceof DelimitedList) {
             return false;
         }
-        foreach ($attribute->argumentExpressionList->getElements() as $argument) {
+        $arguments = iterator_to_array($attribute->argumentExpressionList->getElements(), false);
+        foreach ($arguments as $argument) {
             if (
                 $argument instanceof ArgumentExpression
                 && $argument->name instanceof Token
@@ -444,7 +453,9 @@ final class ResourceFactsQuery
             }
         }
 
-        return false;
+        $argument = $arguments[$position] ?? null;
+
+        return $argument instanceof ArgumentExpression && !$argument->name instanceof Token;
     }
 
     private function targetUri(string $target, ResourceUri $source): ?ResourceUri

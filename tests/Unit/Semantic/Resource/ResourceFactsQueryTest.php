@@ -177,6 +177,46 @@ PHP,
         );
     }
 
+    public function testExtractsRelationsFromValidPositionalAttributeArguments(): void
+    {
+        $file = $this->workspace . '/src/Resource/App/Dashboard.php';
+        $source = (string) file_get_contents($file);
+        $source = str_replace(
+            "#[Refresh(uri: 'app://self/dashboard')]",
+            <<<'PHP'
+#[Embed([], 'positionalEmbed', 'app://self/positional-embed')]
+    #[Link([], 'positionalLink', '/positional-link', 'patch')]
+    #[Refresh(uri: 'app://self/dashboard')]
+PHP,
+            $source,
+        );
+        self::assertNotFalse(file_put_contents($file, $source));
+
+        $result = (new ResourceFactsQuery())->describeInWorkspace($this->workspace(), 'app://self/dashboard');
+
+        self::assertSame(SemanticStatus::Ok, $result->status);
+        self::assertInstanceOf(ResourceFacts::class, $result->value);
+        $positional = array_values(array_filter(
+            $result->value->outgoingRelations,
+            static fn ($relation): bool => str_starts_with($relation->rel, 'positional'),
+        ));
+        self::assertSame(
+            [
+                ['embed', 'positionalEmbed', 'app://self/positional-embed', 'onGet'],
+                ['link', 'positionalLink', 'app://self/positional-link', 'onPatch'],
+            ],
+            array_map(
+                static fn ($relation): array => [
+                    $relation->kind,
+                    $relation->rel,
+                    $relation->targetUri->uri(),
+                    $relation->targetMethod,
+                ],
+                $positional,
+            ),
+        );
+    }
+
     public function testReturnsStructuredFailureForMissingAndOversizedSource(): void
     {
         $query = new ResourceFactsQuery();
