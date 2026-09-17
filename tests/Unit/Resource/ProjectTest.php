@@ -64,6 +64,8 @@ final class ProjectTest extends TestCase
         self::assertArrayHasKey('app://self/indirectAlias', $classes);
         // 2段の連鎖 (孫) も候補に含める
         self::assertArrayHasKey('app://self/indirectGrandchild', $classes);
+        // ImportAppで別hostに割り当てたアプリはself inventoryへ混ぜない。
+        self::assertArrayNotHasKey('app://self/tag', $classes);
         // 辿っても ResourceObject に行き着かないクラスは候補に含めない
         self::assertArrayNotHasKey('app://self/indirectNotResource', $classes);
         // 循環する継承 (A extends B かつ B extends A) は候補に含めない
@@ -91,6 +93,7 @@ final class ProjectTest extends TestCase
                 <=> [$right['uri'], $right['file'], $right['fqn']],
         );
         self::assertSame($sorted, $candidates);
+        self::assertNotContains('app://self/tag', array_column($candidates, 'uri'));
     }
 
     public function testSkipsComposerJsonWithoutPsr4AndContinuesUpward(): void

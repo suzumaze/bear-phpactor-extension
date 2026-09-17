@@ -19,6 +19,16 @@ use PHPUnit\Framework\TestCase;
  */
 final class ImportAppRegistryTest extends TestCase
 {
+    /** @var list<string> */
+    private array $temporaryRoots = [];
+
+    protected function tearDown(): void
+    {
+        foreach ($this->temporaryRoots as $root) {
+            $this->removeTree($root);
+        }
+    }
+
     private static function fixtureDir(): string
     {
         return dirname(__DIR__, 2) . '/Fixture/Resource';
@@ -39,6 +49,18 @@ final class ImportAppRegistryTest extends TestCase
         self::assertSame('Acme\Tags\Resource\App\Api\Search', $candidate['fqn']);
     }
 
+    public function testResolvesImportedHostToProjectPsr4WithoutExposingItAsSelf(): void
+    {
+        $uri = ResourceUri::fromString('app://tags/tag');
+        self::assertNotNull($uri);
+
+        $candidate = ImportAppRegistry::forProject(self::fixtureDir())->resolve($uri);
+
+        self::assertNotNull($candidate);
+        self::assertSame(self::fixtureDir() . '/imported-tags/Resource/App/Tag.php', $candidate['file']);
+        self::assertSame('Acme\Tags\Resource\App\Tag', $candidate['fqn']);
+    }
+
     public function testUnknownHostReturnsNull(): void
     {
         $uri = ResourceUri::fromString('app://unknown/api/search');
@@ -55,5 +77,110 @@ final class ImportAppRegistryTest extends TestCase
         self::assertNotNull($uri);
 
         self::assertNull(ImportAppRegistry::forProject(self::fixtureDir())->resolve($uri));
+    }
+
+    public function testScansProjectWhoseAncestorIsHidden(): void
+    {
+        $root = $this->temporaryProject('/.hidden/workspace');
+        $uri = ResourceUri::fromString('app://tags/api/search');
+        self::assertNotNull($uri);
+
+        $candidate = ImportAppRegistry::forProject($root)->resolve($uri);
+
+        self::assertNotNull($candidate);
+        self::assertSame($root . '/packages/tags/Resource/App/Api/Search.php', $candidate['file']);
+    }
+
+    public function testSkipsUnreadableChildDirectory(): void
+    {
+        $root = $this->temporaryProject('/workspace');
+        $unreadable = $root . '/var/unreadable';
+        self::assertTrue(mkdir($unreadable, 0777, true));
+        self::assertNotFalse(file_put_contents($unreadable . '/Ignored.php', '<?php'));
+        self::assertTrue(chmod($unreadable, 0000));
+        $uri = ResourceUri::fromString('app://tags/api/search');
+        self::assertNotNull($uri);
+
+        try {
+            $candidate = ImportAppRegistry::forProject($root)->resolve($uri);
+        } finally {
+            chmod($unreadable, 0700);
+        }
+
+        self::assertNotNull($candidate);
+    }
+
+    public function testRefreshesImportedHostsAfterInvalidation(): void
+    {
+        $root = $this->temporaryProject('/workspace');
+        $tags = ResourceUri::fromString('app://tags/api/search');
+        $labels = ResourceUri::fromString('app://labels/api/search');
+        self::assertNotNull($tags);
+        self::assertNotNull($labels);
+        $registry = ImportAppRegistry::forProject($root);
+        self::assertNotNull($registry->resolve($tags));
+
+        $module = $root . '/src/AppModule.php';
+        $source = file_get_contents($module);
+        self::assertIsString($source);
+        self::assertNotFalse(file_put_contents($module, str_replace("'tags'", "'labels'", $source)));
+        self::assertNull($registry->resolve($labels));
+
+        ImportAppRegistry::invalidate($root);
+
+        self::assertNotNull($registry->resolve($labels));
+        self::assertNull($registry->resolve($tags));
+    }
+
+    private function temporaryProject(string $suffix): string
+    {
+        $temporaryRoot = sys_get_temp_dir() . '/bear-import-app-' . bin2hex(random_bytes(8));
+        $this->temporaryRoots[] = $temporaryRoot;
+        $root = $temporaryRoot . $suffix;
+        self::assertTrue(mkdir($root . '/src', 0777, true));
+        self::assertTrue(mkdir($root . '/packages/tags/Resource/App/Api', 0777, true));
+        self::assertNotFalse(file_put_contents(
+            $root . '/composer.json',
+            '{"autoload":{"psr-4":{"Acme\\\\Tags\\\\":"packages/tags/"}}}',
+        ));
+        self::assertNotFalse(file_put_contents(
+            $root . '/src/AppModule.php',
+            <<<'PHP'
+<?php
+
+namespace Acme\App;
+
+use BEAR\Package\Module\Import\ImportApp;
+
+new ImportApp('tags', 'Acme\Tags', 'app');
+PHP,
+        ));
+        self::assertNotFalse(file_put_contents(
+            $root . '/packages/tags/Resource/App/Api/Search.php',
+            '<?php namespace Acme\Tags\Resource\App\Api; final class Search {}',
+        ));
+
+        return $root;
+    }
+
+    private function removeTree(string $path): void
+    {
+        if (is_file($path) || is_link($path)) {
+            unlink($path);
+
+            return;
+        }
+        if (!is_dir($path)) {
+            return;
+        }
+        $entries = scandir($path);
+        if ($entries !== false) {
+            foreach ($entries as $entry) {
+                if ($entry !== '.' && $entry !== '..') {
+                    $this->removeTree($path . '/' . $entry);
+                }
+            }
+        }
+        rmdir($path);
     }
 }

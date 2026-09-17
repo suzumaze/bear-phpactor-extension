@@ -18,10 +18,12 @@ use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceDefinitionLocator;
 use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceReferenceFinder;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
+use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparisonQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsProfileQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceAttributeIndexQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescriptionQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceReferencesQuery;
@@ -114,6 +116,16 @@ final class BearSundayExtensionTest extends TestCase
         );
     }
 
+    public function testRegistersTransportIndependentContractComparisonQuery(): void
+    {
+        $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
+
+        self::assertInstanceOf(
+            ContractComparisonQuery::class,
+            $container->get('bear_sunday.semantic.contract_comparison_query'),
+        );
+    }
+
     public function testRegistersTransportIndependentResourceInventoryQuery(): void
     {
         $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
@@ -148,6 +160,16 @@ final class BearSundayExtensionTest extends TestCase
         self::assertInstanceOf(
             ResourceFactsQuery::class,
             $container->get('bear_sunday.semantic.resource_facts_query'),
+        );
+    }
+
+    public function testRegistersTransportIndependentResourceAttributeIndexQuery(): void
+    {
+        $container = PhpactorContainer::fromExtensions([BearSundayExtension::class]);
+
+        self::assertInstanceOf(
+            ResourceAttributeIndexQuery::class,
+            $container->get('bear_sunday.semantic.resource_attribute_index_query'),
         );
     }
 

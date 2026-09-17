@@ -7,6 +7,7 @@ namespace Suzumaze\BearPhpactor\LanguageServer;
 use Phpactor\LanguageServer\Event\FilesChanged;
 use Phpactor\LanguageServer\Event\TextDocumentSaved;
 use Psr\EventDispatcher\ListenerProviderInterface;
+use Suzumaze\BearPhpactor\Resource\Model\ImportAppRegistry;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryIndex;
 
 /**
@@ -27,6 +28,7 @@ final class ResourceInventoryIndexListener implements ListenerProviderInterface
 
         return [function (): void {
             $this->index->invalidate();
+            ImportAppRegistry::invalidate();
         }];
     }
 }

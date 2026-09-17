@@ -89,6 +89,11 @@ final class SemanticQueryProtocolTest extends TestCase
                 'Template/basic',
                 ['app://self/dashboard', 'src/Resource/App/Dashboard.php'],
             ],
+            'bear/resource/attributes' => [
+                'Template/basic',
+                ['app://self/dashboard', 'src/Resource/App/Dashboard.php'],
+            ],
+            'bear/resource/attributeIndex' => ['Template/basic', ['app', '', 2]],
             'bear/resource/incomingRelations' => [
                 'Template/basic',
                 ['app://self/user', 'src/Resource/App/User.php', 2],
@@ -96,6 +101,10 @@ final class SemanticQueryProtocolTest extends TestCase
             'bear/resource/references' => [
                 'References',
                 ['app://self/article', 'src/Resource/App/Article.php', 2],
+            ],
+            'bear/contract/compare' => [
+                'Contract',
+                ['app://self/user', 'onPost', 'request', null, 'src/Resource/App/User.php'],
             ],
             'bear/route/resolve' => ['Router', ['/thing/detail', 'aura.route.php']],
             'bear/sql/resolve' => [

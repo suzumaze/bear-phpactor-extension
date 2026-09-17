@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Suzumaze\BearPhpactor\Resource\LanguageServer;
 
 use Amp\Promise;
+use Suzumaze\BearPhpactor\Resource\Model\Project;
+use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
 use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceDefinitionLocator;
 use Suzumaze\BearPhpactor\Template\TemplateDefinitionLocator;
 use Microsoft\PhpParser\Node\StringLiteral;
@@ -80,9 +82,16 @@ final class ResourceUriDocumentLinkHandler implements Handler, CanRegisterCapabi
 
             $links = [];
             if (str_contains($text, 'app://') || str_contains($text, 'page://')) {
-                foreach ($this->uriRanges($text) as [$start, $end]) {
+                $documentUri = $document->uri();
+                $project = $documentUri !== null && $documentUri->scheme() === 'file'
+                    ? Project::locate($documentUri->path())
+                    : null;
+                foreach ($this->uriRanges($text) as [$start, $end, $resourceUri]) {
+                    if ($project === null) {
+                        break;
+                    }
                     try {
-                        $locations = $this->locator->locateDefinition($document, ByteOffset::fromInt($start));
+                        $locations = $this->locator->locateResource($project, $resourceUri);
                     } catch (CouldNotLocateDefinition) {
                         // 解決できないURIにリンクは出さない。飛び先の無い下線は嘘になる。
                         continue;
@@ -138,7 +147,7 @@ final class ResourceUriDocumentLinkHandler implements Handler, CanRegisterCapabi
      * 正規表現ではなく構文解析で拾う。コメントに書かれた 'app://self/user' に
      * リンクを出してしまうため (同じ誤りを tools/coverage.php で一度やった)。
      *
-     * @return list<array{0:int,1:int}>
+     * @return list<array{0:int,1:int,2:ResourceUri}>
      */
     private function uriRanges(string $text): array
     {
@@ -149,7 +158,8 @@ final class ResourceUriDocumentLinkHandler implements Handler, CanRegisterCapabi
             }
 
             $content = $node->getStringContentsText();
-            if (!str_starts_with($content, 'app://') && !str_starts_with($content, 'page://')) {
+            $resourceUri = ResourceUri::fromString($content);
+            if ($resourceUri === null) {
                 continue;
             }
 
@@ -162,7 +172,7 @@ final class ResourceUriDocumentLinkHandler implements Handler, CanRegisterCapabi
             }
 
             $start = $node->getStartPosition() + $relative;
-            $ranges[] = [$start, $start + strlen($content)];
+            $ranges[] = [$start, $start + strlen($content), $resourceUri];
         }
 
         return $ranges;

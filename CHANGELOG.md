@@ -6,6 +6,41 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-09-17
+
+### Added
+
+- `bear/resource/attributes` for inspecting saved Resource method attributes and
+  arguments without executing application PHP.
+- `bear/resource/attributeIndex` for a deterministic, bounded inventory of Resource
+  attribute facts across the workspace.
+- `bear/contract/compare` for comparing exact request-name presence across a Resource
+  method, request JSON Schema, and ALPS descriptor without claiming type or semantic
+  equivalence.
+
+### Changed
+
+- Semantic API version 1 discovery and its contract snapshot now advertise nineteen
+  read-only `bear/*` requests.
+- Resource and Schema facts expose the additional static metadata needed for bounded
+  contract-surface comparisons.
+- Resource URI document links reuse one parsed syntax tree and one project lookup for
+  all links in a document.
+
+### Fixed
+
+- Preserve numeric-only JSON Schema property names as strings throughout contract
+  comparison results instead of raising a type error.
+- Match incoming Link and Embed relations by their resolved Resource file so equivalent
+  URI spellings and nested application contexts remain correct.
+- Discover ImportApp declarations below hidden project ancestors, skip excluded or
+  unreadable child directories safely, and refresh mappings after LSP file changes.
+- Keep explicitly imported application namespaces out of the host application's `self`
+  Resource inventory while retaining their configured import host.
+- Read valid positional Link and Embed attribute arguments according to the current
+  BEAR.Resource constructor signatures.
+- Bound parsed Resource facts to a 128-entry least-recently-used cache.
+
 ## [0.1.5] - 2026-09-14
 
 ### Added
@@ -41,5 +76,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Invalid, missing, ambiguous, malformed, and outside-workspace inputs return structured
   failure results instead of executing application PHP or exposing exception traces.
 
-[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.4...v0.1.5

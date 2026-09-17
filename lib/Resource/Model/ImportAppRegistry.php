@@ -12,8 +12,11 @@ use Microsoft\PhpParser\Node\Expression\ObjectCreationExpression;
 use Microsoft\PhpParser\Node\QualifiedName;
 use Microsoft\PhpParser\Node\StringLiteral;
 use Microsoft\PhpParser\Parser;
+use RecursiveCallbackFilterIterator;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use SplFileInfo;
+use UnexpectedValueException;
 
 /**
  * ImportApp ('tags', 'Acme\Tags', ...) のホスト名 → アプリ名前空間 の対応表。
@@ -23,8 +26,9 @@ use RecursiveIteratorIterator;
  * リソースに向く。対象プロジェクトのPHPファイルを構文解析して
  * new ImportApp(...) を探し、第1・第2引数が文字列リテラルのときだけ対応表に載せる。
  *
- * 走査はプロジェクトごとに1度だけ行い、静的キャッシュで保持する (LSPサーバーは
- * 長命プロセスなので、リクエストのたびに走査しない)。
+ * 走査結果はプロジェクトごとに保持し、LSPのファイル変更イベントで無効化する。
+ * 長命プロセスでも保存済みの ImportApp 変更を反映しつつ、リクエストごとの
+ * プロジェクト全走査は避ける。
  */
 final class ImportAppRegistry
 {
@@ -45,6 +49,21 @@ final class ImportAppRegistry
     public static function forProject(string $root): self
     {
         return self::$byRoot[$root] ??= new self($root);
+    }
+
+    public static function invalidate(?string $root = null): void
+    {
+        if ($root !== null) {
+            if (isset(self::$byRoot[$root])) {
+                self::$byRoot[$root]->hostToNamespace = null;
+            }
+
+            return;
+        }
+
+        foreach (self::$byRoot as $registry) {
+            $registry->hostToNamespace = null;
+        }
     }
 
     /**
@@ -72,6 +91,15 @@ final class ImportAppRegistry
         }
 
         return ['file' => $file, 'fqn' => $fqn];
+    }
+
+    /** @return list<string> */
+    public function importedNamespaces(): array
+    {
+        $namespaces = array_values(array_unique($this->hostToNamespace()));
+        sort($namespaces, SORT_STRING);
+
+        return $namespaces;
     }
 
     /** インストール済みパッケージ (vendor/composer/installed.json) から探す。 */
@@ -197,20 +225,36 @@ final class ImportAppRegistry
     private function phpFiles(): array
     {
         $files = [];
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($this->root, FilesystemIterator::SKIP_DOTS)
-        );
+        try {
+            $directories = new RecursiveDirectoryIterator($this->root, FilesystemIterator::SKIP_DOTS);
+            $filtered = new RecursiveCallbackFilterIterator(
+                $directories,
+                static function (SplFileInfo $entry): bool {
+                    if (!$entry->isDir()) {
+                        return true;
+                    }
+
+                    $name = $entry->getFilename();
+
+                    return $name !== 'vendor'
+                        && $name !== 'node_modules'
+                        && !str_starts_with($name, '.');
+                },
+            );
+            $iterator = new RecursiveIteratorIterator(
+                $filtered,
+                RecursiveIteratorIterator::LEAVES_ONLY,
+                RecursiveIteratorIterator::CATCH_GET_CHILD,
+            );
+        } catch (UnexpectedValueException) {
+            return [];
+        }
+
         foreach ($iterator as $file) {
             if (!$file->isFile() || $file->getExtension() !== 'php') {
                 continue;
             }
-            $path = $file->getPathname();
-            foreach (explode('/', $path) as $segment) {
-                if ($segment === 'vendor' || str_starts_with($segment, '.')) {
-                    continue 2;
-                }
-            }
-            $files[] = $path;
+            $files[] = $file->getPathname();
         }
         sort($files);
 

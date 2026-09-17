@@ -7,6 +7,7 @@ namespace Suzumaze\BearPhpactor\Semantic\Schema;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 use JsonException;
 use stdClass;
@@ -59,6 +60,18 @@ final class SchemaFactsQuery
                 $kind,
                 $contextPath,
             ),
+        );
+    }
+
+    /** @return SemanticResult<SchemaFacts|null> */
+    public function describeForResolutionInWorkspace(
+        WorkspaceContext $workspace,
+        ResourceResolution $resource,
+        string $kind = SchemaQuery::KIND_RESPONSE,
+    ): SemanticResult {
+        return $this->fromResolutionResult(
+            $workspace,
+            $this->schemaQuery->resolveForResolutionInWorkspace($workspace, $resource, $kind),
         );
     }
 

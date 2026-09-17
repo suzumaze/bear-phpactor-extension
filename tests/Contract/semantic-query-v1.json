@@ -71,6 +71,25 @@
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["resource", "methods", "relationsOut", "relationsIn", "templates", "schemas"]
         },
+        "bear/resource/attributes": {
+            "handler": "describeResourceAttributes",
+            "parameters": [
+                {"name": "uri", "type": "string", "required": true},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["resource", "attributes"]
+        },
+        "bear/resource/attributeIndex": {
+            "handler": "indexResourceAttributes",
+            "parameters": [
+                {"name": "scheme", "type": "string|null", "required": false, "default": null},
+                {"name": "prefix", "type": "string", "required": false, "default": ""},
+                {"name": "limit", "type": "int", "required": false, "default": 50}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["items", "total", "truncated"]
+        },
         "bear/resource/incomingRelations": {
             "handler": "findIncomingResourceRelations",
             "parameters": [
@@ -90,6 +109,18 @@
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["resource", "references", "total", "truncated"]
+        },
+        "bear/contract/compare": {
+            "handler": "compareContract",
+            "parameters": [
+                {"name": "uri", "type": "string", "required": true},
+                {"name": "method", "type": "string", "required": false, "default": "onGet"},
+                {"name": "schemaKind", "type": "string", "required": false, "default": "response"},
+                {"name": "descriptorId", "type": "string|null", "required": false, "default": null},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["resource", "method", "schemaKind", "surfaces", "comparison"]
         },
         "bear/route/resolve": {
             "handler": "resolveRoute",

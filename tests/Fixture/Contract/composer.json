@@ -1,0 +1,8 @@
+{
+    "name": "fixture/contract",
+    "autoload": {
+        "psr-4": {
+            "ContractFixture\\": "src/"
+        }
+    }
+}

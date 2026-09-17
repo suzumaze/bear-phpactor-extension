@@ -26,12 +26,20 @@ final class ResourceIncomingRelationsQueryTest extends TestCase
         ));
         $this->writeResource('User.php', 'final class User extends ResourceObject {}');
         $this->writeResource('Orphan.php', 'final class Orphan extends ResourceObject {}');
+        $this->writeResource('BlogPosting.php', 'final class BlogPosting extends ResourceObject {}');
         $this->writeResource('Dashboard.php', <<<'PHP'
 final class Dashboard extends ResourceObject
 {
     #[Embed(rel: 'user', src: 'app://self/user{?id}')]
     #[Link(rel: 'edit', href: '/user', method: 'patch')]
     #[Link(rel: 'dynamic', href: SOME_URI)]
+    public function onGet(): static { return $this; }
+}
+PHP);
+        $this->writeResource('Feed.php', <<<'PHP'
+final class Feed extends ResourceObject
+{
+    #[Embed(rel: 'post', src: 'app://self/blog-posting')]
     public function onGet(): static { return $this; }
 }
 PHP);
@@ -98,6 +106,19 @@ PHP);
         self::assertSame([], $result->value->relations);
         self::assertSame(0, $result->value->total);
         self::assertFalse($result->value->truncated);
+    }
+
+    public function testMatchesIncomingRelationByResolvedResourceFileAcrossUriSpellings(): void
+    {
+        $result = (new ResourceIncomingRelationsQuery())->findInWorkspace(
+            $this->workspace(),
+            'app://self/blogPosting',
+        );
+
+        self::assertSame(SemanticStatus::Ok, $result->status);
+        self::assertInstanceOf(ResourceIncomingRelations::class, $result->value);
+        self::assertSame(1, $result->value->total);
+        self::assertSame('app://self/blog-posting', $result->value->relations[0]->targetUri->uri());
     }
 
     public function testRejectsInvalidLimitsAndPreservesAmbiguousTargets(): void

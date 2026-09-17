@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Suzumaze\BearPhpactor\Tests\Unit\Semantic\Resource;
 
+use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFacts;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 use Suzumaze\BearPhpactor\Tests\Unit\Semantic\Resource\Support\CountingParser;
@@ -31,14 +33,20 @@ final class ResourceFactsQueryTest extends TestCase
 <?php
 namespace Acme\App\Resource\App;
 
+use BEAR\RepositoryModule\Annotation\Cacheable;
+use BEAR\RepositoryModule\Annotation\Refresh;
 use BEAR\Resource\Annotation\Embed;
+use BEAR\Resource\Annotation\JsonSchema;
 use BEAR\Resource\Annotation\Link;
 
+#[Cacheable(expiry: 'short', expirySecond: 30, enabled: true, dynamic: SOME_VALUE)]
 final class Dashboard extends \BEAR\Resource\ResourceObject
 {
     #[Embed(rel: 'user', src: 'app://self/user{?id}')]
+    #[JsonSchema(schema: 'dashboard.json')]
     #[Link(rel: 'create', href: '/users', method: 'post')]
     #[Link(rel: 'dynamic', href: 'app://self/dynamic', method: SOME_METHOD)]
+    #[Refresh(uri: 'app://self/dashboard')]
     public function onGet(int $id, ?string $name = null): static
     {
         return $this;
@@ -92,6 +100,56 @@ PHP,
         self::assertSame('onGet', $result->value->outgoingRelations[2]->sourceMethod);
     }
 
+    public function testDescribesSupportedAttributesAndMarksDynamicArguments(): void
+    {
+        $result = (new ResourceFactsQuery())->describeInWorkspace(
+            $this->workspace(),
+            'app://self/dashboard',
+        );
+
+        self::assertSame(SemanticStatus::Ok, $result->status);
+        self::assertInstanceOf(ResourceFacts::class, $result->value);
+        self::assertSame(
+            ['Cacheable', 'Refresh', 'Embed', 'JsonSchema', 'Link', 'Link'],
+            array_map(static fn ($attribute): string => $attribute->name, $result->value->attributes),
+        );
+
+        $cacheable = $result->value->attributes[0];
+        self::assertSame('class', $cacheable->target);
+        self::assertNull($cacheable->methodName);
+        self::assertSame('BEAR\\RepositoryModule\\Annotation\\Cacheable', $cacheable->fqn);
+        self::assertSame(
+            [
+                ['expiry', 'string', 'short'],
+                ['expirySecond', 'number', '30'],
+                ['enabled', 'boolean', true],
+                ['dynamic', 'dynamic', null],
+            ],
+            array_map(
+                static fn ($argument): array => [$argument->name, $argument->valueType, $argument->value],
+                $cacheable->arguments,
+            ),
+        );
+        self::assertGreaterThanOrEqual(0, $cacheable->byteStart);
+        self::assertGreaterThan($cacheable->byteStart, $cacheable->byteEnd);
+
+        $methodAttributes = array_slice($result->value->attributes, 1);
+        self::assertSame(
+            ['onGet'],
+            array_values(array_unique(array_map(
+                static fn ($attribute): ?string => $attribute->methodName,
+                $methodAttributes,
+            ))),
+        );
+        self::assertSame(
+            ['method'],
+            array_values(array_unique(array_map(
+                static fn ($attribute): string => $attribute->target,
+                $methodAttributes,
+            ))),
+        );
+    }
+
     public function testIgnoresClassAttributesAndUnsupportedDynamicTargets(): void
     {
         $file = $this->workspace . '/src/Resource/App/Dashboard.php';
@@ -117,6 +175,46 @@ PHP,
             array_map(
                 static fn ($relation): string => $relation->targetUri->uri(),
                 $result->value->outgoingRelations,
+            ),
+        );
+    }
+
+    public function testExtractsRelationsFromValidPositionalAttributeArguments(): void
+    {
+        $file = $this->workspace . '/src/Resource/App/Dashboard.php';
+        $source = (string) file_get_contents($file);
+        $source = str_replace(
+            "#[Refresh(uri: 'app://self/dashboard')]",
+            <<<'PHP'
+#[Embed([], 'positionalEmbed', 'app://self/positional-embed')]
+    #[Link([], 'positionalLink', '/positional-link', 'patch')]
+    #[Refresh(uri: 'app://self/dashboard')]
+PHP,
+            $source,
+        );
+        self::assertNotFalse(file_put_contents($file, $source));
+
+        $result = (new ResourceFactsQuery())->describeInWorkspace($this->workspace(), 'app://self/dashboard');
+
+        self::assertSame(SemanticStatus::Ok, $result->status);
+        self::assertInstanceOf(ResourceFacts::class, $result->value);
+        $positional = array_values(array_filter(
+            $result->value->outgoingRelations,
+            static fn ($relation): bool => str_starts_with($relation->rel, 'positional'),
+        ));
+        self::assertSame(
+            [
+                ['embed', 'positionalEmbed', 'app://self/positional-embed', 'onGet'],
+                ['link', 'positionalLink', 'app://self/positional-link', 'onPatch'],
+            ],
+            array_map(
+                static fn ($relation): array => [
+                    $relation->kind,
+                    $relation->rel,
+                    $relation->targetUri->uri(),
+                    $relation->targetMethod,
+                ],
+                $positional,
             ),
         );
     }
@@ -214,6 +312,28 @@ PHP,
         self::assertSame(SemanticStatus::ParseError, $first->status);
         self::assertSame(SemanticStatus::ParseError, $second->status);
         self::assertSame(1, $parser->parseCount);
+    }
+
+    public function testBoundsResourceFactsCacheWithLeastRecentlyUsedEviction(): void
+    {
+        $parser = new CountingParser();
+        $query = new ResourceFactsQuery(parser: $parser, maxCacheEntries: 2);
+        $workspace = $this->workspace();
+        $file = $this->workspace . '/src/Resource/App/Dashboard.php';
+        $resolution = static function (string $name) use ($file): ResourceResolution {
+            $uri = ResourceUri::fromString('app://self/' . $name);
+            self::assertNotNull($uri);
+
+            return new ResourceResolution($uri, $file, 'Acme\\App\\Resource\\App\\Dashboard');
+        };
+
+        $query->describeResolutionInWorkspace($workspace, $resolution('one'));
+        $query->describeResolutionInWorkspace($workspace, $resolution('two'));
+        $query->describeResolutionInWorkspace($workspace, $resolution('one'));
+        $query->describeResolutionInWorkspace($workspace, $resolution('three'));
+        $query->describeResolutionInWorkspace($workspace, $resolution('two'));
+
+        self::assertSame(4, $parser->parseCount);
     }
 
     private function workspace(): WorkspaceContext

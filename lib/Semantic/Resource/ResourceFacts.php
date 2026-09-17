@@ -9,11 +9,13 @@ final readonly class ResourceFacts
     /**
      * @param list<ResourceMethodFact>   $methods
      * @param list<ResourceRelationFact> $outgoingRelations
+     * @param list<ResourceAttributeFact> $attributes
      */
     public function __construct(
         public ResourceResolution $resource,
         public array $methods,
         public array $outgoingRelations,
+        public array $attributes = [],
     ) {
     }
 }

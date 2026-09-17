@@ -269,6 +269,10 @@ final class Project
     private function resourceRoots(): array
     {
         $roots = [];
+        $importedNamespaces = array_fill_keys(array_map(
+            static fn (string $namespace): string => trim($namespace, '\\'),
+            ImportAppRegistry::forProject($this->root)->importedNamespaces(),
+        ), true);
 
         $enclosing = $this->enclosingAppDir();
         if ($enclosing !== null) {
@@ -279,6 +283,11 @@ final class Project
         }
 
         foreach ($this->psr4 as $prefix => $dirs) {
+            // An ImportApp is a separate application reached through its configured
+            // host. Do not also expose its PSR-4 root as this application's `self`.
+            if (isset($importedNamespaces[trim($prefix, '\\')])) {
+                continue;
+            }
             foreach ($dirs as $dir) {
                 $resourceDir = $this->resolveDir($dir) . '/Resource';
                 if (!is_dir($resourceDir)) {

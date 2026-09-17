@@ -542,6 +542,47 @@ final class StdioLanguageServerTest extends TestCase
             self::assertSame([], $description['result']['data']['templates'] ?? null);
             self::assertSame([], $description['result']['data']['schemas'] ?? null);
 
+            $attributes = $client->request('bear/resource/attributes', [
+                'uri' => 'app://self/article',
+                'contextPath' => 'src/Resource/App/Article.php',
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $attributes, $client->stderr());
+            self::assertSame('ok', $attributes['result']['status'] ?? null);
+            self::assertSame('Link', $attributes['result']['data']['attributes'][0]['name'] ?? null);
+            self::assertSame(
+                'app://self/user',
+                $attributes['result']['data']['attributes'][0]['arguments'][1]['value'] ?? null,
+            );
+
+            $attributeIndex = $client->request('bear/resource/attributeIndex', [
+                'scheme' => 'app',
+                'prefix' => 'article',
+                'limit' => 1,
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $attributeIndex, $client->stderr());
+            self::assertSame('ok', $attributeIndex['result']['status'] ?? null);
+            self::assertSame(2, $attributeIndex['result']['data']['total'] ?? null);
+            self::assertTrue($attributeIndex['result']['data']['truncated'] ?? false);
+            self::assertSame(
+                'app://self/article',
+                $attributeIndex['result']['data']['items'][0]['resource']['uri'] ?? null,
+            );
+            self::assertSame('ok', $attributeIndex['result']['data']['items'][0]['status'] ?? null);
+
+            $contract = $client->request('bear/contract/compare', [
+                'uri' => 'app://self/user',
+                'method' => 'onGet',
+                'schemaKind' => 'response',
+                'contextPath' => 'src/Resource/App/User.php',
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $contract, $client->stderr());
+            self::assertSame('ok', $contract['result']['status'] ?? null);
+            self::assertSame(
+                ['unsupported', 'not_found', 'not_found'],
+                array_column($contract['result']['data']['surfaces'] ?? [], 'status'),
+            );
+            self::assertNull($contract['result']['data']['comparison'] ?? null);
+
             $incoming = $client->request('bear/resource/incomingRelations', [
                 'uri' => 'app://self/user',
                 'contextPath' => 'src/Client.php',
