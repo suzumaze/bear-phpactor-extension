@@ -6,7 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-## [0.1.6] - 2026-09-16
+## [0.1.6] - 2026-09-17
 
 ### Added
 
@@ -24,6 +24,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   read-only `bear/*` requests.
 - Resource and Schema facts expose the additional static metadata needed for bounded
   contract-surface comparisons.
+- Resource URI document links reuse one parsed syntax tree and one project lookup for
+  all links in a document.
+
+### Fixed
+
+- Preserve numeric-only JSON Schema property names as strings throughout contract
+  comparison results instead of raising a type error.
+- Match incoming Link and Embed relations by their resolved Resource file so equivalent
+  URI spellings and nested application contexts remain correct.
+- Discover ImportApp declarations below hidden project ancestors, skip excluded or
+  unreadable child directories safely, and refresh mappings after LSP file changes.
+- Keep explicitly imported application namespaces out of the host application's `self`
+  Resource inventory while retaining their configured import host.
+- Read valid positional Link and Embed attribute arguments according to the current
+  BEAR.Resource constructor signatures.
+- Bound parsed Resource facts to a 128-entry least-recently-used cache.
 
 ## [0.1.5] - 2026-09-14
 
