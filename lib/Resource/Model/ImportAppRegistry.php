@@ -93,6 +93,15 @@ final class ImportAppRegistry
         return ['file' => $file, 'fqn' => $fqn];
     }
 
+    /** @return list<string> */
+    public function importedNamespaces(): array
+    {
+        $namespaces = array_values(array_unique($this->hostToNamespace()));
+        sort($namespaces, SORT_STRING);
+
+        return $namespaces;
+    }
+
     /** インストール済みパッケージ (vendor/composer/installed.json) から探す。 */
     private function fileInInstalledPackage(string $fqn): ?string
     {

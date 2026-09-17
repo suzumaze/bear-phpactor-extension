@@ -22,6 +22,7 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame('composer.json', $response['data']['composerPath']);
         self::assertSame([
             ['namespace' => 'Acme\\Blog\\', 'path' => 'src'],
+            ['namespace' => 'Acme\\Tags\\', 'path' => 'imported-tags'],
         ], $response['data']['psr4Roots']);
         self::assertSame(0, $response['data']['excludedPsr4Roots']);
         self::assertGreaterThan(0, $response['data']['resourceCount']);

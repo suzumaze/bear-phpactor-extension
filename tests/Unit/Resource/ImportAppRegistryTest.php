@@ -49,6 +49,18 @@ final class ImportAppRegistryTest extends TestCase
         self::assertSame('Acme\Tags\Resource\App\Api\Search', $candidate['fqn']);
     }
 
+    public function testResolvesImportedHostToProjectPsr4WithoutExposingItAsSelf(): void
+    {
+        $uri = ResourceUri::fromString('app://tags/tag');
+        self::assertNotNull($uri);
+
+        $candidate = ImportAppRegistry::forProject(self::fixtureDir())->resolve($uri);
+
+        self::assertNotNull($candidate);
+        self::assertSame(self::fixtureDir() . '/imported-tags/Resource/App/Tag.php', $candidate['file']);
+        self::assertSame('Acme\Tags\Resource\App\Tag', $candidate['fqn']);
+    }
+
     public function testUnknownHostReturnsNull(): void
     {
         $uri = ResourceUri::fromString('app://unknown/api/search');
