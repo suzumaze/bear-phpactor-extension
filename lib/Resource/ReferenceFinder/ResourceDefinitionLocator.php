@@ -57,6 +57,14 @@ final class ResourceDefinitionLocator implements DefinitionLocator
             throw new CouldNotLocateDefinition(sprintf('Could not locate composer.json for "%s"', $uriObject->path()));
         }
 
+        return $this->locateResource($project, $uri);
+    }
+
+    /**
+     * Resolve a URI already parsed by another adapter without parsing its document again.
+     */
+    public function locateResource(Project $project, ResourceUri $uri): TypeLocations
+    {
         $result = $this->resourceTargetResolver->resolveDetailed($project, $uri);
         if ($result->status !== SemanticStatus::Ok || $result->value === null) {
             throw new CouldNotLocateDefinition(sprintf('Resource class for "%s" does not exist', $uri->uri()));

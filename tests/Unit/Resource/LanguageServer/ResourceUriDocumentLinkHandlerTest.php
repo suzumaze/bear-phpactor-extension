@@ -7,6 +7,8 @@ namespace Suzumaze\BearPhpactor\Tests\Unit\Resource\LanguageServer;
 use Suzumaze\BearPhpactor\Resource\LanguageServer\ResourceUriDocumentLinkHandler;
 use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceDefinitionLocator;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
+use Suzumaze\BearPhpactor\Tests\Unit\Semantic\Resource\Support\CountingParser;
+use Microsoft\PhpParser\Parser;
 use Phpactor\LanguageServer\LanguageServerTesterBuilder;
 use Phpactor\LanguageServer\Test\ProtocolFactory;
 use PHPUnit\Framework\TestCase;
@@ -76,8 +78,22 @@ final class ResourceUriDocumentLinkHandlerTest extends TestCase
         self::assertNotContains('app://self/doesNotExistAnywhere', $linked);
     }
 
+    public function testParsesDocumentOnlyOnceForAllResourceLinks(): void
+    {
+        $parser = new CountingParser();
+        [$tester, $uri] = $this->createTester($parser);
+
+        $response = $tester->requestAndWait('textDocument/documentLink', [
+            'textDocument' => ProtocolFactory::textDocumentIdentifier($uri),
+        ]);
+
+        self::assertNotNull($response);
+        $tester->assertSuccess($response);
+        self::assertSame(1, $parser->parseCount);
+    }
+
     /** @return array{0: \Phpactor\LanguageServer\Test\LanguageServerTester, 1: string, 2: string} */
-    private function createTester(): array
+    private function createTester(?Parser $parser = null): array
     {
         $fixture = dirname(__DIR__, 3) . '/Fixture/Resource';
         $path = $fixture . '/src/Client.php';
@@ -85,12 +101,14 @@ final class ResourceUriDocumentLinkHandlerTest extends TestCase
         $uri = 'file://' . $path;
 
         $builder = LanguageServerTesterBuilder::createBare()->enableTextDocuments();
+        $parser ??= new Parser();
 
         // 本番の BearSundayExtension と同じく、実物のロケータを渡して組み立てる。
         // 別物を渡すと、本番に無い構成でテストが緑になる (補完で一度やった)。
         $tester = $builder->addHandler(new ResourceUriDocumentLinkHandler(
             $builder->workspace(),
-            new ResourceDefinitionLocator(new StringLiteralAtOffset()),
+            new ResourceDefinitionLocator(new StringLiteralAtOffset($parser)),
+            parser: $parser,
         ))->build();
 
         $tester->textDocument()->open($uri, $content);
