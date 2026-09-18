@@ -78,7 +78,7 @@
                 {"name": "contextPath", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["resource", "attributes"]
+            "successDataKeys": ["resource", "attributes", "argumentPolicy"]
         },
         "bear/resource/attributeIndex": {
             "handler": "indexResourceAttributes",
@@ -88,7 +88,7 @@
                 {"name": "limit", "type": "int", "required": false, "default": 50}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["items", "total", "truncated"]
+            "successDataKeys": ["items", "total", "truncated", "argumentPolicy"]
         },
         "bear/resource/incomingRelations": {
             "handler": "findIncomingResourceRelations",

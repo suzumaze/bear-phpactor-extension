@@ -209,6 +209,7 @@ final class SemanticQueryHandler implements Handler
             fn (ResourceFacts $facts): array => [
                 'resource' => $this->resourceData($facts->resource),
                 'attributes' => array_map($this->resourceAttributeData(...), $facts->attributes),
+                'argumentPolicy' => $this->attributeArgumentPolicy(),
             ],
         ));
     }
@@ -233,6 +234,7 @@ final class SemanticQueryHandler implements Handler
                 ),
                 'total' => $index->total,
                 'truncated' => $index->truncated,
+                'argumentPolicy' => $this->attributeArgumentPolicy(),
             ],
         ));
     }
@@ -602,6 +604,15 @@ final class SemanticQueryHandler implements Handler
                 'start' => $attribute->byteStart,
                 'end' => $attribute->byteEnd,
             ],
+        ];
+    }
+
+    /** @return array{source:string,constructorDefaultsExpanded:bool} */
+    private function attributeArgumentPolicy(): array
+    {
+        return [
+            'source' => 'explicit_only',
+            'constructorDefaultsExpanded' => false,
         ];
     }
 

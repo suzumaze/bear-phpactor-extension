@@ -204,6 +204,10 @@ final class SemanticQueryHandlerTest extends TestCase
             $response['data']['attributes'][0]['byteRange']['start'],
             $response['data']['attributes'][0]['byteRange']['end'],
         );
+        self::assertSame([
+            'source' => 'explicit_only',
+            'constructorDefaultsExpanded' => false,
+        ], $response['data']['argumentPolicy']);
     }
 
     public function testIndexesResourceAttributesWithPerResourceStatus(): void
@@ -224,6 +228,10 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame(['ok', 'ok'], array_column($response['data']['items'], 'status'));
         self::assertCount(7, $response['data']['items'][0]['attributes']);
         self::assertSame([], $response['data']['items'][1]['attributes']);
+        self::assertSame([
+            'source' => 'explicit_only',
+            'constructorDefaultsExpanded' => false,
+        ], $response['data']['argumentPolicy']);
     }
 
     public function testComparesContractNamePresenceWithoutClaimingTypeEquality(): void
