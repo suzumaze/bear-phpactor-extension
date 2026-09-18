@@ -208,8 +208,9 @@ custom requestの共通envelopeは既存の`status`・`data`・`candidates`を�
 失敗時の`data`は常に`null`である。下流targetだけが未発見の場合は、任意の`partial` fieldで
 確定済みの部分結果を保持できる。`bear/template/forResource`ではResourceが解決済みでtemplateだけが
 無い場合、statusは`not_found`のまま、`partial`にResource、未解決のtemplate path、実際に確認した
-規約pathの`searched`を返し、Resource fileをprovenanceに残す。Resource自体が未発見の場合は
-`partial`を付けず`data: null`を返すため、両者を区別できる。
+規約pathの`searched`を返し、Resource fileをprovenanceに残す。Phpactorのstdio serializerはnullの
+object memberを省略するため、wire上では失敗時の`data`と未解決の`path`は存在しない。Resource自体が
+未発見の場合は`partial`も付かないため、両者を区別できる。
 
 `bear/resource/describe` は、Resource class と public `on*` method、外向き・内向きの
 Link/Embed、既存の Qiq/Twig template、規約で解決できる response Schema を1回の

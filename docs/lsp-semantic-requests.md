@@ -153,11 +153,13 @@ in responses are also workspace-relative. Every response has this envelope:
 `parse_error`, `engine_unavailable`, `outside_workspace`, or `timeout`. `data` is
 non-null only for `ok`. A failed query may add an optional `partial` member when it
 proves a narrower result without proving the requested target. In particular,
-`bear/template/forResource` returns `not_found` with `data: null` and a `partial`
-object containing the resolved Resource and ordered `searched` convention paths when
-the Resource exists but no template does. Failed results also contain an `error`
-object with a stable snake_case `code` and a safe human-readable `message`; no
-exception trace is exposed.
+`bear/template/forResource` returns `not_found` with no successful `data` and a
+`partial` object containing the resolved Resource and ordered `searched` convention
+paths when the Resource exists but no template does. Phpactor's stdio serializer omits
+null object members, so `data` and a null template `path` are absent on the wire even
+though direct in-process handler calls represent them as null. Failed results also
+contain an `error` object with a stable snake_case `code` and a safe human-readable
+`message`; no exception trace is exposed.
 
 `provenance` records the workspace-relative evidence used by the semantic query.
 Disk-backed facts use `freshness: saved`; `buffer` is reserved for a future query that
@@ -202,11 +204,12 @@ offset is a byte offset in the saved JSON profile; positional standard LSP metho
 continue to use UTF-16 line/character positions.
 
 For `bear/template/forResource`, `searched` contains workspace-relative convention
-paths in the order actually checked. A missing Resource still has `data: null`; an
-existing Resource without a template has `status: not_found`, `data: null`, and a
-`partial` object with the Resource, a null template path, the complete searched path
-list, and saved-file provenance for the Resource. Missing paths are descriptive
-candidates and are not reported as file provenance.
+paths in the order actually checked. A missing Resource has no successful `data`; an
+existing Resource without a template has `status: not_found`, no successful `data`,
+and a `partial` object with the Resource, no resolved template path, the complete
+searched path list, and saved-file provenance for the Resource. Null members are
+omitted on the stdio wire. Missing paths are descriptive candidates and are not
+reported as file provenance.
 
 ALPS description follows nested descriptors recursively and reports only explicit
 relationships in the workspace-local profile: `contains`, a descriptor's local-fragment
