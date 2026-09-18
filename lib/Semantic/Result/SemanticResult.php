@@ -93,6 +93,36 @@ final readonly class SemanticResult
         );
     }
 
+    /**
+     * Return a failed query with a useful partial result.
+     *
+     * This is intended for queries that resolved one semantic boundary but
+     * could not resolve the requested downstream target. The failure status
+     * remains authoritative; the value only explains what was established.
+     *
+     * @template T
+     * @param T $value
+     * @param list<Provenance> $provenance
+     * @return self<T>
+     */
+    public static function failureWithValue(
+        SemanticStatus $status,
+        mixed $value,
+        ?SemanticError $error = null,
+        array $provenance = [],
+    ): self {
+        if ($status === SemanticStatus::Ok || $status === SemanticStatus::Ambiguous) {
+            throw new LogicException(sprintf('Status "%s" cannot be used for a partial failure.', $status->value));
+        }
+
+        return new self(
+            $status,
+            $value,
+            error: $error ?? SemanticError::fromStatus($status),
+            provenance: self::normalizeProvenance($provenance),
+        );
+    }
+
     /** @return self<null> */
     public static function notFound(): self
     {

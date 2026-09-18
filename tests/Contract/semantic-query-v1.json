@@ -158,7 +158,7 @@
                 {"name": "contextPath", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["resource", "engine", "path"]
+            "successDataKeys": ["resource", "engine", "path", "searched"]
         },
         "bear/alps/resolveDescriptor": {
             "handler": "resolveAlpsDescriptor",

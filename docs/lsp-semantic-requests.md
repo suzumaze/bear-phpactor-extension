@@ -151,8 +151,12 @@ in responses are also workspace-relative. Every response has this envelope:
 
 `status` is one of `ok`, `not_found`, `ambiguous`, `invalid_input`, `unsupported`,
 `parse_error`, `engine_unavailable`, `outside_workspace`, or `timeout`. `data` is
-non-null only for `ok`. Failed results also contain an `error` object with a stable
-snake_case `code` and a safe human-readable `message`; no exception trace is exposed.
+normally non-null only for `ok`. A failed query may carry partial data when it proves a
+narrower result without proving the requested target. In particular,
+`bear/template/forResource` returns `not_found` with the resolved Resource and ordered
+`searched` convention paths when the Resource exists but no template does. Failed
+results also contain an `error` object with a stable snake_case `code` and a safe
+human-readable `message`; no exception trace is exposed.
 
 `provenance` records the workspace-relative evidence used by the semantic query.
 Disk-backed facts use `freshness: saved`; `buffer` is reserved for a future query that
@@ -184,7 +188,7 @@ present.
 | `bear/route/resolve` | `{route, contextPath?}` | `{route, resource}` |
 | `bear/sql/resolve` | `{queryId, contextPath?}` | `{queryId, path}` |
 | `bear/template/resolve` | `{engine, name, contextPath?}` | `{engine, name, path}` |
-| `bear/template/forResource` | `{uri, engine, contextPath?}` | `{resource, engine, path}` |
+| `bear/template/forResource` | `{uri, engine, contextPath?}` | `{resource, engine, path, searched}` |
 | `bear/alps/resolveDescriptor` | `{descriptorId, contextPath?}` | `{descriptorId, profilePath, byteOffset}` |
 | `bear/alps/describeDescriptor` | `{descriptorId, contextPath?}` | `{descriptorId, profilePath, byteOffset, type, name, rt, href, rel, doc, def, tag, title, relationsOut, relationsIn}` |
 | `bear/schema/resolveNamed` | `{fileName, kind, contextPath?}` | `{kind, source, path, titleByteOffset, resource}` |
@@ -195,6 +199,13 @@ present.
 `engine` is `twig` or `qiq`. A relative Qiq name requires `contextPath`. The ALPS
 offset is a byte offset in the saved JSON profile; positional standard LSP methods
 continue to use UTF-16 line/character positions.
+
+For `bear/template/forResource`, `searched` contains workspace-relative convention
+paths in the order actually checked. A missing Resource still has `data: null`; an
+existing Resource without a template has `status: not_found`, `path: null`, non-null
+Resource data, the complete searched path list, and saved-file provenance for the
+Resource. Missing paths are descriptive candidates and are not reported as file
+provenance.
 
 ALPS description follows nested descriptors recursively and reports only explicit
 relationships in the workspace-local profile: `contains`, a descriptor's local-fragment

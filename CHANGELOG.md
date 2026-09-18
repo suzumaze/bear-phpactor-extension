@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- `bear/template/forResource` now preserves the resolved Resource, ordered convention
+  paths checked, and Resource provenance when the Resource exists but its template does
+  not. The response remains `not_found`; the partial data explains that narrower failure.
+
 ## [0.1.6] - 2026-09-17
 
 ### Added

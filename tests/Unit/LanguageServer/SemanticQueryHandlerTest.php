@@ -371,6 +371,31 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame('var/templates/App/User.html.twig', $response['data']['path']);
     }
 
+    public function testMissingResourceTemplateExplainsResolvedResourceAndSearchPaths(): void
+    {
+        $response = wait((new SemanticQueryHandler($this->fixture('Resource')))->resolveResourceTemplate(
+            'app://self/user',
+            'twig',
+        ));
+
+        self::assertSame('not_found', $response['status']);
+        self::assertSame('app://self/user', $response['data']['resource']['uri']);
+        self::assertSame('src/Resource/App/User.php', $response['data']['resource']['path']);
+        self::assertNull($response['data']['path']);
+        self::assertSame([
+            'src/Resource/App/User.html.twig',
+            'var/templates/App/User.html.twig',
+        ], $response['data']['searched']);
+        self::assertSame([
+            ['source' => 'derived', 'freshness' => 'saved'],
+            [
+                'source' => 'file',
+                'path' => 'src/Resource/App/User.php',
+                'freshness' => 'saved',
+            ],
+        ], $response['provenance']);
+    }
+
     public function testResolvesAlpsDescriptorFact(): void
     {
         $response = wait((new SemanticQueryHandler($this->fixture('Alps/App1')))->resolveAlpsDescriptor(

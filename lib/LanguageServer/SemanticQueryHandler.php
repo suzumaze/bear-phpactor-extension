@@ -354,6 +354,10 @@ final class SemanticQueryHandler implements Handler
                 'path' => $resolution->templateFile === null
                     ? null
                     : $this->relativePath($resolution->templateFile),
+                'searched' => array_values(array_filter(array_map(
+                    $this->relativeCandidatePath(...),
+                    $resolution->searchedFiles,
+                ))),
             ],
         ));
     }
@@ -458,7 +462,7 @@ final class SemanticQueryHandler implements Handler
     private function envelope(SemanticResult $result, callable $normalize): array
     {
         $data = null;
-        if ($result->status === SemanticStatus::Ok && $result->value !== null) {
+        if ($result->value !== null) {
             $data = $normalize($result->value);
         }
 
@@ -721,5 +725,23 @@ final class SemanticQueryHandler implements Handler
         }
 
         return $this->workspace->value->accessPolicy()->inspectExisting($absolutePath)->value?->relative;
+    }
+
+    private function relativeCandidatePath(string $absolutePath): ?string
+    {
+        if ($this->workspace->value === null) {
+            return null;
+        }
+
+        $root = rtrim(str_replace('\\', '/', $this->workspace->value->root()), '/');
+        $path = str_replace('\\', '/', $absolutePath);
+        if ($path === $root) {
+            return '';
+        }
+        if (!str_starts_with($path, $root . '/')) {
+            return null;
+        }
+
+        return substr($path, strlen($root) + 1);
     }
 }
