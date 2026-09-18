@@ -110,7 +110,7 @@ final readonly class ResourceTemplateQuery
     {
         if ($resource->status === SemanticStatus::Ok && $resource->value !== null) {
             $resolution = $this->templateFor($project, $resource->value, $engine);
-            if ($resolution->value === null) {
+            if ($resolution->value === null && $resolution->partial === null) {
                 return SemanticResult::failure($resolution->status);
             }
 
@@ -126,10 +126,9 @@ final readonly class ResourceTemplateQuery
             if ($template->status === SemanticStatus::OutsideWorkspace) {
                 return SemanticResult::outsideWorkspace();
             }
-            if ($template->value === null) {
-                return SemanticResult::failure($template->status);
-            }
-            $candidates[] = $template->value;
+            $candidates[] = $template->value
+                ?? $template->partial
+                ?? new ResourceTemplateResolution($candidate, $engine, null);
         }
         usort(
             $candidates,
@@ -174,8 +173,7 @@ final readonly class ResourceTemplateQuery
             ));
         }
 
-        return SemanticResult::failureWithValue(
-            SemanticStatus::NotFound,
+        return SemanticResult::notFoundWithPartial(
             new ResourceTemplateResolution($resource, $engine, null, $searched),
         );
     }
@@ -230,12 +228,15 @@ final readonly class ResourceTemplateQuery
                 return SemanticResult::failure($checked->status);
             }
 
-            if ($result->status === SemanticStatus::Ok) {
-                return $checked;
+            return $checked;
+        }
+        if ($result->partial !== null) {
+            $checked = $this->workspaceResolution($workspace, $result->partial);
+            if ($checked->value === null) {
+                return SemanticResult::failure($checked->status);
             }
 
-            return SemanticResult::failureWithValue(
-                $result->status,
+            return SemanticResult::notFoundWithPartial(
                 $checked->value,
                 $result->error,
                 [...$result->provenance, ...$checked->provenance],

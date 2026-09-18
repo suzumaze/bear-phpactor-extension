@@ -76,13 +76,14 @@ final class ResourceTemplateQueryTest extends TestCase
         );
 
         self::assertSame(SemanticStatus::NotFound, $result->status);
-        self::assertInstanceOf(ResourceTemplateResolution::class, $result->value);
-        self::assertSame('app://self/user', $result->value->resource->uri->uri());
-        self::assertNull($result->value->templateFile);
+        self::assertNull($result->value);
+        self::assertInstanceOf(ResourceTemplateResolution::class, $result->partial);
+        self::assertSame('app://self/user', $result->partial->resource->uri->uri());
+        self::assertNull($result->partial->templateFile);
         self::assertSame([
             $fixture . '/src/Resource/App/User.html.twig',
             $fixture . '/var/templates/App/User.html.twig',
-        ], $result->value->searchedFiles);
+        ], $result->partial->searchedFiles);
         self::assertSame(
             [null, 'src/Resource/App/User.php'],
             array_map(static fn ($provenance): ?string => $provenance->path, $result->provenance),

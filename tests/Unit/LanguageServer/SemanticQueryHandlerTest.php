@@ -377,6 +377,10 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame('ok', $response['status']);
         self::assertSame('app://self/user', $response['data']['resource']['uri']);
         self::assertSame('var/templates/App/User.html.twig', $response['data']['path']);
+        self::assertSame([
+            'src/Resource/App/User.html.twig',
+            'var/templates/App/User.html.twig',
+        ], $response['data']['searched']);
     }
 
     public function testMissingResourceTemplateExplainsResolvedResourceAndSearchPaths(): void
@@ -387,13 +391,14 @@ final class SemanticQueryHandlerTest extends TestCase
         ));
 
         self::assertSame('not_found', $response['status']);
-        self::assertSame('app://self/user', $response['data']['resource']['uri']);
-        self::assertSame('src/Resource/App/User.php', $response['data']['resource']['path']);
-        self::assertNull($response['data']['path']);
+        self::assertNull($response['data']);
+        self::assertSame('app://self/user', $response['partial']['resource']['uri']);
+        self::assertSame('src/Resource/App/User.php', $response['partial']['resource']['path']);
+        self::assertNull($response['partial']['path']);
         self::assertSame([
             'src/Resource/App/User.html.twig',
             'var/templates/App/User.html.twig',
-        ], $response['data']['searched']);
+        ], $response['partial']['searched']);
         self::assertSame([
             ['source' => 'derived', 'freshness' => 'saved'],
             [
@@ -402,6 +407,25 @@ final class SemanticQueryHandlerTest extends TestCase
                 'freshness' => 'saved',
             ],
         ], $response['provenance']);
+    }
+
+    public function testMissingResourceTemplateHasNoPartialResult(): void
+    {
+        $response = wait((new SemanticQueryHandler($this->fixture('Resource')))->resolveResourceTemplate(
+            'app://self/missing',
+            'twig',
+        ));
+
+        self::assertSame([
+            'status' => 'not_found',
+            'data' => null,
+            'candidates' => [],
+            'provenance' => [],
+            'error' => [
+                'code' => 'semantic_not_found',
+                'message' => 'No semantic target was found.',
+            ],
+        ], $response);
     }
 
     public function testResolvesAlpsDescriptorFact(): void

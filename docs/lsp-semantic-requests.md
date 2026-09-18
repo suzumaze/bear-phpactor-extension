@@ -151,12 +151,13 @@ in responses are also workspace-relative. Every response has this envelope:
 
 `status` is one of `ok`, `not_found`, `ambiguous`, `invalid_input`, `unsupported`,
 `parse_error`, `engine_unavailable`, `outside_workspace`, or `timeout`. `data` is
-normally non-null only for `ok`. A failed query may carry partial data when it proves a
-narrower result without proving the requested target. In particular,
-`bear/template/forResource` returns `not_found` with the resolved Resource and ordered
-`searched` convention paths when the Resource exists but no template does. Failed
-results also contain an `error` object with a stable snake_case `code` and a safe
-human-readable `message`; no exception trace is exposed.
+non-null only for `ok`. A failed query may add an optional `partial` member when it
+proves a narrower result without proving the requested target. In particular,
+`bear/template/forResource` returns `not_found` with `data: null` and a `partial`
+object containing the resolved Resource and ordered `searched` convention paths when
+the Resource exists but no template does. Failed results also contain an `error`
+object with a stable snake_case `code` and a safe human-readable `message`; no
+exception trace is exposed.
 
 `provenance` records the workspace-relative evidence used by the semantic query.
 Disk-backed facts use `freshness: saved`; `buffer` is reserved for a future query that
@@ -202,10 +203,10 @@ continue to use UTF-16 line/character positions.
 
 For `bear/template/forResource`, `searched` contains workspace-relative convention
 paths in the order actually checked. A missing Resource still has `data: null`; an
-existing Resource without a template has `status: not_found`, non-null Resource data,
-no resolved template path, the complete searched path list, and saved-file provenance
-for the Resource. Missing paths are descriptive candidates and are not reported as file
-provenance.
+existing Resource without a template has `status: not_found`, `data: null`, and a
+`partial` object with the Resource, a null template path, the complete searched path
+list, and saved-file provenance for the Resource. Missing paths are descriptive
+candidates and are not reported as file provenance.
 
 ALPS description follows nested descriptors recursively and reports only explicit
 relationships in the workspace-local profile: `contains`, a descriptor's local-fragment

@@ -40,18 +40,25 @@ final class SemanticResultTest extends TestCase
         self::assertSame(['composer.json'], array_column($result->provenance, 'path'));
     }
 
-    public function testFailureCanCarryAnExplanatoryPartialValue(): void
+    public function testNotFoundCanCarryAnExplanatoryPartialValue(): void
     {
-        $result = SemanticResult::failureWithValue(
-            SemanticStatus::NotFound,
+        $result = SemanticResult::notFoundWithPartial(
             ['resolved' => 'resource'],
             provenance: [Provenance::savedFile('src/Resource/App/User.php')],
         );
 
         self::assertSame(SemanticStatus::NotFound, $result->status);
-        self::assertSame(['resolved' => 'resource'], $result->value);
+        self::assertNull($result->value);
+        self::assertSame(['resolved' => 'resource'], $result->partial);
         self::assertSame('semantic_not_found', $result->error?->code);
         self::assertSame(['src/Resource/App/User.php'], array_column($result->provenance, 'path'));
+    }
+
+    public function testPartialNotFoundRequiresAValue(): void
+    {
+        $this->expectException(LogicException::class);
+
+        SemanticResult::notFoundWithPartial(null);
     }
 
     /** @return iterable<string,array{SemanticStatus,string}> */

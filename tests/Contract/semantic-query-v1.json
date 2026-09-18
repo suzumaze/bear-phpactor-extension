@@ -18,6 +18,20 @@
         "provenance",
         "error"
     ],
+    "partialFailureEnvelopeKeys": [
+        "status",
+        "data",
+        "candidates",
+        "provenance",
+        "partial",
+        "error"
+    ],
+    "partialFailureDataKeys": [
+        "resource",
+        "engine",
+        "path",
+        "searched"
+    ],
     "errorKeys": [
         "code",
         "message"

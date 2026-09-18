@@ -205,10 +205,11 @@ custom requestの共通envelopeは既存の`status`・`data`・`candidates`を�
 `error.message`も返す。ファイル根拠のpathはworkspace相対だけを許し、現行Queryがディスクから
 読んだ事実は`freshness: saved`とする。`buffer`は実際にLSP document bufferを読む将来機能のために
 予約し、未保存かどうかを推測しない。複合結果は`source: derived`と実ファイル根拠を区別する。
-失敗時の`data`は通常`null`だが、下流targetだけが未発見の場合は、確定済みの部分結果を保持できる。
-`bear/template/forResource`ではResourceが解決済みでtemplateだけが無い場合、statusは`not_found`の
-まま、Resource、未解決のtemplate path、実際に確認した規約pathの`searched`、Resource fileのprovenanceを返す。
-Resource自体が未発見の場合は従来どおり`data: null`であり、両者を区別できる。
+失敗時の`data`は常に`null`である。下流targetだけが未発見の場合は、任意の`partial` fieldで
+確定済みの部分結果を保持できる。`bear/template/forResource`ではResourceが解決済みでtemplateだけが
+無い場合、statusは`not_found`のまま、`partial`にResource、未解決のtemplate path、実際に確認した
+規約pathの`searched`を返し、Resource fileをprovenanceに残す。Resource自体が未発見の場合は
+`partial`を付けず`data: null`を返すため、両者を区別できる。
 
 `bear/resource/describe` は、Resource class と public `on*` method、外向き・内向きの
 Link/Embed、既存の Qiq/Twig template、規約で解決できる response Schema を1回の

@@ -59,6 +59,14 @@ final class SemanticQueryProtocolTest extends TestCase
         self::assertSame('invalid_input', $failure['status']);
         self::assertIsArray($failure['error']);
 
+        $partialFailure = wait((new SemanticQueryHandler($this->fixture('Resource')))->resolveResourceTemplate(
+            'app://self/user',
+            'twig',
+        ));
+        self::assertSame('not_found', $partialFailure['status']);
+        self::assertNull($partialFailure['data']);
+        self::assertIsArray($partialFailure['partial']);
+
         $actual = [
             'semanticApiVersion' => SemanticQueryHandler::SEMANTIC_API_VERSION,
             'statuses' => array_map(
@@ -66,6 +74,8 @@ final class SemanticQueryProtocolTest extends TestCase
                 SemanticStatus::cases(),
             ),
             'failureEnvelopeKeys' => array_keys($failure),
+            'partialFailureEnvelopeKeys' => array_keys($partialFailure),
+            'partialFailureDataKeys' => array_keys($partialFailure['partial']),
             'errorKeys' => array_keys($failure['error']),
             'methods' => $methods,
         ];

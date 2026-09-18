@@ -19,12 +19,19 @@ final readonly class SemanticResult
     private function __construct(
         public SemanticStatus $status,
         public mixed $value = null,
+        public mixed $partial = null,
         public array $candidates = [],
         public ?SemanticError $error = null,
         public array $provenance = [],
     ) {
         if ($status === SemanticStatus::Ok && $value === null) {
             throw new LogicException('A successful semantic result must contain a value.');
+        }
+        if ($status !== SemanticStatus::Ok && $value !== null) {
+            throw new LogicException('A failed semantic result must not contain a successful value.');
+        }
+        if ($partial !== null && $status !== SemanticStatus::NotFound) {
+            throw new LogicException('Only a not-found semantic result may contain a partial value.');
         }
 
         if ($status === SemanticStatus::Ambiguous && count($candidates) < 2) {
@@ -94,31 +101,26 @@ final readonly class SemanticResult
     }
 
     /**
-     * Return a failed query with a useful partial result.
-     *
-     * This is intended for queries that resolved one semantic boundary but
-     * could not resolve the requested downstream target. The failure status
-     * remains authoritative; the value only explains what was established.
+     * Return a not-found query with a useful partial result.
      *
      * @template T
-     * @param T $value
+     * @param T $partial
      * @param list<Provenance> $provenance
      * @return self<T>
      */
-    public static function failureWithValue(
-        SemanticStatus $status,
-        mixed $value,
+    public static function notFoundWithPartial(
+        mixed $partial,
         ?SemanticError $error = null,
         array $provenance = [],
     ): self {
-        if ($status === SemanticStatus::Ok || $status === SemanticStatus::Ambiguous) {
-            throw new LogicException(sprintf('Status "%s" cannot be used for a partial failure.', $status->value));
+        if ($partial === null) {
+            throw new LogicException('A partial not-found semantic result must contain a partial value.');
         }
 
         return new self(
-            $status,
-            $value,
-            error: $error ?? SemanticError::fromStatus($status),
+            SemanticStatus::NotFound,
+            partial: $partial,
+            error: $error ?? SemanticError::fromStatus(SemanticStatus::NotFound),
             provenance: self::normalizeProvenance($provenance),
         );
     }
@@ -174,11 +176,12 @@ final readonly class SemanticResult
     public function withProvenance(array $provenance): self
     {
         return new self(
-            $this->status,
-            $this->value,
-            $this->candidates,
-            $this->error,
-            self::normalizeProvenance([...$this->provenance, ...$provenance]),
+            status: $this->status,
+            value: $this->value,
+            partial: $this->partial,
+            candidates: $this->candidates,
+            error: $this->error,
+            provenance: self::normalizeProvenance([...$this->provenance, ...$provenance]),
         );
     }
 

@@ -359,7 +359,7 @@ final class SemanticQueryHandler implements Handler
                 'searched' => array_values(array_filter(array_map(
                     $this->relativeCandidatePath(...),
                     $resolution->searchedFiles,
-                ))),
+                ), static fn (?string $path): bool => $path !== null)),
             ],
         ));
     }
@@ -474,6 +474,9 @@ final class SemanticQueryHandler implements Handler
             'candidates' => array_map($normalize, $result->candidates),
             'provenance' => array_map($this->provenanceData(...), $result->provenance),
         ];
+        if ($result->partial !== null) {
+            $envelope['partial'] = $normalize($result->partial);
+        }
         if ($result->error !== null) {
             $envelope['error'] = [
                 'code' => $result->error->code,
