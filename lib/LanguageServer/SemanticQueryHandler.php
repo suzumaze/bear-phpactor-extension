@@ -209,6 +209,7 @@ final class SemanticQueryHandler implements Handler
             fn (ResourceFacts $facts): array => [
                 'resource' => $this->resourceData($facts->resource),
                 'attributes' => array_map($this->resourceAttributeData(...), $facts->attributes),
+                'argumentPolicy' => $this->attributeArgumentPolicy(),
             ],
         ));
     }
@@ -233,6 +234,7 @@ final class SemanticQueryHandler implements Handler
                 ),
                 'total' => $index->total,
                 'truncated' => $index->truncated,
+                'argumentPolicy' => $this->attributeArgumentPolicy(),
             ],
         ));
     }
@@ -354,6 +356,10 @@ final class SemanticQueryHandler implements Handler
                 'path' => $resolution->templateFile === null
                     ? null
                     : $this->relativePath($resolution->templateFile),
+                'searched' => array_values(array_filter(array_map(
+                    $this->relativeCandidatePath(...),
+                    $resolution->searchedFiles,
+                ), static fn (?string $path): bool => $path !== null)),
             ],
         ));
     }
@@ -458,7 +464,7 @@ final class SemanticQueryHandler implements Handler
     private function envelope(SemanticResult $result, callable $normalize): array
     {
         $data = null;
-        if ($result->status === SemanticStatus::Ok && $result->value !== null) {
+        if ($result->value !== null) {
             $data = $normalize($result->value);
         }
 
@@ -468,6 +474,9 @@ final class SemanticQueryHandler implements Handler
             'candidates' => array_map($normalize, $result->candidates),
             'provenance' => array_map($this->provenanceData(...), $result->provenance),
         ];
+        if ($result->partial !== null) {
+            $envelope['partial'] = $normalize($result->partial);
+        }
         if ($result->error !== null) {
             $envelope['error'] = [
                 'code' => $result->error->code,
@@ -601,6 +610,15 @@ final class SemanticQueryHandler implements Handler
         ];
     }
 
+    /** @return array{source:string,constructorDefaultsExpanded:bool} */
+    private function attributeArgumentPolicy(): array
+    {
+        return [
+            'source' => 'explicit_only',
+            'constructorDefaultsExpanded' => false,
+        ];
+    }
+
     /** @return array<string,mixed> */
     private function contractComparisonData(ContractComparison $comparison): array
     {
@@ -721,5 +739,23 @@ final class SemanticQueryHandler implements Handler
         }
 
         return $this->workspace->value->accessPolicy()->inspectExisting($absolutePath)->value?->relative;
+    }
+
+    private function relativeCandidatePath(string $absolutePath): ?string
+    {
+        if ($this->workspace->value === null) {
+            return null;
+        }
+
+        $root = rtrim(str_replace('\\', '/', $this->workspace->value->root()), '/');
+        $path = str_replace('\\', '/', $absolutePath);
+        if ($path === $root) {
+            return '';
+        }
+        if (!str_starts_with($path, $root . '/')) {
+            return null;
+        }
+
+        return substr($path, strlen($root) + 1);
     }
 }

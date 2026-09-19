@@ -151,8 +151,15 @@ in responses are also workspace-relative. Every response has this envelope:
 
 `status` is one of `ok`, `not_found`, `ambiguous`, `invalid_input`, `unsupported`,
 `parse_error`, `engine_unavailable`, `outside_workspace`, or `timeout`. `data` is
-non-null only for `ok`. Failed results also contain an `error` object with a stable
-snake_case `code` and a safe human-readable `message`; no exception trace is exposed.
+non-null only for `ok`. A failed query may add an optional `partial` member when it
+proves a narrower result without proving the requested target. In particular,
+`bear/template/forResource` returns `not_found` with no successful `data` and a
+`partial` object containing the resolved Resource and ordered `searched` convention
+paths when the Resource exists but no template does. Phpactor's stdio serializer omits
+null object members, so `data` and a null template `path` are absent on the wire even
+though direct in-process handler calls represent them as null. Failed results also
+contain an `error` object with a stable snake_case `code` and a safe human-readable
+`message`; no exception trace is exposed.
 
 `provenance` records the workspace-relative evidence used by the semantic query.
 Disk-backed facts use `freshness: saved`; `buffer` is reserved for a future query that
@@ -176,15 +183,15 @@ present.
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
 | `bear/resource/list` | `{scheme?, prefix?, limit?}` | `{resources, total, truncated}` |
 | `bear/resource/describe` | `{uri, contextPath?, incomingLimit?}` | `{resource, methods, relationsOut, relationsIn, templates, schemas}` |
-| `bear/resource/attributes` | `{uri, contextPath?}` | `{resource, attributes}` |
-| `bear/resource/attributeIndex` | `{scheme?, prefix?, limit?}` | `{items, total, truncated}` |
+| `bear/resource/attributes` | `{uri, contextPath?}` | `{resource, attributes, argumentPolicy}` |
+| `bear/resource/attributeIndex` | `{scheme?, prefix?, limit?}` | `{items, total, truncated, argumentPolicy}` |
 | `bear/resource/incomingRelations` | `{uri, contextPath?, limit?}` | `{resource, available, items, total, truncated}` |
 | `bear/resource/references` | `{uri, contextPath?, limit?}` | `{resource, references, total, truncated}` |
 | `bear/contract/compare` | `{uri, method?, schemaKind?, descriptorId?, contextPath?}` | `{resource, method, schemaKind, surfaces, comparison}` |
 | `bear/route/resolve` | `{route, contextPath?}` | `{route, resource}` |
 | `bear/sql/resolve` | `{queryId, contextPath?}` | `{queryId, path}` |
 | `bear/template/resolve` | `{engine, name, contextPath?}` | `{engine, name, path}` |
-| `bear/template/forResource` | `{uri, engine, contextPath?}` | `{resource, engine, path}` |
+| `bear/template/forResource` | `{uri, engine, contextPath?}` | `{resource, engine, path, searched}` |
 | `bear/alps/resolveDescriptor` | `{descriptorId, contextPath?}` | `{descriptorId, profilePath, byteOffset}` |
 | `bear/alps/describeDescriptor` | `{descriptorId, contextPath?}` | `{descriptorId, profilePath, byteOffset, type, name, rt, href, rel, doc, def, tag, title, relationsOut, relationsIn}` |
 | `bear/schema/resolveNamed` | `{fileName, kind, contextPath?}` | `{kind, source, path, titleByteOffset, resource}` |
@@ -195,6 +202,14 @@ present.
 `engine` is `twig` or `qiq`. A relative Qiq name requires `contextPath`. The ALPS
 offset is a byte offset in the saved JSON profile; positional standard LSP methods
 continue to use UTF-16 line/character positions.
+
+For `bear/template/forResource`, `searched` contains workspace-relative convention
+paths in the order actually checked. A missing Resource has no successful `data`; an
+existing Resource without a template has `status: not_found`, no successful `data`,
+and a `partial` object with the Resource, no resolved template path, the complete
+searched path list, and saved-file provenance for the Resource. Null members are
+omitted on the stdio wire. Missing paths are descriptive candidates and are not
+reported as file provenance.
 
 ALPS description follows nested descriptors recursively and reports only explicit
 relationships in the workspace-local profile: `contains`, a descriptor's local-fragment
@@ -237,10 +252,13 @@ is kept separate instead of replacing Phpactor's PHP symbol search.
 No BEAR provider is registered for `textDocument/documentSymbol` either. In the
 supported Phpactor release, both document and workspace symbol methods have a single
 provider/handler and no extension composition chain. Replacing them would discard
-Phpactor's PHP class/method symbols or indexed symbol search. Resource classes and
-`on*` methods already appear as PHP symbols; BEAR identifiers retain their structure
-through the read-only custom queries. Route names and URIs are not emitted as fake PHP
-symbols. This decision should be revisited if Phpactor exposes composable providers.
+Phpactor's native behavior. Document symbols include class members from the requested
+saved file. Phpactor's workspace-symbol provider, however, maps only indexed class,
+function, and constant records; it does not map member records such as methods, and
+its index freshness is separate from saved-file freshness. BEAR identifiers retain
+their structure through the read-only custom queries. Route names and URIs are not
+emitted as fake PHP symbols. This decision should be revisited if Phpactor exposes
+composable providers.
 
 Resource description reports public `on*` methods, declared parameter types, and
 statically resolvable method-level `BEAR\\Resource\\Annotation\\Link` and `Embed`
@@ -257,6 +275,12 @@ method name, FQN, saved-file byte range, and source-order arguments. Static stri
 numbers, booleans, and `null` are typed explicitly. Expressions, constants, calls,
 and over-limit strings are returned as `{type: "dynamic", value: null}` rather than
 evaluated or guessed. Application PHP is never loaded or executed.
+
+Both attribute requests return `argumentPolicy: {source: "explicit_only",
+constructorDefaultsExpanded: false}`. An omitted argument therefore means only that it
+was absent from attribute syntax; it does not prove that the parameter has no default.
+Expanding defaults safely would require version-aware static parsing of the installed
+attribute class, not a hardcoded framework value or PHP execution.
 
 `bear/resource/attributeIndex` applies the same `scheme`, `prefix`, and `limit` bounds
 as Resource listing. Every selected Resource has its own `status` and `attributes`.

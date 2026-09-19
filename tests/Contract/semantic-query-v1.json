@@ -18,6 +18,20 @@
         "provenance",
         "error"
     ],
+    "partialFailureEnvelopeKeys": [
+        "status",
+        "data",
+        "candidates",
+        "provenance",
+        "partial",
+        "error"
+    ],
+    "partialFailureDataKeys": [
+        "resource",
+        "engine",
+        "path",
+        "searched"
+    ],
     "errorKeys": [
         "code",
         "message"
@@ -78,7 +92,7 @@
                 {"name": "contextPath", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["resource", "attributes"]
+            "successDataKeys": ["resource", "attributes", "argumentPolicy"]
         },
         "bear/resource/attributeIndex": {
             "handler": "indexResourceAttributes",
@@ -88,7 +102,7 @@
                 {"name": "limit", "type": "int", "required": false, "default": 50}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["items", "total", "truncated"]
+            "successDataKeys": ["items", "total", "truncated", "argumentPolicy"]
         },
         "bear/resource/incomingRelations": {
             "handler": "findIncomingResourceRelations",
@@ -158,7 +172,7 @@
                 {"name": "contextPath", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["resource", "engine", "path"]
+            "successDataKeys": ["resource", "engine", "path", "searched"]
         },
         "bear/alps/resolveDescriptor": {
             "handler": "resolveAlpsDescriptor",

@@ -110,7 +110,7 @@ final readonly class ResourceTemplateQuery
     {
         if ($resource->status === SemanticStatus::Ok && $resource->value !== null) {
             $resolution = $this->templateFor($project, $resource->value, $engine);
-            if ($resolution->status !== SemanticStatus::Ok || $resolution->value === null) {
+            if ($resolution->value === null && $resolution->partial === null) {
                 return SemanticResult::failure($resolution->status);
             }
 
@@ -122,11 +122,13 @@ final readonly class ResourceTemplateQuery
 
         $candidates = [];
         foreach ($resource->candidates as $candidate) {
-            $template = $this->templatePath($project, $candidate, $engine);
+            $template = $this->templateFor($project, $candidate, $engine);
             if ($template->status === SemanticStatus::OutsideWorkspace) {
                 return SemanticResult::outsideWorkspace();
             }
-            $candidates[] = new ResourceTemplateResolution($candidate, $engine, $template->value);
+            $candidates[] = $template->value
+                ?? $template->partial
+                ?? new ResourceTemplateResolution($candidate, $engine, null);
         }
         usort(
             $candidates,
@@ -144,16 +146,40 @@ final readonly class ResourceTemplateQuery
         ResourceResolution $resource,
         string $engine,
     ): SemanticResult {
-        $template = $this->templatePath($project, $resource, $engine);
-        if ($template->value === null) {
-            return SemanticResult::failure($template->status);
+        $paths = $this->templatePaths($project, $resource, $engine);
+        if ($paths->value === null) {
+            return SemanticResult::failure($paths->status);
         }
 
-        return SemanticResult::ok(new ResourceTemplateResolution($resource, $engine, $template->value));
+        $searched = [];
+        foreach ($paths->value as $path) {
+            $searched[] = $path;
+            if (!is_file($path)) {
+                continue;
+            }
+            $canonical = realpath($path);
+            if ($canonical === false) {
+                continue;
+            }
+            if (!$this->isInside($project->root(), $canonical)) {
+                return SemanticResult::outsideWorkspace();
+            }
+
+            return SemanticResult::ok(new ResourceTemplateResolution(
+                $resource,
+                $engine,
+                $this->normalize($canonical),
+                $searched,
+            ));
+        }
+
+        return SemanticResult::notFoundWithPartial(
+            new ResourceTemplateResolution($resource, $engine, null, $searched),
+        );
     }
 
-    /** @return SemanticResult<string|null> */
-    private function templatePath(
+    /** @return SemanticResult<list<string>|null> */
+    private function templatePaths(
         Project $project,
         ResourceResolution $resource,
         string $engine,
@@ -174,22 +200,7 @@ final readonly class ResourceTemplateQuery
                     . substr($relative, 0, -4) . self::QIQ_EXTENSION,
             ];
 
-        foreach (array_values(array_unique($paths)) as $path) {
-            if (!is_file($path)) {
-                continue;
-            }
-            $canonical = realpath($path);
-            if ($canonical === false) {
-                continue;
-            }
-            if (!$this->isInside($project->root(), $canonical)) {
-                return SemanticResult::outsideWorkspace();
-            }
-
-            return SemanticResult::ok($this->normalize($canonical));
-        }
-
-        return SemanticResult::notFound();
+        return SemanticResult::ok(array_values(array_unique($paths)));
     }
 
     private function relativeResourcePath(string $resourceFile): ?string
@@ -211,10 +222,25 @@ final readonly class ResourceTemplateQuery
      */
     private function enforceWorkspace(WorkspaceContext $workspace, SemanticResult $result): SemanticResult
     {
-        if ($result->status === SemanticStatus::Ok && $result->value !== null) {
+        if ($result->value !== null) {
             $checked = $this->workspaceResolution($workspace, $result->value);
+            if ($checked->value === null) {
+                return SemanticResult::failure($checked->status);
+            }
 
-            return $checked->value === null ? SemanticResult::failure($checked->status) : $checked;
+            return $checked;
+        }
+        if ($result->partial !== null) {
+            $checked = $this->workspaceResolution($workspace, $result->partial);
+            if ($checked->value === null) {
+                return SemanticResult::failure($checked->status);
+            }
+
+            return SemanticResult::notFoundWithPartial(
+                $checked->value,
+                $result->error,
+                [...$result->provenance, ...$checked->provenance],
+            );
         }
         if ($result->status !== SemanticStatus::Ambiguous) {
             return $result;
@@ -237,29 +263,52 @@ final readonly class ResourceTemplateQuery
         WorkspaceContext $workspace,
         ResourceTemplateResolution $resolution,
     ): SemanticResult {
+        $resourcePath = $workspace->accessPolicy()->inspectExisting($resolution->resource->file);
+        if ($resourcePath->value === null) {
+            return SemanticResult::failure($resourcePath->status);
+        }
+        foreach ($resolution->searchedFiles as $searchedFile) {
+            if (!$this->isInside($workspace->root(), $searchedFile)) {
+                return SemanticResult::outsideWorkspace();
+            }
+        }
+
+        $resource = new ResourceResolution(
+            $resolution->resource->uri,
+            $resourcePath->value->absolute,
+            $resolution->resource->fqn,
+        );
+        $provenance = [
+            Provenance::savedFile($resourcePath->value->relative),
+            Provenance::derived(),
+        ];
         if ($resolution->templateFile === null) {
-            return SemanticResult::ok($resolution);
+            return SemanticResult::ok(
+                new ResourceTemplateResolution(
+                    $resource,
+                    $resolution->engine,
+                    null,
+                    $resolution->searchedFiles,
+                ),
+                $provenance,
+            );
         }
 
         $path = $workspace->accessPolicy()->inspectExisting($resolution->templateFile);
         if ($path->value === null) {
             return SemanticResult::failure($path->status);
         }
-        $resourcePath = $workspace->accessPolicy()->inspectExisting($resolution->resource->file);
-        if ($resourcePath->value === null) {
-            return SemanticResult::failure($resourcePath->status);
-        }
 
         return SemanticResult::ok(
             new ResourceTemplateResolution(
-                $resolution->resource,
+                $resource,
                 $resolution->engine,
                 $path->value->absolute,
+                $resolution->searchedFiles,
             ),
             [
-                Provenance::savedFile($resourcePath->value->relative),
+                ...$provenance,
                 Provenance::savedFile($path->value->relative),
-                Provenance::derived(),
             ],
         );
     }

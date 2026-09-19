@@ -14,10 +14,14 @@ use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
  */
 final readonly class ResourceTemplateResolution
 {
+    /**
+     * @param list<string> $searchedFiles Absolute convention paths checked in order.
+     */
     public function __construct(
         public ResourceResolution $resource,
         public string $engine,
         public ?string $templateFile,
+        public array $searchedFiles = [],
     ) {
     }
 }

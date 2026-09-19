@@ -23,6 +23,46 @@ final class StdioLanguageServerTest extends TestCase
         $this->removeTree($this->runtimeDirectory);
     }
 
+    public function testRealPhpactorStdioSeparatesPartialTemplateFailureFromSuccessData(): void
+    {
+        $fixture = dirname(__DIR__) . '/Fixture/Resource';
+        $client = StdioLspClient::start(
+            $this->command($fixture),
+            $fixture,
+            $this->environment(),
+        );
+
+        try {
+            $initialize = $client->request('initialize', [
+                'processId' => getmypid(),
+                'rootUri' => $this->fileUri($fixture),
+                'capabilities' => (object) [],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $initialize, $client->stderr());
+            $client->notify('initialized');
+
+            $response = $client->request('bear/template/forResource', [
+                'uri' => 'app://self/user',
+                'engine' => 'twig',
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $response, $client->stderr());
+            self::assertSame('not_found', $response['result']['status']);
+            self::assertArrayNotHasKey('data', $response['result']);
+            self::assertSame('app://self/user', $response['result']['partial']['resource']['uri']);
+            self::assertArrayNotHasKey('path', $response['result']['partial']);
+            self::assertSame([
+                'src/Resource/App/User.html.twig',
+                'var/templates/App/User.html.twig',
+            ], $response['result']['partial']['searched']);
+
+            $shutdown = $client->request('shutdown', [], 10.0);
+            self::assertArrayNotHasKey('error', $shutdown, $client->stderr());
+            $client->notify('exit');
+        } finally {
+            $client->close();
+        }
+    }
+
     public function testRealPhpactorStdioInvalidatesResourceInventoryFromWatchedFileNotification(): void
     {
         $workspace = $this->runtimeDirectory . '/inventory-workspace';

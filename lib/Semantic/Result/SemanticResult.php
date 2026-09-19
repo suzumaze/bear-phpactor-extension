@@ -19,12 +19,19 @@ final readonly class SemanticResult
     private function __construct(
         public SemanticStatus $status,
         public mixed $value = null,
+        public mixed $partial = null,
         public array $candidates = [],
         public ?SemanticError $error = null,
         public array $provenance = [],
     ) {
         if ($status === SemanticStatus::Ok && $value === null) {
             throw new LogicException('A successful semantic result must contain a value.');
+        }
+        if ($status !== SemanticStatus::Ok && $value !== null) {
+            throw new LogicException('A failed semantic result must not contain a successful value.');
+        }
+        if ($partial !== null && $status !== SemanticStatus::NotFound) {
+            throw new LogicException('Only a not-found semantic result may contain a partial value.');
         }
 
         if ($status === SemanticStatus::Ambiguous && count($candidates) < 2) {
@@ -93,6 +100,31 @@ final readonly class SemanticResult
         );
     }
 
+    /**
+     * Return a not-found query with a useful partial result.
+     *
+     * @template T
+     * @param T $partial
+     * @param list<Provenance> $provenance
+     * @return self<T>
+     */
+    public static function notFoundWithPartial(
+        mixed $partial,
+        ?SemanticError $error = null,
+        array $provenance = [],
+    ): self {
+        if ($partial === null) {
+            throw new LogicException('A partial not-found semantic result must contain a partial value.');
+        }
+
+        return new self(
+            SemanticStatus::NotFound,
+            partial: $partial,
+            error: $error ?? SemanticError::fromStatus(SemanticStatus::NotFound),
+            provenance: self::normalizeProvenance($provenance),
+        );
+    }
+
     /** @return self<null> */
     public static function notFound(): self
     {
@@ -144,11 +176,12 @@ final readonly class SemanticResult
     public function withProvenance(array $provenance): self
     {
         return new self(
-            $this->status,
-            $this->value,
-            $this->candidates,
-            $this->error,
-            self::normalizeProvenance([...$this->provenance, ...$provenance]),
+            status: $this->status,
+            value: $this->value,
+            partial: $this->partial,
+            candidates: $this->candidates,
+            error: $this->error,
+            provenance: self::normalizeProvenance([...$this->provenance, ...$provenance]),
         );
     }
 

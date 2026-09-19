@@ -62,6 +62,34 @@ final class ResourceTemplateQueryTest extends TestCase
         );
     }
 
+    public function testMissingTemplatePreservesResolvedResourceAndSearchedPaths(): void
+    {
+        $fixture = realpath(dirname(__DIR__, 3) . '/Fixture/Resource');
+        self::assertNotFalse($fixture);
+        $workspace = WorkspaceContext::fromRoot($fixture);
+        self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
+
+        $result = $this->query->resolveInWorkspace(
+            $workspace->value,
+            'app://self/user',
+            'twig',
+        );
+
+        self::assertSame(SemanticStatus::NotFound, $result->status);
+        self::assertNull($result->value);
+        self::assertInstanceOf(ResourceTemplateResolution::class, $result->partial);
+        self::assertSame('app://self/user', $result->partial->resource->uri->uri());
+        self::assertNull($result->partial->templateFile);
+        self::assertSame([
+            $fixture . '/src/Resource/App/User.html.twig',
+            $fixture . '/var/templates/App/User.html.twig',
+        ], $result->partial->searchedFiles);
+        self::assertSame(
+            [null, 'src/Resource/App/User.php'],
+            array_map(static fn ($provenance): ?string => $provenance->path, $result->provenance),
+        );
+    }
+
     public function testPreservesAmbiguousResourceCandidatesEvenWithoutTemplates(): void
     {
         $fixture = realpath(dirname(__DIR__, 3) . '/Fixture/Router');
