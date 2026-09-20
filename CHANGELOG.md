@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `bear/project/diagnostics` for a bounded, saved-source-only scan of statically
+  provable Resource, Route, SQL, JSON Schema, ALPS, template, parse, relation, and
+  contract inconsistencies across a project.
+- Project diagnostics report Resource inventory truncation and skipped check kinds,
+  preserve partial results when individual inputs are broken, and avoid duplicate
+  diagnostics for Link and Embed targets.
+
 ### Changed
 
 - `bear/template/forResource` now preserves the resolved Resource, ordered convention
