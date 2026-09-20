@@ -16,7 +16,7 @@ use Suzumaze\BearPhpactor\Util\PathGuard;
  */
 final class SqlQuery
 {
-    private const SQL_DIR = 'var/db/sql';
+    public const CONVENTION_DIRECTORY = 'var/db/sql';
 
     /**
      * @return SemanticResult<SqlResolution|null>
@@ -28,7 +28,7 @@ final class SqlQuery
         }
 
         $projectRoot = realpath($project->root());
-        $sqlRoot = realpath($project->root() . '/' . self::SQL_DIR);
+        $sqlRoot = realpath($project->root() . '/' . self::CONVENTION_DIRECTORY);
         if ($projectRoot === false || $sqlRoot === false || !is_dir($sqlRoot)) {
             return SemanticResult::notFound();
         }

@@ -119,6 +119,7 @@ final class ProjectInfoQuery
             'contractComparison',
             'incomingResourceRelations',
             'projectInfo',
+            'projectDiagnostics',
             'resourceAttributeFacts',
             'resourceAttributeInventory',
             'resourceDescription',

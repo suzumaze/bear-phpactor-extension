@@ -29,12 +29,13 @@ final class ResourceInventoryQuery
         ?string $scheme = null,
         string $prefix = '',
         int $limit = self::DEFAULT_LIMIT,
+        ?string $contextPath = null,
     ): SemanticResult {
         if (!$this->validFilters($scheme, $prefix, $limit)) {
             return SemanticResult::invalidInput();
         }
 
-        $project = $workspace->project();
+        $project = $workspace->project($contextPath);
         if ($project->value === null) {
             return SemanticResult::failure($project->status);
         }
@@ -43,7 +44,7 @@ final class ResourceInventoryQuery
         $resources = [];
         $candidates = $this->inventoryIndex === null
             ? $project->value->resourceClassCandidates()
-            : $this->inventoryIndex->candidates($project->value);
+            : $this->inventoryIndex->candidates($project->value, $contextPath);
         foreach ($candidates as $candidate) {
             $uri = ResourceUri::fromString($candidate['uri']);
             if ($uri === null || ($scheme !== null && $uri->scheme() !== $scheme)) {

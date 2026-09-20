@@ -90,6 +90,7 @@ final class SemanticQueryProtocolTest extends TestCase
     {
         return [
             'bear/project/info' => ['Resource', []],
+            'bear/project/diagnostics' => ['Resource', [null, 1]],
             'bear/resource/resolve' => [
                 'Resource',
                 ['app://self/user', 'src/Client.php'],

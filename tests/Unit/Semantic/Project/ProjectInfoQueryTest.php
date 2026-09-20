@@ -72,6 +72,7 @@ final class ProjectInfoQueryTest extends TestCase
             'contractComparison',
             'incomingResourceRelations',
             'projectInfo',
+            'projectDiagnostics',
             'resourceAttributeFacts',
             'resourceAttributeInventory',
             'resourceDescription',
