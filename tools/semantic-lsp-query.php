@@ -15,11 +15,15 @@ declare(strict_types=1);
 
 const METHODS = [
     'bear/project/info',
+    'bear/project/diagnostics',
     'bear/resource/resolve',
     'bear/resource/list',
     'bear/resource/describe',
+    'bear/resource/attributes',
+    'bear/resource/attributeIndex',
     'bear/resource/incomingRelations',
     'bear/resource/references',
+    'bear/contract/compare',
     'bear/route/resolve',
     'bear/sql/resolve',
     'bear/template/resolve',

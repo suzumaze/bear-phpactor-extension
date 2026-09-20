@@ -29,6 +29,7 @@ use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsProfileQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparisonQuery;
+use Suzumaze\BearPhpactor\Semantic\Project\ProjectDiagnosticsQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceAttributeIndexQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescriptionQuery;
@@ -47,6 +48,7 @@ use Suzumaze\BearPhpactor\Semantic\Sql\SqlReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateReferencesQuery;
+use Suzumaze\BearPhpactor\Semantic\Template\TemplateSourceScanner;
 use Suzumaze\BearPhpactor\Sql\SqlDefinitionLocator;
 use Suzumaze\BearPhpactor\Sql\SqlQueryAtOffset;
 use Suzumaze\BearPhpactor\Sql\SqlReferenceFinder;
@@ -182,6 +184,29 @@ final class BearSundayExtension implements Extension
         );
 
         $container->register(
+            'bear_sunday.semantic.project_diagnostics_query',
+            function (Container $container): ProjectDiagnosticsQuery {
+                return new ProjectDiagnosticsQuery(
+                    inventoryQuery: $container->get('bear_sunday.semantic.resource_inventory_query'),
+                    resourceFactsQuery: $container->get('bear_sunday.semantic.resource_facts_query'),
+                    resourceQuery: $container->get('bear_sunday.semantic.resource_query'),
+                    routeQuery: $container->get('bear_sunday.semantic.route_query'),
+                    sqlQuery: $container->get('bear_sunday.semantic.sql_query'),
+                    schemaFactsQuery: $container->get('bear_sunday.semantic.schema_facts_query'),
+                    alpsQuery: $container->get('bear_sunday.semantic.alps_query'),
+                    templateQuery: $container->get('bear_sunday.semantic.template_query'),
+                    contractComparisonQuery: $container->get('bear_sunday.semantic.contract_comparison_query'),
+                    templateSourceScanner: $container->get('bear_sunday.semantic.template_source_scanner'),
+                    sqlReferenceScanner: $container->get('bear_sunday.sql.query_at_offset'),
+                    schemaReferenceScanner: $container->get('bear_sunday.json_schema.reference_at_offset'),
+                    alpsReferenceScanner: $container->get('bear_sunday.alps.descriptor_at_offset'),
+                    routeReferenceScanner: $container->get('bear_sunday.router.reference_at_offset'),
+                    templateReferenceScanner: $container->get('bear_sunday.template.reference_scanner'),
+                );
+            },
+        );
+
+        $container->register(
             'bear_sunday.resource.target_resolver',
             function (Container $container): ResourceTargetResolver {
                 return new ResourceTargetResolver($container->get('bear_sunday.semantic.resource_query'));
@@ -268,6 +293,7 @@ final class BearSundayExtension implements Extension
                     $container->get('bear_sunday.semantic.resource_references_query'),
                     $container->get('bear_sunday.semantic.resource_attribute_index_query'),
                     $container->get('bear_sunday.semantic.contract_comparison_query'),
+                    $container->get('bear_sunday.semantic.project_diagnostics_query'),
                 );
             },
             [LanguageServerExtension::TAG_METHOD_HANDLER => []],
@@ -319,11 +345,18 @@ final class BearSundayExtension implements Extension
             },
         );
         $container->register(
+            'bear_sunday.semantic.template_source_scanner',
+            function (): TemplateSourceScanner {
+                return new TemplateSourceScanner();
+            },
+        );
+        $container->register(
             'bear_sunday.semantic.template_references_query',
             function (Container $container): TemplateReferencesQuery {
                 return new TemplateReferencesQuery(
                     $container->get('bear_sunday.semantic.template_query'),
                     $container->get('bear_sunday.template.reference_scanner'),
+                    $container->get('bear_sunday.semantic.template_source_scanner'),
                 );
             },
         );

@@ -507,6 +507,7 @@ final class SemanticQueryHandlerTest extends TestCase
     {
         self::assertSame([
             'bear/project/info' => 'describeProject',
+            'bear/project/diagnostics' => 'diagnoseProject',
             'bear/resource/resolve' => 'resolveResource',
             'bear/resource/list' => 'listResources',
             'bear/resource/describe' => 'describeResource',

@@ -23,6 +23,7 @@ use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsProfileQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
+use Suzumaze\BearPhpactor\Semantic\Project\ProjectDiagnosticsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceAttributeIndexQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescriptionQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
@@ -113,6 +114,10 @@ final class BearSundayExtensionTest extends TestCase
         self::assertInstanceOf(
             ProjectInfoQuery::class,
             $container->get('bear_sunday.semantic.project_info_query'),
+        );
+        self::assertInstanceOf(
+            ProjectDiagnosticsQuery::class,
+            $container->get('bear_sunday.semantic.project_diagnostics_query'),
         );
     }
 

@@ -510,6 +510,29 @@ final class StdioLanguageServerTest extends TestCase
                 'resourceDescription',
                 $projectInfo['result']['data']['capabilities'] ?? [],
             );
+            self::assertContains(
+                'projectDiagnostics',
+                $projectInfo['result']['data']['capabilities'] ?? [],
+            );
+
+            $diagnostics = $client->request('bear/project/diagnostics', [
+                'limit' => 2,
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $diagnostics, $client->stderr());
+            self::assertSame('ok', $diagnostics['result']['status'] ?? null);
+            self::assertCount(2, $diagnostics['result']['data']['items'] ?? []);
+            self::assertGreaterThan(2, $diagnostics['result']['data']['total'] ?? 0);
+            self::assertTrue($diagnostics['result']['data']['truncated'] ?? false);
+            self::assertGreaterThan(0, $diagnostics['result']['data']['scannedFiles'] ?? 0);
+            self::assertGreaterThan(0, $diagnostics['result']['data']['scannedResources'] ?? 0);
+            self::assertFalse($diagnostics['result']['data']['resourceScanTruncated'] ?? true);
+            self::assertSame(
+                ['sql_references'],
+                $diagnostics['result']['data']['skippedChecks'] ?? null,
+            );
+            foreach ($diagnostics['result']['data']['items'] ?? [] as $item) {
+                self::assertStringNotContainsString($fixture, $item['path'] ?? '');
+            }
 
             $semantic = $client->request('bear/resource/resolve', [
                 'uri' => 'app://self/user',

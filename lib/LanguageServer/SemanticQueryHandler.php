@@ -15,6 +15,9 @@ use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparison;
 use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparisonQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfo;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
+use Suzumaze\BearPhpactor\Semantic\Project\ProjectDiagnostic;
+use Suzumaze\BearPhpactor\Semantic\Project\ProjectDiagnostics;
+use Suzumaze\BearPhpactor\Semantic\Project\ProjectDiagnosticsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescription;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescriptionQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceAttributeFact;
@@ -87,6 +90,7 @@ final class SemanticQueryHandler implements Handler
         private ResourceReferencesQuery $resourceReferencesQuery = new ResourceReferencesQuery(),
         private ResourceAttributeIndexQuery $resourceAttributeIndexQuery = new ResourceAttributeIndexQuery(),
         private ContractComparisonQuery $contractComparisonQuery = new ContractComparisonQuery(),
+        private ProjectDiagnosticsQuery $projectDiagnosticsQuery = new ProjectDiagnosticsQuery(),
     ) {
         $this->workspace = WorkspaceContext::fromRoot($workspaceRoot);
         $this->resourceFactsQuery = $resourceFactsQuery;
@@ -101,6 +105,7 @@ final class SemanticQueryHandler implements Handler
     {
         return [
             'bear/project/info' => 'describeProject',
+            'bear/project/diagnostics' => 'diagnoseProject',
             'bear/resource/resolve' => 'resolveResource',
             'bear/resource/list' => 'listResources',
             'bear/resource/describe' => 'describeResource',
@@ -151,6 +156,26 @@ final class SemanticQueryHandler implements Handler
                     ],
                     $info->compatibilityIssues,
                 ),
+            ],
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function diagnoseProject(
+        ?string $contextPath = null,
+        int $limit = ProjectDiagnosticsQuery::DEFAULT_LIMIT,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->projectDiagnosticsQuery->diagnoseInWorkspace($workspace, $contextPath, $limit),
+            fn (ProjectDiagnostics $diagnostics): array => [
+                'items' => array_map($this->projectDiagnosticData(...), $diagnostics->items),
+                'total' => $diagnostics->total,
+                'truncated' => $diagnostics->truncated,
+                'scannedFiles' => $diagnostics->scannedFiles,
+                'scannedResources' => $diagnostics->scannedResources,
+                'resourceScanTruncated' => $diagnostics->resourceScanTruncated,
+                'skippedChecks' => $diagnostics->skippedChecks,
             ],
         ));
     }
@@ -501,6 +526,26 @@ final class SemanticQueryHandler implements Handler
                 'end' => $provenance->byteEnd,
             ];
         }
+
+        return $data;
+    }
+
+    /** @return array<string,mixed> */
+    private function projectDiagnosticData(ProjectDiagnostic $diagnostic): array
+    {
+        $data = [
+            'code' => $diagnostic->code,
+            'status' => $diagnostic->status->value,
+            'subject' => $diagnostic->subject,
+            'path' => $diagnostic->path,
+        ];
+        if ($diagnostic->byteStart !== null && $diagnostic->byteEnd !== null) {
+            $data['byteRange'] = [
+                'start' => $diagnostic->byteStart,
+                'end' => $diagnostic->byteEnd,
+            ];
+        }
+        $data['details'] = $diagnostic->details;
 
         return $data;
     }

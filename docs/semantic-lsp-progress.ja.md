@@ -162,6 +162,7 @@ shutdown・cancellation middleware より前に実行される。そのため前
 ### BEAR custom LSP request
 
 - `bear/project/info`
+- `bear/project/diagnostics`
 - `bear/resource/resolve`
 - `bear/resource/list`
 - `bear/resource/describe`
@@ -191,9 +192,21 @@ optional response field、capabilityを追加できる。既存method/fieldの�
 optional parameterの必須化、status追加にはSemantic API versionの更新を必要とする。clientは
 未知のobject fieldを無視する。
 
-`tests/Contract/semantic-query-v1.json`とcontract testが、全19 methodの登録名、handler引数の
+`tests/Contract/semantic-query-v1.json`とcontract testが、全20 methodの登録名、handler引数の
 名前・型・default、成功envelopeとtop-level data key、failure envelope、error key、全statusを
 実際のhandler responseに対して検証する。実stdio統合テストでもAPI versionを確認する。
+
+`bear/project/diagnostics`は保存済みsourceだけを有界に走査し、明示的なResource URI、Route、
+SQL、JsonSchema、ALPS、Twig/Qiq参照、Resource解析失敗、Link/Embed先method、複数contract
+surface間の名前存在差を集約する。個別の破損はitemの`status`として保持し、外側のqueryは
+`ok`のまま部分結果を返す。`items`は既定100・最大200件、`total`は走査対象内の完全件数、
+`truncated`はitem切り捨て、`scannedFiles`と`scannedResources`は走査規模を示す。
+Resource一覧の200件上限に達した場合は別の`resourceScanTruncated`を返す。規約templateやSchemaが
+単に無いだけでは診断せず、`unsupported`と`outside_workspace`も既定では異常扱いしない。
+対応する`var/db/sql`規約rootが無い場合は、任意PHP設定からRay.MediaQueryの別directoryを推測せず、
+SQL診断を抑止し、`skippedChecks`に`sql_references`を入れる。これによりclientは問題が無い場合と
+未検査を区別できる。contract診断は完全一致する名前の存在比較だけであり、型・意味・振る舞いの
+互換性を主張しない。その`status: ok`は比較query自体の成功を表し、差分は診断codeで表す。
 
 `bear/resource/references`は、AI clientなどがResource URIを既に持つ一方で、開いた文書と
 Positionを持たない場合に使う。Positionがある場合は標準`textDocument/references`を優先する。

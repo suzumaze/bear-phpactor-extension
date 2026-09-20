@@ -56,6 +56,15 @@
                 "compatibilityIssues"
             ]
         },
+        "bear/project/diagnostics": {
+            "handler": "diagnoseProject",
+            "parameters": [
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null},
+                {"name": "limit", "type": "int", "required": false, "default": 100}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["items", "total", "truncated", "scannedFiles", "scannedResources", "resourceScanTruncated", "skippedChecks"]
+        },
         "bear/resource/resolve": {
             "handler": "resolveResource",
             "parameters": [

@@ -175,11 +175,33 @@ not exposed. `versions` contains only runtime packages whose versions can be det
 `compatibilityIssues` is empty unless a known, safely comparable incompatibility is
 present.
 
+`bear/project/diagnostics` scans bounded saved sources and returns a deterministic,
+limited item list plus the complete diagnostic count for the scanned set. Individual
+missing, ambiguous, invalid, or malformed references are diagnostic items; they do not
+make the outer result fail. Each item contains a stable snake_case `code`, the underlying
+semantic `status`, a concise `subject`, a workspace-relative source `path`, an optional
+byte range, and bounded structured `details`. It checks explicit Resource URI, Route,
+SQL, JsonSchema, ALPS, and Twig/Qiq references; Resource parse failures; resolved
+Link/Embed target methods; and exact-name-presence contract differences. It does not
+report absent convention templates or Schemas merely because those optional artifacts
+do not exist, and it does not treat `unsupported` or `outside_workspace` as project
+breakage by default. Contract items explicitly mean exact name presence only, not type,
+meaning, or behavioral compatibility; their `status: ok` means the comparison query
+succeeded, while the diagnostic `code` records the observed mismatch. SQL references
+are checked only when the supported `var/db/sql` convention root exists. A missing root
+may mean the application configured another Ray.MediaQuery directory, which cannot be
+safely inferred from arbitrary PHP configuration. In that case `skippedChecks` contains
+`sql_references`, so clients can distinguish an omitted check from a clean result.
+`limit` defaults to 100 and has a maximum of 200.
+Contract-only name lists inside `details` are independently capped at 50 names per
+surface and include complete per-surface totals plus `detailsTruncated`.
+
 ## Methods
 
 | Method | Params | Successful data |
 |---|---|---|
 | `bear/project/info` | `{contextPath?}` | `{semanticApiVersion, workspaceName, projectPath, composerPath, psr4Roots, excludedPsr4Roots, resourceCount, capabilities, versions, compatibilityIssues}` |
+| `bear/project/diagnostics` | `{contextPath?, limit?}` | `{items, total, truncated, scannedFiles, scannedResources, resourceScanTruncated, skippedChecks}` |
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
 | `bear/resource/list` | `{scheme?, prefix?, limit?}` | `{resources, total, truncated}` |
 | `bear/resource/describe` | `{uri, contextPath?, incomingLimit?}` | `{resource, methods, relationsOut, relationsIn, templates, schemas}` |
