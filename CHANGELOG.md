@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-09-20
+
 ### Added
 
 - `bear/project/diagnostics` for a bounded, saved-source-only scan of statically
@@ -95,6 +97,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Invalid, missing, ambiguous, malformed, and outside-workspace inputs return structured
   failure results instead of executing application PHP or exposing exception traces.
 
-[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.4...v0.1.5
