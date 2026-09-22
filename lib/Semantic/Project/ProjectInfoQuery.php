@@ -117,6 +117,7 @@ final class ProjectInfoQuery
             'alpsDescriptorFacts',
             'alpsDescriptorResolution',
             'contractComparison',
+            'contractCoverage',
             'incomingResourceRelations',
             'projectInfo',
             'projectDiagnostics',

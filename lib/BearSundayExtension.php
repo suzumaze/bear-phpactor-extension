@@ -29,6 +29,7 @@ use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsProfileQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparisonQuery;
+use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverageQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectDiagnosticsQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceAttributeIndexQuery;
@@ -207,6 +208,17 @@ final class BearSundayExtension implements Extension
         );
 
         $container->register(
+            'bear_sunday.semantic.contract_coverage_query',
+            function (Container $container): ContractCoverageQuery {
+                return new ContractCoverageQuery(
+                    $container->get('bear_sunday.semantic.resource_inventory_query'),
+                    $container->get('bear_sunday.semantic.resource_facts_query'),
+                    $container->get('bear_sunday.semantic.contract_comparison_query'),
+                );
+            },
+        );
+
+        $container->register(
             'bear_sunday.resource.target_resolver',
             function (Container $container): ResourceTargetResolver {
                 return new ResourceTargetResolver($container->get('bear_sunday.semantic.resource_query'));
@@ -294,6 +306,7 @@ final class BearSundayExtension implements Extension
                     $container->get('bear_sunday.semantic.resource_attribute_index_query'),
                     $container->get('bear_sunday.semantic.contract_comparison_query'),
                     $container->get('bear_sunday.semantic.project_diagnostics_query'),
+                    $container->get('bear_sunday.semantic.contract_coverage_query'),
                 );
             },
             [LanguageServerExtension::TAG_METHOD_HANDLER => []],

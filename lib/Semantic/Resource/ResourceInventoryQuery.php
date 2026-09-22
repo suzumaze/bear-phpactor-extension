@@ -30,11 +30,42 @@ final class ResourceInventoryQuery
         string $prefix = '',
         int $limit = self::DEFAULT_LIMIT,
         ?string $contextPath = null,
+        int $offset = 0,
     ): SemanticResult {
-        if (!$this->validFilters($scheme, $prefix, $limit)) {
+        if (!$this->validFilters($scheme, $prefix, $limit, $offset)) {
             return SemanticResult::invalidInput();
         }
 
+        return $this->inventoryInWorkspace($workspace, $scheme, $prefix, $limit, $contextPath, $offset);
+    }
+
+    /**
+     * Complete inventory for project-wide queries that already bound their outward result.
+     *
+     * @return SemanticResult<ResourceInventory|null>
+     */
+    public function allInWorkspace(
+        WorkspaceContext $workspace,
+        ?string $scheme = null,
+        string $prefix = '',
+        ?string $contextPath = null,
+    ): SemanticResult {
+        if (!$this->validFilters($scheme, $prefix, self::DEFAULT_LIMIT, 0)) {
+            return SemanticResult::invalidInput();
+        }
+
+        return $this->inventoryInWorkspace($workspace, $scheme, $prefix, null, $contextPath, 0);
+    }
+
+    /** @return SemanticResult<ResourceInventory|null> */
+    private function inventoryInWorkspace(
+        WorkspaceContext $workspace,
+        ?string $scheme,
+        string $prefix,
+        ?int $limit,
+        ?string $contextPath,
+        int $offset,
+    ): SemanticResult {
         $project = $workspace->project($contextPath);
         if ($project->value === null) {
             return SemanticResult::failure($project->status);
@@ -76,7 +107,7 @@ final class ResourceInventoryQuery
 
         $total = count($resources);
 
-        $selected = array_slice($resources, 0, $limit);
+        $selected = $limit === null ? $resources : array_slice($resources, $offset, $limit);
         $composer = $workspace->accessPolicy()->inspectExisting($project->value->root() . '/composer.json');
         if ($composer->value === null) {
             return SemanticResult::failure($composer->status);
@@ -90,17 +121,22 @@ final class ResourceInventoryQuery
         }
 
         return SemanticResult::ok(
-            new ResourceInventory($selected, $total, $total > $limit),
+            new ResourceInventory(
+                $selected,
+                $total,
+                $offset,
+                $limit !== null && $offset + count($selected) < $total,
+            ),
             $provenance,
         );
     }
 
-    private function validFilters(?string $scheme, string $prefix, int $limit): bool
+    private function validFilters(?string $scheme, string $prefix, int $limit, int $offset): bool
     {
         if ($scheme !== null && $scheme !== 'app' && $scheme !== 'page') {
             return false;
         }
-        if ($limit < 1 || $limit > self::MAX_LIMIT) {
+        if ($limit < 1 || $limit > self::MAX_LIMIT || $offset < 0) {
             return false;
         }
         if (

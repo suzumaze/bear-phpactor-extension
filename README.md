@@ -40,11 +40,16 @@ Project roots and namespace prefixes come from the project's `composer.json`. No
 
 Standard position-based LSP methods remain the primary interface. For clients that
 already have a BEAR identifier but no open document position, the Language Server also
-provides 20 read-only `bear/*` requests for project, Resource, Route, SQL, Template,
+provides 21 read-only `bear/*` requests for project, Resource, Route, SQL, Template,
 ALPS, and Schema facts. Resource attribute facts and their workspace inventory are
 available without executing application PHP. `bear/project/diagnostics` aggregates
 evidence-backed problems in explicit saved-source references while keeping per-item
-failures out of the outer query status. `bear/project/info` reports Semantic API version `1` and the
+failures out of the outer query status. `bear/project/contractCoverage` reports where
+request/response JSON Schema and ALPS contract surfaces are available, absent, dynamic,
+or unresolved without treating optional adoption gaps as project errors.
+Its `scheme` selector and whole-project `summary.schemes` split `app` and `page`
+URIs without claiming either scheme proves public exposure or JSON rendering.
+`bear/project/info` reports Semantic API version `1` and the
 available capabilities. The complete versioned contract is documented in
 [`docs/lsp-semantic-requests.md`](docs/lsp-semantic-requests.md).
 
@@ -61,7 +66,7 @@ For an AI client auditing cache and Resource metadata across a workspace:
 ```bash
 php tools/semantic-lsp-query.php /path/to/bear-project \
   bear/resource/attributeIndex \
-  '{"scheme":"app","limit":50}'
+  '{"scheme":"app","limit":50,"offset":0}'
 ```
 
 To compare exact request-name presence across a Resource method, JSON Schema,
@@ -78,8 +83,20 @@ To inspect bounded project-wide diagnostics without booting the application:
 ```bash
 php tools/semantic-lsp-query.php /path/to/bear-project \
   bear/project/diagnostics \
-  '{"limit":100}'
+  '{"limit":100,"offset":0}'
 ```
+
+To find Resource methods that can benefit from JSON Schema or ALPS adoption:
+
+```bash
+php tools/semantic-lsp-query.php /path/to/bear-project \
+  bear/project/contractCoverage \
+  '{"limit":100,"offset":0,"gapsOnly":true,"scheme":"page"}'
+```
+
+Both project-wide reports use stable offset pagination. Their 100-item maximum page
+keeps representative real-project JSON responses near or below 64 KiB; additional
+pages remain reachable instead of silently disappearing behind the bound.
 
 These requests inspect saved workspace files only. They do not execute the BEAR
 application, modify files, access the network, or provide an MCP server.

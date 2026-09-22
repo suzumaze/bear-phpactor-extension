@@ -142,6 +142,7 @@ final class SemanticQueryHandlerTest extends TestCase
                     'path' => 'src/Resource/App/User.php',
                 ]],
                 'total' => 1,
+                'offset' => 0,
                 'truncated' => false,
             ],
             'candidates' => [],
@@ -220,6 +221,7 @@ final class SemanticQueryHandlerTest extends TestCase
 
         self::assertSame('ok', $response['status']);
         self::assertSame(2, $response['data']['total']);
+        self::assertSame(0, $response['data']['offset']);
         self::assertFalse($response['data']['truncated']);
         self::assertSame(
             ['app://self/dashboard', 'app://self/user'],
@@ -256,6 +258,59 @@ final class SemanticQueryHandlerTest extends TestCase
             ['name' => 'id', 'sources' => ['resource', 'schema', 'alps']],
             ['name' => 'name', 'sources' => ['resource', 'schema']],
         ], $response['data']['comparison']['presence']);
+    }
+
+    public function testReportsProjectContractCoverageWithoutTreatingAbsenceAsFailure(): void
+    {
+        $response = wait((new SemanticQueryHandler($this->fixture('Contract')))->inspectContractCoverage());
+
+        self::assertSame('ok', $response['status']);
+        self::assertSame(4, $response['data']['total']);
+        self::assertSame(4, $response['data']['matchingTotal']);
+        self::assertSame(0, $response['data']['offset']);
+        self::assertFalse($response['data']['truncated']);
+        self::assertFalse($response['data']['gapsOnly']);
+        self::assertNull($response['data']['scheme']);
+        self::assertSame(1, $response['data']['scannedResources']);
+        self::assertSame(1, $response['data']['analyzedResources']);
+        self::assertFalse($response['data']['resourceScanTruncated']);
+        self::assertSame(2, $response['data']['summary']['coveredMethods']);
+        self::assertSame(4, $response['data']['summary']['schemes']['app']['methods']);
+
+        $items = [];
+        foreach ($response['data']['items'] as $item) {
+            $items[$item['method']] = $item;
+        }
+        self::assertTrue($items['onGet']['covered']);
+        self::assertSame('not_applicable', $items['onGet']['surfaces']['requestSchema']['state']);
+        self::assertSame('available', $items['onGet']['surfaces']['responseSchema']['state']);
+        self::assertFalse($items['onPatch']['covered']);
+        self::assertSame(
+            ['requestSchema', 'alps'],
+            $items['onPatch']['gaps'],
+        );
+        self::assertSame('dynamic', $items['onPatch']['surfaces']['alps']['state']);
+
+        $gaps = wait((new SemanticQueryHandler($this->fixture('Contract')))->inspectContractCoverage(
+            limit: 1,
+            offset: 1,
+            gapsOnly: true,
+        ));
+        self::assertSame(4, $gaps['data']['total']);
+        self::assertSame(2, $gaps['data']['matchingTotal']);
+        self::assertSame(1, $gaps['data']['offset']);
+        self::assertTrue($gaps['data']['gapsOnly']);
+        self::assertFalse($gaps['data']['truncated']);
+        self::assertCount(1, $gaps['data']['items']);
+
+        $pages = wait((new SemanticQueryHandler($this->fixture('Contract')))->inspectContractCoverage(
+            scheme: 'page',
+        ));
+        self::assertSame('ok', $pages['status']);
+        self::assertSame('page', $pages['data']['scheme']);
+        self::assertSame(4, $pages['data']['total']);
+        self::assertSame(0, $pages['data']['matchingTotal']);
+        self::assertSame(4, $pages['data']['summary']['methods']);
     }
 
     public function testFindsIncomingResourceRelations(): void
@@ -508,6 +563,7 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame([
             'bear/project/info' => 'describeProject',
             'bear/project/diagnostics' => 'diagnoseProject',
+            'bear/project/contractCoverage' => 'inspectContractCoverage',
             'bear/resource/resolve' => 'resolveResource',
             'bear/resource/list' => 'listResources',
             'bear/resource/describe' => 'describeResource',

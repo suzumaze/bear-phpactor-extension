@@ -60,10 +60,23 @@
             "handler": "diagnoseProject",
             "parameters": [
                 {"name": "contextPath", "type": "string|null", "required": false, "default": null},
-                {"name": "limit", "type": "int", "required": false, "default": 100}
+                {"name": "limit", "type": "int", "required": false, "default": 100},
+                {"name": "offset", "type": "int", "required": false, "default": 0}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["items", "total", "truncated", "scannedFiles", "scannedResources", "resourceScanTruncated", "skippedChecks"]
+            "successDataKeys": ["items", "total", "offset", "truncated", "scannedFiles", "scannedResources", "resourceScanTruncated", "skippedChecks"]
+        },
+        "bear/project/contractCoverage": {
+            "handler": "inspectContractCoverage",
+            "parameters": [
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null},
+                {"name": "limit", "type": "int", "required": false, "default": 100},
+                {"name": "offset", "type": "int", "required": false, "default": 0},
+                {"name": "gapsOnly", "type": "bool", "required": false, "default": false},
+                {"name": "scheme", "type": "string|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["items", "total", "matchingTotal", "offset", "truncated", "gapsOnly", "scheme", "scannedResources", "analyzedResources", "resourceScanTruncated", "summary"]
         },
         "bear/resource/resolve": {
             "handler": "resolveResource",
@@ -79,10 +92,11 @@
             "parameters": [
                 {"name": "scheme", "type": "string|null", "required": false, "default": null},
                 {"name": "prefix", "type": "string", "required": false, "default": ""},
-                {"name": "limit", "type": "int", "required": false, "default": 50}
+                {"name": "limit", "type": "int", "required": false, "default": 50},
+                {"name": "offset", "type": "int", "required": false, "default": 0}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["resources", "total", "truncated"]
+            "successDataKeys": ["resources", "total", "offset", "truncated"]
         },
         "bear/resource/describe": {
             "handler": "describeResource",
@@ -108,10 +122,11 @@
             "parameters": [
                 {"name": "scheme", "type": "string|null", "required": false, "default": null},
                 {"name": "prefix", "type": "string", "required": false, "default": ""},
-                {"name": "limit", "type": "int", "required": false, "default": 50}
+                {"name": "limit", "type": "int", "required": false, "default": 50},
+                {"name": "offset", "type": "int", "required": false, "default": 0}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["items", "total", "truncated", "argumentPolicy"]
+            "successDataKeys": ["items", "total", "offset", "truncated", "argumentPolicy"]
         },
         "bear/resource/incomingRelations": {
             "handler": "findIncomingResourceRelations",

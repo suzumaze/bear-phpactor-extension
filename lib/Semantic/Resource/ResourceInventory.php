@@ -15,6 +15,7 @@ final readonly class ResourceInventory
     public function __construct(
         public array $resources,
         public int $total,
+        public int $offset,
         public bool $truncated,
     ) {
     }

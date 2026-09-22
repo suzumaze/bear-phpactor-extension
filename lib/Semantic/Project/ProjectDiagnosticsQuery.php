@@ -44,7 +44,9 @@ use Throwable;
 final class ProjectDiagnosticsQuery
 {
     public const DEFAULT_LIMIT = 100;
-    public const MAX_LIMIT = 200;
+
+    /** Keeps a representative real-project response below the existing 64 KiB semantic payload budget. */
+    public const MAX_LIMIT = 100;
 
     private const MAX_ROUTE_BYTES = 1_048_576;
 
@@ -74,17 +76,17 @@ final class ProjectDiagnosticsQuery
         WorkspaceContext $workspace,
         ?string $contextPath = null,
         int $limit = self::DEFAULT_LIMIT,
+        int $offset = 0,
     ): SemanticResult {
-        if ($limit < 1 || $limit > self::MAX_LIMIT) {
+        if ($limit < 1 || $limit > self::MAX_LIMIT || $offset < 0) {
             return SemanticResult::invalidInput();
         }
         $project = $workspace->project($contextPath);
         if ($project->value === null) {
             return SemanticResult::failure($project->status);
         }
-        $inventory = $this->inventoryQuery->listInWorkspace(
+        $inventory = $this->inventoryQuery->allInWorkspace(
             $workspace,
-            limit: ResourceInventoryQuery::MAX_LIMIT,
             contextPath: $contextPath,
         );
         if (!$inventory->value instanceof ResourceInventory) {
@@ -199,7 +201,7 @@ final class ProjectDiagnosticsQuery
         ]);
 
         $total = count($items);
-        $selected = array_slice($items, 0, $limit);
+        $selected = array_slice($items, $offset, $limit);
         $provenance = [Provenance::derived()];
         $composer = $workspace->accessPolicy()->inspectExisting($project->value->root() . '/composer.json');
         if ($composer->value !== null) {
@@ -213,7 +215,8 @@ final class ProjectDiagnosticsQuery
             new ProjectDiagnostics(
                 $selected,
                 $total,
-                $total > $limit,
+                $offset,
+                $offset + count($selected) < $total,
                 count($scannedFiles),
                 count($inventory->value->resources),
                 $inventory->value->truncated,

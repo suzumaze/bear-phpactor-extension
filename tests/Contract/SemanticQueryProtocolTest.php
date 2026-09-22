@@ -90,12 +90,13 @@ final class SemanticQueryProtocolTest extends TestCase
     {
         return [
             'bear/project/info' => ['Resource', []],
-            'bear/project/diagnostics' => ['Resource', [null, 1]],
+            'bear/project/diagnostics' => ['Resource', [null, 1, 0]],
+            'bear/project/contractCoverage' => ['Contract', [null, 1, 0, false, null]],
             'bear/resource/resolve' => [
                 'Resource',
                 ['app://self/user', 'src/Client.php'],
             ],
-            'bear/resource/list' => ['Resource', ['app', 'user', 1]],
+            'bear/resource/list' => ['Resource', ['app', 'user', 1, 0]],
             'bear/resource/describe' => [
                 'Template/basic',
                 ['app://self/dashboard', 'src/Resource/App/Dashboard.php'],
@@ -104,7 +105,7 @@ final class SemanticQueryProtocolTest extends TestCase
                 'Template/basic',
                 ['app://self/dashboard', 'src/Resource/App/Dashboard.php'],
             ],
-            'bear/resource/attributeIndex' => ['Template/basic', ['app', '', 2]],
+            'bear/resource/attributeIndex' => ['Template/basic', ['app', '', 2, 0]],
             'bear/resource/incomingRelations' => [
                 'Template/basic',
                 ['app://self/user', 'src/Resource/App/User.php', 2],

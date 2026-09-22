@@ -16,6 +16,7 @@ final readonly class ProjectDiagnostics
     public function __construct(
         public array $items,
         public int $total,
+        public int $offset,
         public bool $truncated,
         public int $scannedFiles,
         public int $scannedResources,

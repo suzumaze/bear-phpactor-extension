@@ -29,4 +29,11 @@ final class User extends ResourceObject
     {
         return $this;
     }
+
+    #[Alps('missingDescriptor')]
+    #[JsonSchema(params: 'missing-params.json', schema: 'missing-response.json')]
+    public function onDelete(int $id): static
+    {
+        return $this;
+    }
 }

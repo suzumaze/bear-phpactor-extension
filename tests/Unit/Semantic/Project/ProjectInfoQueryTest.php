@@ -70,6 +70,7 @@ final class ProjectInfoQueryTest extends TestCase
             'alpsDescriptorFacts',
             'alpsDescriptorResolution',
             'contractComparison',
+            'contractCoverage',
             'incomingResourceRelations',
             'projectInfo',
             'projectDiagnostics',

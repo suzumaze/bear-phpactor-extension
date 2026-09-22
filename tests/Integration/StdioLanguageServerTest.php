@@ -514,13 +514,19 @@ final class StdioLanguageServerTest extends TestCase
                 'projectDiagnostics',
                 $projectInfo['result']['data']['capabilities'] ?? [],
             );
+            self::assertContains(
+                'contractCoverage',
+                $projectInfo['result']['data']['capabilities'] ?? [],
+            );
 
             $diagnostics = $client->request('bear/project/diagnostics', [
                 'limit' => 2,
+                'offset' => 1,
             ], 20.0);
             self::assertArrayNotHasKey('error', $diagnostics, $client->stderr());
             self::assertSame('ok', $diagnostics['result']['status'] ?? null);
             self::assertCount(2, $diagnostics['result']['data']['items'] ?? []);
+            self::assertSame(1, $diagnostics['result']['data']['offset'] ?? null);
             self::assertGreaterThan(2, $diagnostics['result']['data']['total'] ?? 0);
             self::assertTrue($diagnostics['result']['data']['truncated'] ?? false);
             self::assertGreaterThan(0, $diagnostics['result']['data']['scannedFiles'] ?? 0);
@@ -532,6 +538,52 @@ final class StdioLanguageServerTest extends TestCase
             );
             foreach ($diagnostics['result']['data']['items'] ?? [] as $item) {
                 self::assertStringNotContainsString($fixture, $item['path'] ?? '');
+            }
+
+            $coverage = $client->request('bear/project/contractCoverage', [
+                'limit' => 2,
+                'offset' => 1,
+                'gapsOnly' => true,
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $coverage, $client->stderr());
+            self::assertSame('ok', $coverage['result']['status'] ?? null);
+            self::assertNotEmpty($coverage['result']['data']['items'] ?? []);
+            self::assertLessThanOrEqual(2, count($coverage['result']['data']['items'] ?? []));
+            self::assertSame(1, $coverage['result']['data']['offset'] ?? null);
+            self::assertTrue($coverage['result']['data']['gapsOnly'] ?? false);
+            self::assertGreaterThanOrEqual(
+                count($coverage['result']['data']['items'] ?? []) + 1,
+                $coverage['result']['data']['matchingTotal'] ?? 0,
+            );
+            self::assertGreaterThan(2, $coverage['result']['data']['total'] ?? 0);
+            self::assertTrue($coverage['result']['data']['truncated'] ?? false);
+            self::assertGreaterThan(0, $coverage['result']['data']['scannedResources'] ?? 0);
+            self::assertGreaterThan(0, $coverage['result']['data']['analyzedResources'] ?? 0);
+            self::assertFalse($coverage['result']['data']['resourceScanTruncated'] ?? true);
+            self::assertSame(
+                $coverage['result']['data']['total'] ?? null,
+                $coverage['result']['data']['summary']['methods'] ?? null,
+            );
+            self::assertSame(
+                $coverage['result']['data']['total'] ?? null,
+                ($coverage['result']['data']['summary']['schemes']['app']['methods'] ?? 0)
+                    + ($coverage['result']['data']['summary']['schemes']['page']['methods'] ?? 0),
+            );
+            foreach ($coverage['result']['data']['items'] ?? [] as $item) {
+                self::assertStringNotContainsString($fixture, $item['path'] ?? '');
+                self::assertArrayHasKey('responseSchema', $item['surfaces'] ?? []);
+                self::assertArrayHasKey('alps', $item['surfaces'] ?? []);
+            }
+
+            $pageCoverage = $client->request('bear/project/contractCoverage', [
+                'scheme' => 'page',
+                'limit' => 2,
+            ], 20.0);
+            self::assertSame('ok', $pageCoverage['result']['status'] ?? null);
+            self::assertSame('page', $pageCoverage['result']['data']['scheme'] ?? null);
+            self::assertGreaterThan(0, $pageCoverage['result']['data']['matchingTotal'] ?? 0);
+            foreach ($pageCoverage['result']['data']['items'] ?? [] as $item) {
+                self::assertStringStartsWith('page://', $item['uri'] ?? '');
             }
 
             $semantic = $client->request('bear/resource/resolve', [
@@ -573,10 +625,12 @@ final class StdioLanguageServerTest extends TestCase
                 'scheme' => 'app',
                 'prefix' => 'user',
                 'limit' => 1,
+                'offset' => 0,
             ], 20.0);
             self::assertArrayNotHasKey('error', $inventory, $client->stderr());
             self::assertSame('ok', $inventory['result']['status'] ?? null);
             self::assertSame(1, $inventory['result']['data']['total'] ?? null);
+            self::assertSame(0, $inventory['result']['data']['offset'] ?? null);
             self::assertFalse($inventory['result']['data']['truncated'] ?? true);
             self::assertSame(
                 'src/Resource/App/User.php',
@@ -621,13 +675,15 @@ final class StdioLanguageServerTest extends TestCase
                 'scheme' => 'app',
                 'prefix' => 'article',
                 'limit' => 1,
+                'offset' => 1,
             ], 20.0);
             self::assertArrayNotHasKey('error', $attributeIndex, $client->stderr());
             self::assertSame('ok', $attributeIndex['result']['status'] ?? null);
             self::assertSame(2, $attributeIndex['result']['data']['total'] ?? null);
-            self::assertTrue($attributeIndex['result']['data']['truncated'] ?? false);
+            self::assertSame(1, $attributeIndex['result']['data']['offset'] ?? null);
+            self::assertFalse($attributeIndex['result']['data']['truncated'] ?? true);
             self::assertSame(
-                'app://self/article',
+                'app://self/articles',
                 $attributeIndex['result']['data']['items'][0]['resource']['uri'] ?? null,
             );
             self::assertSame('ok', $attributeIndex['result']['data']['items'][0]['status'] ?? null);
