@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-09-22
+
 ### Added
 
 - `bear/project/contractCoverage` for bounded, saved-source-only JSON Schema and
@@ -116,7 +118,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Invalid, missing, ambiguous, malformed, and outside-workspace inputs return structured
   failure results instead of executing application PHP or exposing exception traces.
 
-[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.8...HEAD
+[0.1.8]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.4...v0.1.5
