@@ -163,6 +163,7 @@ shutdown・cancellation middleware より前に実行される。そのため前
 
 - `bear/project/info`
 - `bear/project/diagnostics`
+- `bear/project/contractCoverage`
 - `bear/resource/resolve`
 - `bear/resource/list`
 - `bear/resource/describe`
@@ -192,21 +193,38 @@ optional response field、capabilityを追加できる。既存method/fieldの�
 optional parameterの必須化、status追加にはSemantic API versionの更新を必要とする。clientは
 未知のobject fieldを無視する。
 
-`tests/Contract/semantic-query-v1.json`とcontract testが、全20 methodの登録名、handler引数の
+`tests/Contract/semantic-query-v1.json`とcontract testが、全21 methodの登録名、handler引数の
 名前・型・default、成功envelopeとtop-level data key、failure envelope、error key、全statusを
 実際のhandler responseに対して検証する。実stdio統合テストでもAPI versionを確認する。
 
 `bear/project/diagnostics`は保存済みsourceだけを有界に走査し、明示的なResource URI、Route、
 SQL、JsonSchema、ALPS、Twig/Qiq参照、Resource解析失敗、Link/Embed先method、複数contract
 surface間の名前存在差を集約する。個別の破損はitemの`status`として保持し、外側のqueryは
-`ok`のまま部分結果を返す。`items`は既定100・最大200件、`total`は走査対象内の完全件数、
-`truncated`はitem切り捨て、`scannedFiles`と`scannedResources`は走査規模を示す。
-Resource一覧の200件上限に達した場合は別の`resourceScanTruncated`を返す。規約templateやSchemaが
+`ok`のまま部分結果を返す。Resource discovery自体は全件を対象とし、`items`だけを1ページ既定・最大100件で、安定順序を`offset`で継続取得する。
+100件は実projectでのJSON responseを概ね64 KiB以下に保つresponse-size budgetであり、project規模の
+上限ではない。`total`は走査対象内の完全件数、`truncated`は後続pageの有無、`scannedFiles`と
+`scannedResources`は走査規模を示す。
+`resourceScanTruncated`はSemantic API v1互換性のため残すが、現在の全件走査では`false`になる。規約templateやSchemaが
 単に無いだけでは診断せず、`unsupported`と`outside_workspace`も既定では異常扱いしない。
 対応する`var/db/sql`規約rootが無い場合は、任意PHP設定からRay.MediaQueryの別directoryを推測せず、
 SQL診断を抑止し、`skippedChecks`に`sql_references`を入れる。これによりclientは問題が無い場合と
 未検査を区別できる。contract診断は完全一致する名前の存在比較だけであり、型・意味・振る舞いの
 互換性を主張しない。その`status: ok`は比較query自体の成功を表し、差分は診断codeで表す。
+
+`bear/project/contractCoverage`は異常検出や品質scoreではなく、JSON SchemaとALPSの導入状況を
+示す。保存済みResource methodごとにrequest Schema、response Schema、methodのALPS descriptorを
+調べ、`available`、`absent`、`dynamic`、`unresolved`、`not_applicable`に分類する。
+基礎となるsemantic `status`とsubjectは別に保持する。引数がなく、静的に確認できるrequest
+Schemaもないmethodだけは、そのsurfaceを`not_applicable`とする。適用対象の全surfaceが
+`available`なら`covered`、それ以外は`gaps`にsurface名を入れる。`summary`はitem上限とは独立して
+走査対象内の全methodを集計し、`schemes.app`/`schemes.page`でURI scheme別の内訳も返す。
+`absent`は未導入の観測であり、必須の欠落ではない。URI schemeだけでは外部公開やHTML/JSON表現を
+証明できない（API contextでは`app`も公開し得る）ため、その理由だけで`not_applicable`にはしない。
+`scheme: app|page`はpagination前にURI schemeで明細を絞り、`total`と`summary`は全体のまま、
+`matchingTotal`は選択後の件数を表す。Resource discovery自体も全件を対象にする。`scannedResources`、
+`analyzedResources`で解析範囲を明示し、互換用の`resourceScanTruncated`は現在`false`になる。`gapsOnly`ならgapを持つmethodだけを選び、`total`は
+全method数、`matchingTotal`は選択後の件数を示す。安定順序を`offset`で継続取得し、1ページは
+既定・最大100 itemとする。applicationは実行しない。
 
 `bear/resource/references`は、AI clientなどがResource URIを既に持つ一方で、開いた文書と
 Positionを持たない場合に使う。Positionがある場合は標準`textDocument/references`を優先する。
@@ -239,7 +257,8 @@ FQN、引数、保存済みfileのbyte rangeとともに返す。対象は`Alps`
 default展開には、実行やframework値のhardcodeではなく、install済みattribute classのversion-awareな
 静的解析が必要なため、独立した将来機能として扱う。
 
-`bear/resource/attributeIndex`は、Resource一覧と同じscheme・prefix・limit境界でworkspaceを
+`bear/resource/list`は既定50・最大200件を1ページとして返し、安定順序を`offset`で継続取得できる。
+`bear/resource/attributeIndex`は、Resource一覧と同じscheme・prefix・limit・offset境界でworkspaceを
 走査し、各Resourceに個別statusと属性factsを付ける。途中の1ファイルが壊れていてもouter resultは
 `ok`のまま、該当itemだけ`parse_error`になるため、AIの監査処理が他の証明済みfactsを失わない。
 

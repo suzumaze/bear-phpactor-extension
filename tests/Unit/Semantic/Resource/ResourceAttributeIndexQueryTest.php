@@ -71,6 +71,7 @@ PHP,
         self::assertSame(SemanticStatus::Ok, $result->status);
         self::assertInstanceOf(ResourceAttributeIndex::class, $result->value);
         self::assertSame(2, $result->value->total);
+        self::assertSame(0, $result->value->offset);
         self::assertFalse($result->value->truncated);
         self::assertSame(
             ['app://self/broken', 'app://self/good'],
@@ -85,6 +86,18 @@ PHP,
             ['Cacheable', 'Embed'],
             array_map(static fn ($attribute): string => $attribute->name, $result->value->items[1]->attributes),
         );
+
+        $second = (new ResourceAttributeIndexQuery($inventory))->listInWorkspace(
+            $workspace->value,
+            'app',
+            limit: 1,
+            offset: 1,
+        );
+        self::assertInstanceOf(ResourceAttributeIndex::class, $second->value);
+        self::assertSame(1, $second->value->offset);
+        self::assertCount(1, $second->value->items);
+        self::assertFalse($second->value->truncated);
+        self::assertSame('app://self/good', $second->value->items[0]->resource->uri->uri());
     }
 
     private function removeTree(string $path): void

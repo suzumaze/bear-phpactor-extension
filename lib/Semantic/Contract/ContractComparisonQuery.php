@@ -70,6 +70,33 @@ final class ContractComparisonQuery
         return SemanticResult::ambiguous($candidates);
     }
 
+    /**
+     * Compare a Resource whose saved-source facts have already been parsed.
+     *
+     * Project-wide queries use this entry point to avoid resolving and parsing
+     * the same Resource once per method and contract direction.
+     *
+     * @return SemanticResult<ContractComparison|null>
+     */
+    public function compareFactsInWorkspace(
+        WorkspaceContext $workspace,
+        ResourceFacts $facts,
+        string $method = 'onGet',
+        string $schemaKind = SchemaQuery::KIND_RESPONSE,
+        ?string $descriptorId = null,
+    ): SemanticResult {
+        if (
+            $method === ''
+            || str_contains($method, "\0")
+            || !in_array($schemaKind, [SchemaQuery::KIND_REQUEST, SchemaQuery::KIND_RESPONSE], true)
+            || ($descriptorId !== null && ($descriptorId === '' || str_contains($descriptorId, "\0")))
+        ) {
+            return SemanticResult::invalidInput();
+        }
+
+        return $this->compareFacts($workspace, $facts, $method, $schemaKind, $descriptorId);
+    }
+
     /** @return SemanticResult<ContractComparison|null> */
     private function compareFacts(
         WorkspaceContext $workspace,

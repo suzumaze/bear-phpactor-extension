@@ -19,6 +19,7 @@ use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceReferenceFinder;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparisonQuery;
+use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverageQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsProfileQuery;
@@ -118,6 +119,10 @@ final class BearSundayExtensionTest extends TestCase
         self::assertInstanceOf(
             ProjectDiagnosticsQuery::class,
             $container->get('bear_sunday.semantic.project_diagnostics_query'),
+        );
+        self::assertInstanceOf(
+            ContractCoverageQuery::class,
+            $container->get('bear_sunday.semantic.contract_coverage_query'),
         );
     }
 

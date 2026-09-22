@@ -16,6 +16,7 @@ declare(strict_types=1);
 const METHODS = [
     'bear/project/info',
     'bear/project/diagnostics',
+    'bear/project/contractCoverage',
     'bear/resource/resolve',
     'bear/resource/list',
     'bear/resource/describe',
@@ -90,7 +91,12 @@ if (!is_string($phpactor) || $phpactor === '') {
 }
 
 $process = proc_open(
-    [$phpactor, 'language-server', '--working-dir=' . $workspace],
+    [
+        $phpactor,
+        'language-server',
+        '--working-dir=' . $workspace,
+        '--config-extra={"language_server_configuration.auto_config":false}',
+    ],
     [
         0 => ['pipe', 'r'],
         1 => ['pipe', 'w'],

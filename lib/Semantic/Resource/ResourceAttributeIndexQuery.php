@@ -25,8 +25,15 @@ final class ResourceAttributeIndexQuery
         ?string $scheme = null,
         string $prefix = '',
         int $limit = ResourceInventoryQuery::DEFAULT_LIMIT,
+        int $offset = 0,
     ): SemanticResult {
-        $inventory = $this->inventoryQuery->listInWorkspace($workspace, $scheme, $prefix, $limit);
+        $inventory = $this->inventoryQuery->listInWorkspace(
+            $workspace,
+            $scheme,
+            $prefix,
+            $limit,
+            offset: $offset,
+        );
         if (!$inventory->value instanceof ResourceInventory) {
             return SemanticResult::failure($inventory->status);
         }
@@ -49,6 +56,7 @@ final class ResourceAttributeIndexQuery
             new ResourceAttributeIndex(
                 $items,
                 $inventory->value->total,
+                $inventory->value->offset,
                 $inventory->value->truncated,
             ),
             $provenance,

@@ -6,6 +6,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `bear/project/contractCoverage` for bounded, saved-source-only JSON Schema and
+  ALPS adoption coverage across Resource methods, distinguishing absent, dynamic,
+  unresolved, available, and non-applicable contract surfaces without reporting
+  optional gaps as project errors.
+
+### Changed
+
+- Project diagnostics and contract coverage now use stable offset pagination with a
+  measured 100-item page budget; contract coverage can select adoption gaps without
+  losing the complete project summary.
+- Project diagnostics and contract coverage now scan the complete Resource inventory;
+  their response page limits no longer discard Resources after the first 200.
+- `bear/resource/list` and `bear/resource/attributeIndex` now accept `offset` and return
+  it, so every Resource remains reachable through stable bounded pages.
+- The included semantic stdio client now disables Phpactor auto-configuration so a
+  read-only query cannot create or rewrite workspace configuration.
+
 ## [0.1.7] - 2026-09-20
 
 ### Added

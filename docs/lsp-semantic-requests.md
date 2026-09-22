@@ -192,21 +192,49 @@ are checked only when the supported `var/db/sql` convention root exists. A missi
 may mean the application configured another Ray.MediaQuery directory, which cannot be
 safely inferred from arbitrary PHP configuration. In that case `skippedChecks` contains
 `sql_references`, so clients can distinguish an omitted check from a clean result.
-`limit` defaults to 100 and has a maximum of 200.
+`limit` defaults to 100 and has a maximum of 100 per page. `offset` defaults to zero
+and advances through the stable diagnostic ordering. Resource discovery itself is
+complete; the page bound applies only to returned diagnostic items. The 100-item page bound keeps a
+representative real-project response below approximately 64 KiB; it is a response-size
+budget rather than a project-size limit.
 Contract-only name lists inside `details` are independently capped at 50 names per
 surface and include complete per-surface totals plus `detailsTruncated`.
+
+`bear/project/contractCoverage` is an adoption report, not an error report or quality
+score. For each saved Resource method it inspects three surfaces: request Schema,
+response Schema, and the method's ALPS descriptor. A surface state is `available`,
+`absent`, `dynamic`, `unresolved`, or `not_applicable`; the underlying semantic
+`status` and subject are preserved separately. A request Schema is `not_applicable`
+only when the method has no parameters and no statically observable request Schema.
+`absent` means no adopted artifact was found, **not** that the method requires one.
+The `app`/`page` URI scheme does not prove whether a Resource is externally reachable
+or rendered as JSON or HTML; API contexts may expose `app` Resources. Consequently,
+the query does not infer Schema applicability from the scheme alone.
+`covered` means every applicable surface is available, while `gaps` names the surfaces
+that are absent, dynamic, or unresolved. `summary` counts every analyzed method in the
+scanned Resource set, even when `items` is limited. Its `schemes.app` and `schemes.page`
+subtotals separate source URI schemes without interpreting public exposure. Set `scheme`
+to `app` or `page` to select a scheme before pagination, and `gapsOnly` to return only
+methods with at least one adoption opportunity. `total` remains the complete analyzed
+method count while `matchingTotal` is the count selected by those filters. `offset` pages through the stable
+selected order. Resource discovery itself is complete. `scannedResources` and
+`analyzedResources` expose the analyzed scope; `resourceScanTruncated` is retained for
+Semantic API v1 compatibility and is `false` for this complete scan. The query uses saved source only and returns at most
+100 items per page. The page bound keeps a representative real-project response near
+64 KiB; later pages remain reachable instead of being discarded.
 
 ## Methods
 
 | Method | Params | Successful data |
 |---|---|---|
 | `bear/project/info` | `{contextPath?}` | `{semanticApiVersion, workspaceName, projectPath, composerPath, psr4Roots, excludedPsr4Roots, resourceCount, capabilities, versions, compatibilityIssues}` |
-| `bear/project/diagnostics` | `{contextPath?, limit?}` | `{items, total, truncated, scannedFiles, scannedResources, resourceScanTruncated, skippedChecks}` |
+| `bear/project/diagnostics` | `{contextPath?, limit?, offset?}` | `{items, total, offset, truncated, scannedFiles, scannedResources, resourceScanTruncated, skippedChecks}` |
+| `bear/project/contractCoverage` | `{contextPath?, limit?, offset?, gapsOnly?, scheme?}` | `{items, total, matchingTotal, offset, truncated, gapsOnly, scheme, scannedResources, analyzedResources, resourceScanTruncated, summary}` |
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
-| `bear/resource/list` | `{scheme?, prefix?, limit?}` | `{resources, total, truncated}` |
+| `bear/resource/list` | `{scheme?, prefix?, limit?, offset?}` | `{resources, total, offset, truncated}` |
 | `bear/resource/describe` | `{uri, contextPath?, incomingLimit?}` | `{resource, methods, relationsOut, relationsIn, templates, schemas}` |
 | `bear/resource/attributes` | `{uri, contextPath?}` | `{resource, attributes, argumentPolicy}` |
-| `bear/resource/attributeIndex` | `{scheme?, prefix?, limit?}` | `{items, total, truncated, argumentPolicy}` |
+| `bear/resource/attributeIndex` | `{scheme?, prefix?, limit?, offset?}` | `{items, total, offset, truncated, argumentPolicy}` |
 | `bear/resource/incomingRelations` | `{uri, contextPath?, limit?}` | `{resource, available, items, total, truncated}` |
 | `bear/resource/references` | `{uri, contextPath?, limit?}` | `{resource, references, total, truncated}` |
 | `bear/contract/compare` | `{uri, method?, schemaKind?, descriptorId?, contextPath?}` | `{resource, method, schemaKind, surfaces, comparison}` |
@@ -266,7 +294,8 @@ declared `types`. It does not return raw JSON or expand `$ref`. JSON input is li
 to 1 MiB and a decode depth of 64; malformed or over-limit input returns `parse_error`.
 
 Resource listing accepts `app` or `page` as `scheme`. `limit` defaults to 50 and
-has a maximum of 200. Duplicate URIs from different PSR-4 roots remain separate,
+has a maximum of 200 per page; `offset` defaults to zero and reaches later pages in the
+stable ordering. Duplicate URIs from different PSR-4 roots remain separate,
 and results are ordered by URI, path, then FQN. The supported Phpactor version does
 not expose a provider chain for `workspace/symbol`, so this identifier-based request
 is kept separate instead of replacing Phpactor's PHP symbol search.
@@ -304,8 +333,8 @@ was absent from attribute syntax; it does not prove that the parameter has no de
 Expanding defaults safely would require version-aware static parsing of the installed
 attribute class, not a hardcoded framework value or PHP execution.
 
-`bear/resource/attributeIndex` applies the same `scheme`, `prefix`, and `limit` bounds
-as Resource listing. Every selected Resource has its own `status` and `attributes`.
+`bear/resource/attributeIndex` applies the same `scheme`, `prefix`, `limit`, and `offset`
+bounds as Resource listing. Every selected Resource has its own `status` and `attributes`.
 The outer result therefore remains `ok` when one selected file becomes malformed;
 that item reports `parse_error` while facts proven from the other saved files remain
 available. This partial-result model is intended for workspace audits and AI clients

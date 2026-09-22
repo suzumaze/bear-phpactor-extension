@@ -76,8 +76,32 @@ JSON,
         self::assertSame(SemanticStatus::Ok, $result->status);
         self::assertInstanceOf(ResourceInventory::class, $result->value);
         self::assertSame(4, $result->value->total);
+        self::assertSame(0, $result->value->offset);
         self::assertCount(2, $result->value->resources);
         self::assertTrue($result->value->truncated);
+
+        $second = (new ResourceInventoryQuery())->listInWorkspace($this->workspace(), limit: 2, offset: 2);
+        self::assertInstanceOf(ResourceInventory::class, $second->value);
+        self::assertSame(2, $second->value->offset);
+        self::assertCount(2, $second->value->resources);
+        self::assertFalse($second->value->truncated);
+        self::assertNotSame($result->value->resources[0]->uri->uri(), $second->value->resources[0]->uri->uri());
+    }
+
+    public function testCompleteInventoryIsNotBoundedByThePublicPageLimit(): void
+    {
+        for ($index = 0; $index <= ResourceInventoryQuery::MAX_LIMIT; ++$index) {
+            $this->writeResource('one/Resource/App/Bulk' . $index . '.php');
+        }
+
+        $result = (new ResourceInventoryQuery())->allInWorkspace($this->workspace());
+
+        self::assertSame(SemanticStatus::Ok, $result->status);
+        self::assertInstanceOf(ResourceInventory::class, $result->value);
+        self::assertGreaterThan(ResourceInventoryQuery::MAX_LIMIT, $result->value->total);
+        self::assertCount($result->value->total, $result->value->resources);
+        self::assertSame(0, $result->value->offset);
+        self::assertFalse($result->value->truncated);
     }
 
     public function testReturnsEmptySuccessfulInventoryForUnmatchedFilter(): void
@@ -101,6 +125,7 @@ JSON,
         );
         self::assertSame(SemanticStatus::InvalidInput, $query->listInWorkspace($this->workspace(), limit: 0)->status);
         self::assertSame(SemanticStatus::InvalidInput, $query->listInWorkspace($this->workspace(), limit: 201)->status);
+        self::assertSame(SemanticStatus::InvalidInput, $query->listInWorkspace($this->workspace(), offset: -1)->status);
     }
 
     public function testDoesNotReadResourceSymlinkOutsideWorkspace(): void

@@ -13,6 +13,10 @@ use Suzumaze\BearPhpactor\Semantic\Alps\AlpsFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparison;
 use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparisonQuery;
+use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverage;
+use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverageItem;
+use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverageQuery;
+use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverageSurface;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfo;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectDiagnostic;
@@ -91,6 +95,7 @@ final class SemanticQueryHandler implements Handler
         private ResourceAttributeIndexQuery $resourceAttributeIndexQuery = new ResourceAttributeIndexQuery(),
         private ContractComparisonQuery $contractComparisonQuery = new ContractComparisonQuery(),
         private ProjectDiagnosticsQuery $projectDiagnosticsQuery = new ProjectDiagnosticsQuery(),
+        private ContractCoverageQuery $contractCoverageQuery = new ContractCoverageQuery(),
     ) {
         $this->workspace = WorkspaceContext::fromRoot($workspaceRoot);
         $this->resourceFactsQuery = $resourceFactsQuery;
@@ -106,6 +111,7 @@ final class SemanticQueryHandler implements Handler
         return [
             'bear/project/info' => 'describeProject',
             'bear/project/diagnostics' => 'diagnoseProject',
+            'bear/project/contractCoverage' => 'inspectContractCoverage',
             'bear/resource/resolve' => 'resolveResource',
             'bear/resource/list' => 'listResources',
             'bear/resource/describe' => 'describeResource',
@@ -164,18 +170,54 @@ final class SemanticQueryHandler implements Handler
     public function diagnoseProject(
         ?string $contextPath = null,
         int $limit = ProjectDiagnosticsQuery::DEFAULT_LIMIT,
+        int $offset = 0,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
-                $this->projectDiagnosticsQuery->diagnoseInWorkspace($workspace, $contextPath, $limit),
+                $this->projectDiagnosticsQuery->diagnoseInWorkspace($workspace, $contextPath, $limit, $offset),
             fn (ProjectDiagnostics $diagnostics): array => [
                 'items' => array_map($this->projectDiagnosticData(...), $diagnostics->items),
                 'total' => $diagnostics->total,
+                'offset' => $diagnostics->offset,
                 'truncated' => $diagnostics->truncated,
                 'scannedFiles' => $diagnostics->scannedFiles,
                 'scannedResources' => $diagnostics->scannedResources,
                 'resourceScanTruncated' => $diagnostics->resourceScanTruncated,
                 'skippedChecks' => $diagnostics->skippedChecks,
+            ],
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function inspectContractCoverage(
+        ?string $contextPath = null,
+        int $limit = ContractCoverageQuery::DEFAULT_LIMIT,
+        int $offset = 0,
+        bool $gapsOnly = false,
+        ?string $scheme = null,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->contractCoverageQuery->inspectInWorkspace(
+                    $workspace,
+                    $contextPath,
+                    $limit,
+                    $offset,
+                    $gapsOnly,
+                    $scheme,
+                ),
+            fn (ContractCoverage $coverage): array => [
+                'items' => array_map($this->contractCoverageItemData(...), $coverage->items),
+                'total' => $coverage->total,
+                'matchingTotal' => $coverage->matchingTotal,
+                'offset' => $coverage->offset,
+                'truncated' => $coverage->truncated,
+                'gapsOnly' => $coverage->gapsOnly,
+                'scheme' => $coverage->scheme,
+                'scannedResources' => $coverage->scannedResources,
+                'analyzedResources' => $coverage->analyzedResources,
+                'resourceScanTruncated' => $coverage->resourceScanTruncated,
+                'summary' => $coverage->summary,
             ],
         ));
     }
@@ -195,13 +237,21 @@ final class SemanticQueryHandler implements Handler
         ?string $scheme = null,
         string $prefix = '',
         int $limit = ResourceInventoryQuery::DEFAULT_LIMIT,
+        int $offset = 0,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
-                $this->resourceInventoryQuery->listInWorkspace($workspace, $scheme, $prefix, $limit),
+                $this->resourceInventoryQuery->listInWorkspace(
+                    $workspace,
+                    $scheme,
+                    $prefix,
+                    $limit,
+                    offset: $offset,
+                ),
             fn (ResourceInventory $inventory): array => [
                 'resources' => array_map($this->resourceData(...), $inventory->resources),
                 'total' => $inventory->total,
+                'offset' => $inventory->offset,
                 'truncated' => $inventory->truncated,
             ],
         ));
@@ -244,10 +294,17 @@ final class SemanticQueryHandler implements Handler
         ?string $scheme = null,
         string $prefix = '',
         int $limit = ResourceInventoryQuery::DEFAULT_LIMIT,
+        int $offset = 0,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
-                $this->resourceAttributeIndexQuery->listInWorkspace($workspace, $scheme, $prefix, $limit),
+                $this->resourceAttributeIndexQuery->listInWorkspace(
+                    $workspace,
+                    $scheme,
+                    $prefix,
+                    $limit,
+                    $offset,
+                ),
             fn (ResourceAttributeIndex $index): array => [
                 'items' => array_map(
                     fn ($item): array => [
@@ -258,6 +315,7 @@ final class SemanticQueryHandler implements Handler
                     $index->items,
                 ),
                 'total' => $index->total,
+                'offset' => $index->offset,
                 'truncated' => $index->truncated,
                 'argumentPolicy' => $this->attributeArgumentPolicy(),
             ],
@@ -548,6 +606,33 @@ final class SemanticQueryHandler implements Handler
         $data['details'] = $diagnostic->details;
 
         return $data;
+    }
+
+    /** @return array<string,mixed> */
+    private function contractCoverageItemData(ContractCoverageItem $item): array
+    {
+        return [
+            'uri' => $item->uri,
+            'method' => $item->method,
+            'path' => $item->path,
+            'covered' => $item->covered(),
+            'gaps' => $item->gaps,
+            'surfaces' => [
+                'requestSchema' => $this->contractCoverageSurfaceData($item->requestSchema),
+                'responseSchema' => $this->contractCoverageSurfaceData($item->responseSchema),
+                'alps' => $this->contractCoverageSurfaceData($item->alps),
+            ],
+        ];
+    }
+
+    /** @return array{state:string,status:string,subject:?string} */
+    private function contractCoverageSurfaceData(ContractCoverageSurface $surface): array
+    {
+        return [
+            'state' => $surface->state,
+            'status' => $surface->status->value,
+            'subject' => $surface->subject,
+        ];
     }
 
     /** @return array{uri:string,fqn:string,path:?string} */

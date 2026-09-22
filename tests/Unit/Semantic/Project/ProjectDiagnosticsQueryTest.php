@@ -154,18 +154,25 @@ PHP);
         );
     }
 
-    public function testBoundsItemsButKeepsTheCompleteCount(): void
+    public function testPaginatesItemsButKeepsTheCompleteCount(): void
     {
         $workspace = WorkspaceContext::fromRoot($this->workspace);
         self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
 
-        $result = (new ProjectDiagnosticsQuery())->diagnoseInWorkspace($workspace->value, limit: 1);
+        $query = new ProjectDiagnosticsQuery();
+        $first = $query->diagnoseInWorkspace($workspace->value, limit: 1);
+        $second = $query->diagnoseInWorkspace($workspace->value, limit: 1, offset: 1);
 
-        self::assertSame(SemanticStatus::Ok, $result->status);
-        self::assertInstanceOf(ProjectDiagnostics::class, $result->value);
-        self::assertCount(1, $result->value->items);
-        self::assertGreaterThan(1, $result->value->total);
-        self::assertTrue($result->value->truncated);
+        self::assertSame(SemanticStatus::Ok, $first->status);
+        self::assertInstanceOf(ProjectDiagnostics::class, $first->value);
+        self::assertInstanceOf(ProjectDiagnostics::class, $second->value);
+        self::assertCount(1, $first->value->items);
+        self::assertCount(1, $second->value->items);
+        self::assertNotSame($first->value->items[0], $second->value->items[0]);
+        self::assertGreaterThan(1, $first->value->total);
+        self::assertSame(0, $first->value->offset);
+        self::assertSame(1, $second->value->offset);
+        self::assertTrue($first->value->truncated);
     }
 
     public function testRejectsAnUnboundedLimit(): void
@@ -179,6 +186,11 @@ PHP);
         );
 
         self::assertSame(SemanticStatus::InvalidInput, $result->status);
+
+        self::assertSame(
+            SemanticStatus::InvalidInput,
+            (new ProjectDiagnosticsQuery())->diagnoseInWorkspace($workspace->value, offset: -1)->status,
+        );
     }
 
     public function testDoesNotReportSqlReferencesWhenTheKnownConventionRootIsAbsent(): void
@@ -195,9 +207,9 @@ PHP);
         self::assertSame(['sql_references'], $result->value->skippedChecks);
     }
 
-    public function testExposesWhenTheResourceScanIsTruncated(): void
+    public function testScansTheCompleteResourceInventoryBeyondThePublicPageLimit(): void
     {
-        for ($index = 0; $index < ResourceInventoryQuery::MAX_LIMIT; ++$index) {
+        for ($index = 0; $index <= ResourceInventoryQuery::MAX_LIMIT; ++$index) {
             $class = 'Bulk' . $index;
             $this->write(
                 '/src/Resource/App/' . $class . '.php',
@@ -215,8 +227,8 @@ PHP);
 
         self::assertSame(SemanticStatus::Ok, $result->status);
         self::assertInstanceOf(ProjectDiagnostics::class, $result->value);
-        self::assertSame(ResourceInventoryQuery::MAX_LIMIT, $result->value->scannedResources);
-        self::assertTrue($result->value->resourceScanTruncated);
+        self::assertGreaterThan(ResourceInventoryQuery::MAX_LIMIT, $result->value->scannedResources);
+        self::assertFalse($result->value->resourceScanTruncated);
     }
 
     public function testPreservesAmbiguousAndInvalidInputReferenceStatuses(): void

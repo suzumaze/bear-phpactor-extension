@@ -13,6 +13,7 @@ final readonly class ResourceAttributeIndex
     public function __construct(
         public array $items,
         public int $total,
+        public int $offset,
         public bool $truncated,
     ) {
     }
