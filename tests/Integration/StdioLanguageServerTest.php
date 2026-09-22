@@ -533,7 +533,7 @@ final class StdioLanguageServerTest extends TestCase
             self::assertGreaterThan(0, $diagnostics['result']['data']['scannedResources'] ?? 0);
             self::assertFalse($diagnostics['result']['data']['resourceScanTruncated'] ?? true);
             self::assertSame(
-                ['sql_references'],
+                ['sql_references', 'request_schema_references', 'response_schema_references', 'alps_descriptors'],
                 $diagnostics['result']['data']['skippedChecks'] ?? null,
             );
             foreach ($diagnostics['result']['data']['items'] ?? [] as $item) {

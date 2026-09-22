@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-09-22
+
 ### Added
 
 - `bear/project/contractCoverage` for bounded, saved-source-only JSON Schema and
@@ -16,8 +18,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Project diagnostics and contract coverage now use stable offset pagination with a
-  measured 100-item page budget; contract coverage can select adoption gaps without
-  losing the complete project summary.
+  default 100-item page and an approximate serialized-byte budget; diagnostics still
+  accepts its published 1–200 `limit` range, and contract coverage can select adoption
+  gaps without losing the complete project summary.
+- Project diagnostics skip Schema and ALPS reference checks when their convention roots
+  are absent, reporting the omissions in `skippedChecks`; name-difference details
+  include five sample names per surface alongside complete totals.
 - Project diagnostics and contract coverage now scan the complete Resource inventory;
   their response page limits no longer discard Resources after the first 200.
 - `bear/resource/list` and `bear/resource/attributeIndex` now accept `offset` and return
@@ -116,7 +122,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Invalid, missing, ambiguous, malformed, and outside-workspace inputs return structured
   failure results instead of executing application PHP or exposing exception traces.
 
-[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.8...HEAD
+[0.1.8]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.4...v0.1.5

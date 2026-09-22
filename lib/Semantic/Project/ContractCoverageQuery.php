@@ -24,7 +24,7 @@ final class ContractCoverageQuery
 {
     public const DEFAULT_LIMIT = 100;
 
-    /** Keeps a representative real-project response near the existing 64 KiB semantic payload budget. */
+    /** Count cap; an approximate serialized-byte budget may return fewer items. */
     public const MAX_LIMIT = 100;
 
     /** @var list<string> */
@@ -131,7 +131,12 @@ final class ContractCoverageQuery
             ))
             : $schemeRecords;
         $matchingTotal = count($matchingRecords);
-        $selectedRecords = array_slice($matchingRecords, $offset, $limit);
+        $selectedRecords = ProjectReportPage::slice(
+            $matchingRecords,
+            $offset,
+            $limit,
+            static fn (array $record): int => ProjectReportPage::serializedBytes($record),
+        );
         $selected = array_map(
             static fn (array $record): ContractCoverageItem => $record['item'],
             $selectedRecords,

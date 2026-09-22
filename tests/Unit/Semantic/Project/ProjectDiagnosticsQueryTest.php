@@ -7,6 +7,7 @@ namespace Suzumaze\BearPhpactor\Tests\Unit\Semantic\Project;
 use PHPUnit\Framework\TestCase;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectDiagnostics;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectDiagnosticsQuery;
+use Suzumaze\BearPhpactor\Semantic\Project\ProjectReportPage;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryIndex;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
@@ -191,6 +192,10 @@ PHP);
             SemanticStatus::InvalidInput,
             (new ProjectDiagnosticsQuery())->diagnoseInWorkspace($workspace->value, offset: -1)->status,
         );
+        self::assertSame(
+            SemanticStatus::Ok,
+            (new ProjectDiagnosticsQuery())->diagnoseInWorkspace($workspace->value, limit: 200)->status,
+        );
     }
 
     public function testDoesNotReportSqlReferencesWhenTheKnownConventionRootIsAbsent(): void
@@ -205,6 +210,111 @@ PHP);
         self::assertInstanceOf(ProjectDiagnostics::class, $result->value);
         self::assertNotContains('sql_reference_not_found', array_column($result->value->items, 'code'));
         self::assertSame(['sql_references'], $result->value->skippedChecks);
+    }
+
+    public function testSkipsSchemaAndAlpsReferencesWhenTheirRootsAreAbsent(): void
+    {
+        self::assertTrue(unlink($this->workspace . '/var/json_schema/broken.json'));
+        self::assertTrue(rmdir($this->workspace . '/var/json_schema'));
+        self::assertTrue(unlink($this->workspace . '/apidoc.xml'));
+        $workspace = WorkspaceContext::fromRoot($this->workspace);
+        self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
+
+        $result = (new ProjectDiagnosticsQuery())->diagnoseInWorkspace($workspace->value);
+
+        self::assertSame(SemanticStatus::Ok, $result->status);
+        self::assertInstanceOf(ProjectDiagnostics::class, $result->value);
+        $codes = array_column($result->value->items, 'code');
+        self::assertNotContains('schema_reference_not_found', $codes);
+        self::assertNotContains('alps_descriptor_not_found', $codes);
+        self::assertContains('sql_reference_not_found', $codes);
+        self::assertSame(
+            ['response_schema_references', 'alps_descriptors'],
+            $result->value->skippedChecks,
+        );
+    }
+
+    public function testContractDetailsKeepTotalsWhenTheNameSampleIsCapped(): void
+    {
+        $parameters = implode(', ', array_map(
+            static fn (int $index): string => 'string $field' . $index,
+            range(1, 10),
+        ));
+        $this->write('/src/Resource/App/Compare.php', '<?php namespace Acme\\App\\Resource\\App; '
+            . 'use BEAR\\Resource\\Annotation\\JsonSchema; '
+            . 'final class Compare extends \\BEAR\\Resource\\ResourceObject {'
+            . " #[JsonSchema(params: 'compare.json')] public function onPost($parameters): void {} }");
+        $workspace = WorkspaceContext::fromRoot($this->workspace);
+        self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
+
+        $result = (new ProjectDiagnosticsQuery())->diagnoseInWorkspace($workspace->value);
+        self::assertInstanceOf(ProjectDiagnostics::class, $result->value);
+        $matches = array_values(array_filter(
+            $result->value->items,
+            static fn ($item): bool => $item->code === 'contract_name_mismatch'
+                && str_contains($item->subject, 'compare#onPost:request'),
+        ));
+        self::assertCount(1, $matches);
+        self::assertCount(5, $matches[0]->details['onlyInResource']);
+        self::assertGreaterThan(5, $matches[0]->details['nameTotals']['resource']);
+        self::assertTrue($matches[0]->details['detailsTruncated']);
+    }
+
+    public function testPageBudgetReturnsContiguousShorterPagesAndAdvancesPastOversizedItem(): void
+    {
+        $records = array_fill(0, 120, str_repeat('x', 1024));
+        $first = ProjectReportPage::slice(
+            $records,
+            0,
+            100,
+            ProjectReportPage::serializedBytes(...),
+        );
+        self::assertLessThan(100, count($first));
+        $second = ProjectReportPage::slice(
+            $records,
+            count($first),
+            100,
+            ProjectReportPage::serializedBytes(...),
+        );
+        self::assertGreaterThan(0, count($second));
+        self::assertSame([0], ProjectReportPage::slice([0], 0, 100, static fn (): int => 100_000));
+    }
+
+    public function testDenseContractMismatchesAreReturnedInByteBoundedPages(): void
+    {
+        $parameters = implode(', ', array_map(
+            static fn (int $index): string => 'string $field' . $index . '_' . str_repeat('x', 48),
+            range(1, 12),
+        ));
+        for ($index = 0; $index < 110; ++$index) {
+            $class = 'Dense' . $index;
+            $this->write('/src/Resource/App/' . $class . '.php', '<?php namespace Acme\\App\\Resource\\App; '
+                . 'use BEAR\\Resource\\Annotation\\JsonSchema; '
+                . 'final class ' . $class . ' extends \\BEAR\\Resource\\ResourceObject {'
+                . " #[JsonSchema(params: 'compare.json')] public function onPost($parameters): void {} }");
+        }
+        $workspace = WorkspaceContext::fromRoot($this->workspace);
+        self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
+        $query = new ProjectDiagnosticsQuery();
+        $first = $query->diagnoseInWorkspace($workspace->value, limit: 100);
+        self::assertInstanceOf(ProjectDiagnostics::class, $first->value);
+        self::assertGreaterThan(100, $first->value->total);
+        self::assertLessThan(100, count($first->value->items));
+        self::assertLessThan(65_536, strlen(json_encode($first, JSON_THROW_ON_ERROR)));
+
+        $seen = [];
+        $offset = 0;
+        do {
+            $page = $query->diagnoseInWorkspace($workspace->value, limit: 100, offset: $offset);
+            self::assertInstanceOf(ProjectDiagnostics::class, $page->value);
+            foreach ($page->value->items as $item) {
+                $key = $item->path . ':' . $item->code . ':' . $item->subject;
+                self::assertArrayNotHasKey($key, $seen);
+                $seen[$key] = true;
+            }
+            $offset += count($page->value->items);
+        } while ($page->value->truncated);
+        self::assertSame($first->value->total, $offset);
     }
 
     public function testScansTheCompleteResourceInventoryBeyondThePublicPageLimit(): void

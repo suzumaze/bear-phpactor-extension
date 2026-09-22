@@ -190,15 +190,19 @@ meaning, or behavioral compatibility; their `status: ok` means the comparison qu
 succeeded, while the diagnostic `code` records the observed mismatch. SQL references
 are checked only when the supported `var/db/sql` convention root exists. A missing root
 may mean the application configured another Ray.MediaQuery directory, which cannot be
-safely inferred from arbitrary PHP configuration. In that case `skippedChecks` contains
-`sql_references`, so clients can distinguish an omitted check from a clean result.
-`limit` defaults to 100 and has a maximum of 100 per page. `offset` defaults to zero
-and advances through the stable diagnostic ordering. Resource discovery itself is
-complete; the page bound applies only to returned diagnostic items. The 100-item page bound keeps a
-representative real-project response below approximately 64 KiB; it is a response-size
-budget rather than a project-size limit.
-Contract-only name lists inside `details` are independently capped at 50 names per
-surface and include complete per-surface totals plus `detailsTruncated`.
+safely inferred from arbitrary PHP configuration. Schema references are checked only
+when their corresponding `var/json_validate` or `var/json_schema` directory exists;
+ALPS descriptors are checked only when `apidoc.xml` exists. `skippedChecks` identifies
+the omitted checks (`sql_references`, `request_schema_references`,
+`response_schema_references`, or `alps_descriptors`), not a clean result.
+`limit` defaults to 100 and accepts 1–200, preserving the v0.1.7 input range.
+`offset` advances through the stable diagnostic ordering. Resource discovery is
+complete; a page may contain fewer than `limit` items because an approximate 56 KiB
+serialized-item-and-provenance budget also applies. Advance `offset` by the number of
+items actually returned until `truncated` is false. The budget reserves room for the
+envelope; it is not a strict wire-size guarantee, particularly for a single oversized item.
+Contract-only name lists inside `details` are capped at five names per surface and
+include complete per-surface totals plus `detailsTruncated`.
 
 `bear/project/contractCoverage` is an adoption report, not an error report or quality
 score. For each saved Resource method it inspects three surfaces: request Schema,
@@ -220,8 +224,9 @@ method count while `matchingTotal` is the count selected by those filters. `offs
 selected order. Resource discovery itself is complete. `scannedResources` and
 `analyzedResources` expose the analyzed scope; `resourceScanTruncated` is retained for
 Semantic API v1 compatibility and is `false` for this complete scan. The query uses saved source only and returns at most
-100 items per page. The page bound keeps a representative real-project response near
-64 KiB; later pages remain reachable instead of being discarded.
+100 items per page. The same approximate serialized-item-and-provenance budget may
+return fewer items; advance `offset` by the returned item count until `truncated` is
+false. It is not a strict wire-size guarantee for a single oversized item.
 
 ## Methods
 

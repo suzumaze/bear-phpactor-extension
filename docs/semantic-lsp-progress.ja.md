@@ -200,15 +200,17 @@ optional parameterの必須化、status追加にはSemantic API versionの更新
 `bear/project/diagnostics`は保存済みsourceだけを有界に走査し、明示的なResource URI、Route、
 SQL、JsonSchema、ALPS、Twig/Qiq参照、Resource解析失敗、Link/Embed先method、複数contract
 surface間の名前存在差を集約する。個別の破損はitemの`status`として保持し、外側のqueryは
-`ok`のまま部分結果を返す。Resource discovery自体は全件を対象とし、`items`だけを1ページ既定・最大100件で、安定順序を`offset`で継続取得する。
-100件は実projectでのJSON responseを概ね64 KiB以下に保つresponse-size budgetであり、project規模の
-上限ではない。`total`は走査対象内の完全件数、`truncated`は後続pageの有無、`scannedFiles`と
+`ok`のまま部分結果を返す。Resource discovery自体は全件を対象とし、`items`は1ページ既定100件・最大200件で、安定順序を`offset`で継続取得する。
+概算56 KiBのitem・provenance budgetによって指定件数より短いpageになる場合があるため、返却件数だけ`offset`を進める。単一itemが大きい場合、wire sizeの厳密な保証ではない。`total`は走査対象内の完全件数、`truncated`は後続pageの有無、`scannedFiles`と
 `scannedResources`は走査規模を示す。
 `resourceScanTruncated`はSemantic API v1互換性のため残すが、現在の全件走査では`false`になる。規約templateやSchemaが
 単に無いだけでは診断せず、`unsupported`と`outside_workspace`も既定では異常扱いしない。
 対応する`var/db/sql`規約rootが無い場合は、任意PHP設定からRay.MediaQueryの別directoryを推測せず、
 SQL診断を抑止し、`skippedChecks`に`sql_references`を入れる。これによりclientは問題が無い場合と
-未検査を区別できる。contract診断は完全一致する名前の存在比較だけであり、型・意味・振る舞いの
+未検査を区別できる。同様に`var/json_validate`、`var/json_schema`、`apidoc.xml`が無ければ対応する
+Schema/ALPS参照検査を省き、`skippedChecks`に`request_schema_references`、
+`response_schema_references`、`alps_descriptors`を記録する。contract診断の詳細は各surfaceの名前を
+5件まで例示し、完全件数と`detailsTruncated`を返す。比較は完全一致する名前の存在だけであり、型・意味・振る舞いの
 互換性を主張しない。その`status: ok`は比較query自体の成功を表し、差分は診断codeで表す。
 
 `bear/project/contractCoverage`は異常検出や品質scoreではなく、JSON SchemaとALPSの導入状況を
@@ -224,7 +226,7 @@ Schemaもないmethodだけは、そのsurfaceを`not_applicable`とする。適
 `matchingTotal`は選択後の件数を表す。Resource discovery自体も全件を対象にする。`scannedResources`、
 `analyzedResources`で解析範囲を明示し、互換用の`resourceScanTruncated`は現在`false`になる。`gapsOnly`ならgapを持つmethodだけを選び、`total`は
 全method数、`matchingTotal`は選択後の件数を示す。安定順序を`offset`で継続取得し、1ページは
-既定・最大100 itemとする。applicationは実行しない。
+既定・最大100 itemとする。概算byte budgetで短いpageになることもあり、返却件数で`offset`を進める。applicationは実行しない。
 
 `bear/resource/references`は、AI clientなどがResource URIを既に持つ一方で、開いた文書と
 Positionを持たない場合に使う。Positionがある場合は標準`textDocument/references`を優先する。
