@@ -94,9 +94,11 @@ php tools/semantic-lsp-query.php /path/to/bear-project \
   '{"limit":100,"offset":0,"gapsOnly":true,"scheme":"page"}'
 ```
 
-Both project-wide reports use stable offset pagination. Their 100-item maximum page
-keeps representative real-project JSON responses near or below 64 KiB; additional
-pages remain reachable instead of silently disappearing behind the bound.
+Both project-wide reports use stable offset pagination and an approximate serialized-byte
+budget; a page can be shorter than the requested `limit`. Advance `offset` by the actual
+number of returned items while `truncated` is true. Diagnostics accepts its published
+1–200 limit range (default 100); contract coverage accepts 1–100 (default 100).
+The budget is not a strict wire-size guarantee for an unusually large single item.
 
 These requests inspect saved workspace files only. They do not execute the BEAR
 application, modify files, access the network, or provide an MCP server.

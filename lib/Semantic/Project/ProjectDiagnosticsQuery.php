@@ -8,6 +8,7 @@ use Microsoft\PhpParser\Node\StringLiteral;
 use Microsoft\PhpParser\Parser;
 use Phpactor\TextDocument\TextDocumentBuilder;
 use Suzumaze\BearPhpactor\Alps\AlpsDescriptorAtOffset;
+use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaPathResolver;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaReferenceAtOffset;
 use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
 use Suzumaze\BearPhpactor\Router\RouteReferenceAtOffset;
@@ -45,8 +46,10 @@ final class ProjectDiagnosticsQuery
 {
     public const DEFAULT_LIMIT = 100;
 
-    /** Keeps a representative real-project response below the existing 64 KiB semantic payload budget. */
-    public const MAX_LIMIT = 100;
+    /** Preserve the public v0.1.7 input range; returned pages also have a byte budget. */
+    public const MAX_LIMIT = 200;
+
+    private const MAX_DETAIL_NAMES = 5;
 
     private const MAX_ROUTE_BYTES = 1_048_576;
 
@@ -101,6 +104,23 @@ final class ProjectDiagnosticsQuery
         );
         $scanSqlReferences = $sqlRoot->value !== null && is_dir($sqlRoot->value->absolute);
         $skippedChecks = $scanSqlReferences ? [] : ['sql_references'];
+        $schemaRoots = [];
+        $schemaDirectories = [
+            SchemaQuery::KIND_REQUEST => JsonSchemaPathResolver::REQUEST_SCHEMA_DIR,
+            SchemaQuery::KIND_RESPONSE => JsonSchemaPathResolver::RESPONSE_SCHEMA_DIR,
+        ];
+        foreach ($schemaDirectories as $kind => $directory) {
+            $root = $workspace->accessPolicy()->inspectExisting($project->value->root() . '/' . $directory);
+            $schemaRoots[$kind] = $root->value !== null && is_dir($root->value->absolute);
+            if (!$schemaRoots[$kind]) {
+                $skippedChecks[] = $kind . '_schema_references';
+            }
+        }
+        $alpsRoot = $workspace->accessPolicy()->inspectExisting($project->value->root() . '/apidoc.xml');
+        $scanAlpsReferences = $alpsRoot->value !== null && is_file($alpsRoot->value->absolute);
+        if (!$scanAlpsReferences) {
+            $skippedChecks[] = 'alps_descriptors';
+        }
         foreach ($this->phpSourceScanner->scan($workspace, $project->value) as $source) {
             $path = $workspace->accessPolicy()->inspectExisting($source->file);
             if ($path->value === null) {
@@ -112,6 +132,8 @@ final class ProjectDiagnosticsQuery
                 $source,
                 $path->value->relative,
                 $scanSqlReferences,
+                $schemaRoots,
+                $scanAlpsReferences,
                 $items,
             );
         }
@@ -201,7 +223,15 @@ final class ProjectDiagnosticsQuery
         ]);
 
         $total = count($items);
-        $selected = array_slice($items, $offset, $limit);
+        $selected = ProjectReportPage::slice(
+            $items,
+            $offset,
+            $limit,
+            static fn (ProjectDiagnostic $item): int => ProjectReportPage::serializedBytes([
+                $item,
+                Provenance::savedFile($item->path, $item->byteStart, $item->byteEnd),
+            ]),
+        );
         $provenance = [Provenance::derived()];
         $composer = $workspace->accessPolicy()->inspectExisting($project->value->root() . '/composer.json');
         if ($composer->value !== null) {
@@ -226,12 +256,14 @@ final class ProjectDiagnosticsQuery
         );
     }
 
-    /** @param list<ProjectDiagnostic> $items */
+    /** @param array<string,bool> $schemaRoots @param list<ProjectDiagnostic> $items */
     private function diagnosePhpReferences(
         WorkspaceContext $workspace,
         Psr4PhpSource $source,
         string $relativePath,
         bool $scanSqlReferences,
+        array $schemaRoots,
+        bool $scanAlpsReferences,
         array &$items,
     ): void {
         try {
@@ -293,6 +325,9 @@ final class ProjectDiagnosticsQuery
         }
         try {
             foreach ($this->schemaReferenceScanner->references($document) as [$start, $name, $end, $kind]) {
+                if (!($schemaRoots[$kind] ?? false)) {
+                    continue;
+                }
                 $result = $this->schemaFactsQuery->describeNamedInWorkspace(
                     $workspace,
                     $name,
@@ -314,25 +349,27 @@ final class ProjectDiagnosticsQuery
             }
         } catch (Throwable) {
         }
-        try {
-            foreach ($this->alpsReferenceScanner->references($document) as [$start, $descriptorId, $end]) {
-                $result = $this->alpsQuery->resolveInWorkspace($workspace, $descriptorId, $relativePath);
-                if (!$this->reportableReferenceFailure($result->status)) {
-                    continue;
+        if ($scanAlpsReferences) {
+            try {
+                foreach ($this->alpsReferenceScanner->references($document) as [$start, $descriptorId, $end]) {
+                    $result = $this->alpsQuery->resolveInWorkspace($workspace, $descriptorId, $relativePath);
+                    if (!$this->reportableReferenceFailure($result->status)) {
+                        continue;
+                    }
+                    $items[] = new ProjectDiagnostic(
+                        'alps_descriptor_' . $this->statusSuffix($result->status),
+                        $result->status,
+                        $descriptorId,
+                        $relativePath,
+                        $start,
+                        $end,
+                        $result->status === SemanticStatus::Ambiguous
+                            ? ['candidateCount' => count($result->candidates)]
+                            : [],
+                    );
                 }
-                $items[] = new ProjectDiagnostic(
-                    'alps_descriptor_' . $this->statusSuffix($result->status),
-                    $result->status,
-                    $descriptorId,
-                    $relativePath,
-                    $start,
-                    $end,
-                    $result->status === SemanticStatus::Ambiguous
-                        ? ['candidateCount' => count($result->candidates)]
-                        : [],
-                );
+            } catch (Throwable) {
             }
-        } catch (Throwable) {
         }
     }
 
@@ -531,17 +568,17 @@ final class ProjectDiagnosticsQuery
                     details: [
                         'comparison' => 'exact_name_presence_only',
                         'compared' => $comparison->compared,
-                        'onlyInResource' => array_slice($comparison->onlyInResource, 0, 50),
-                        'onlyInSchema' => array_slice($comparison->onlyInSchema, 0, 50),
-                        'onlyInAlps' => array_slice($comparison->onlyInAlps, 0, 50),
+                        'onlyInResource' => array_slice($comparison->onlyInResource, 0, self::MAX_DETAIL_NAMES),
+                        'onlyInSchema' => array_slice($comparison->onlyInSchema, 0, self::MAX_DETAIL_NAMES),
+                        'onlyInAlps' => array_slice($comparison->onlyInAlps, 0, self::MAX_DETAIL_NAMES),
                         'nameTotals' => [
                             'resource' => count($comparison->onlyInResource),
                             'schema' => count($comparison->onlyInSchema),
                             'alps' => count($comparison->onlyInAlps),
                         ],
-                        'detailsTruncated' => count($comparison->onlyInResource) > 50
-                            || count($comparison->onlyInSchema) > 50
-                            || count($comparison->onlyInAlps) > 50,
+                        'detailsTruncated' => count($comparison->onlyInResource) > self::MAX_DETAIL_NAMES
+                            || count($comparison->onlyInSchema) > self::MAX_DETAIL_NAMES
+                            || count($comparison->onlyInAlps) > self::MAX_DETAIL_NAMES,
                     ],
                 );
             }

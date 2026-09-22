@@ -18,8 +18,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Project diagnostics and contract coverage now use stable offset pagination with a
-  measured 100-item page budget; contract coverage can select adoption gaps without
-  losing the complete project summary.
+  default 100-item page and an approximate serialized-byte budget; diagnostics still
+  accepts its published 1–200 `limit` range, and contract coverage can select adoption
+  gaps without losing the complete project summary.
+- Project diagnostics skip Schema and ALPS reference checks when their convention roots
+  are absent, reporting the omissions in `skippedChecks`; name-difference details
+  include five sample names per surface alongside complete totals.
 - Project diagnostics and contract coverage now scan the complete Resource inventory;
   their response page limits no longer discard Resources after the first 200.
 - `bear/resource/list` and `bear/resource/attributeIndex` now accept `offset` and return
