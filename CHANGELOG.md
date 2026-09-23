@@ -8,10 +8,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The public `bear/*` contract now identifies itself as the unversioned
+  `bear-semantic` protocol and advertises request names alongside capabilities.
+  Contract evolution is additive; incompatible meanings receive new names instead
+  of versioning the entire API. The deprecated `semanticApiVersion: 1` member remains
+  available for compatibility with released clients.
 - CI now installs the committed dependency lock for reproducible pull-request checks,
   while a separate scheduled and manually runnable job exercises the latest allowed
   dependencies.
-- The English and Japanese READMEs now list every Semantic API v1 request and the
+- The English and Japanese READMEs now list every BEAR Semantic API request and the
   standalone verification tools.
 
 ### Fixed

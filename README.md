@@ -49,8 +49,8 @@ request/response JSON Schema and ALPS contract surfaces are available, absent, d
 or unresolved without treating optional adoption gaps as project errors.
 Its `scheme` selector and whole-project `summary.schemes` split `app` and `page`
 URIs without claiming either scheme proves public exposure or JSON rendering.
-`bear/project/info` reports Semantic API version `1` and the
-available capabilities. The complete versioned contract is documented in
+`bear/project/info` reports the stable `bear-semantic` protocol name, its
+available requests, and its capabilities. The additive contract is documented in
 [`docs/lsp-semantic-requests.md`](docs/lsp-semantic-requests.md).
 
 An IDE is not required. The included client starts a real Phpactor stdio process:

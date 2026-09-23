@@ -1,5 +1,6 @@
 {
     "semanticApiVersion": 1,
+    "semanticProtocol": "bear-semantic",
     "statuses": [
         "ok",
         "not_found",
@@ -45,6 +46,8 @@
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": [
                 "semanticApiVersion",
+                "semanticProtocol",
+                "requests",
                 "workspaceName",
                 "projectPath",
                 "composerPath",

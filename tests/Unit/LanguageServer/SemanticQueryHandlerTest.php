@@ -13,10 +13,13 @@ final class SemanticQueryHandlerTest extends TestCase
 {
     public function testDescribesProjectWithoutAbsolutePaths(): void
     {
-        $response = wait((new SemanticQueryHandler(self::fixtureDir()))->describeProject());
+        $handler = new SemanticQueryHandler(self::fixtureDir());
+        $response = wait($handler->describeProject());
 
         self::assertSame('ok', $response['status']);
         self::assertSame(1, $response['data']['semanticApiVersion']);
+        self::assertSame('bear-semantic', $response['data']['semanticProtocol']);
+        self::assertSame(array_keys($handler->methods()), $response['data']['requests']);
         self::assertSame('Resource', $response['data']['workspaceName']);
         self::assertSame('.', $response['data']['projectPath']);
         self::assertSame('composer.json', $response['data']['composerPath']);

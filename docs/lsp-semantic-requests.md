@@ -9,26 +9,31 @@ identifier instead of a text-document position. A client should not create a fak
 document merely to call a standard positional method. These methods are not a
 replacement for standard LSP navigation.
 
-## Contract versioning
+## Contract evolution and discovery
 
-The public `bear/*` custom-request contract is Semantic API version `1`.
-Clients discover it through `bear/project/info.data.semanticApiVersion`; it is
-independent of both the LSP protocol version and this Composer package's version.
-There is no version negotiation: a client that does not support the reported major
-version should stop using the custom requests, while standard LSP methods remain
-available.
+The public `bear/*` custom requests form the `bear-semantic` protocol. Clients enter
+through `bear/project/info` and discover the currently available request names and
+semantic capabilities in `data.requests` and `data.capabilities`. They should test the
+specific request or capability they need instead of selecting a version of the whole
+API.
 
-Within one Semantic API version, the server may add a new request, an optional request
-parameter with a default, an optional response member, or a new advertised capability.
-Clients must ignore unknown object members. Removing or renaming a request or response
-member, changing an existing value's type or meaning, making an optional parameter
-required, or adding a `status` value requires a new Semantic API version.
+The previously published `data.semanticApiVersion` remains `1` as a deprecated
+compatibility member. New clients must not use it for negotiation or capability
+decisions; it is retained so clients following the earlier contract continue to work.
 
-The versioned contract snapshot is
-[`tests/Contract/semantic-query-v1.json`](../tests/Contract/semantic-query-v1.json).
-Its test verifies all public method names, handler argument names/types/defaults,
-success envelope and top-level data members, failure envelope, error members, and the
-complete status set against live handler responses.
+The contract evolves additively. The server may add a request, an optional request
+parameter with a default, an optional response member, or an advertised capability.
+Clients must ignore unknown object members. Published request names, members, value
+types, meanings, and statuses remain stable. A genuinely incompatible meaning is
+introduced under a new request or capability name and may coexist with the old one;
+it does not create a new version of every unrelated request.
+
+The contract snapshot is
+[`tests/Contract/semantic-query-contract.json`](../tests/Contract/semantic-query-contract.json).
+It is a regression oracle, not a version-negotiation mechanism. Its test verifies all
+public method names, handler argument names/types/defaults, success envelope and
+top-level data members, failure envelope, error members, and the complete status set
+against live handler responses.
 
 For standard `textDocument/hover`, a recognized Resource URI literal returns its
 resolved class, workspace-relative path, public `on*` methods, and outgoing
@@ -222,8 +227,8 @@ to `app` or `page` to select a scheme before pagination, and `gapsOnly` to retur
 methods with at least one adoption opportunity. `total` remains the complete analyzed
 method count while `matchingTotal` is the count selected by those filters. `offset` pages through the stable
 selected order. Resource discovery itself is complete. `scannedResources` and
-`analyzedResources` expose the analyzed scope; `resourceScanTruncated` is retained for
-Semantic API v1 compatibility and is `false` for this complete scan. The query uses saved source only and returns at most
+`analyzedResources` expose the analyzed scope; `resourceScanTruncated` is retained as
+a stable published member and is `false` for this complete scan. The query uses saved source only and returns at most
 100 items per page. The same approximate serialized-item-and-provenance budget may
 return fewer items; advance `offset` by the returned item count until `truncated` is
 false. It is not a strict wire-size guarantee for a single oversized item.
@@ -232,7 +237,7 @@ false. It is not a strict wire-size guarantee for a single oversized item.
 
 | Method | Params | Successful data |
 |---|---|---|
-| `bear/project/info` | `{contextPath?}` | `{semanticApiVersion, workspaceName, projectPath, composerPath, psr4Roots, excludedPsr4Roots, resourceCount, capabilities, versions, compatibilityIssues}` |
+| `bear/project/info` | `{contextPath?}` | `{semanticApiVersion, semanticProtocol, requests, workspaceName, projectPath, composerPath, psr4Roots, excludedPsr4Roots, resourceCount, capabilities, versions, compatibilityIssues}` |
 | `bear/project/diagnostics` | `{contextPath?, limit?, offset?}` | `{items, total, offset, truncated, scannedFiles, scannedResources, resourceScanTruncated, skippedChecks}` |
 | `bear/project/contractCoverage` | `{contextPath?, limit?, offset?, gapsOnly?, scheme?}` | `{items, total, matchingTotal, offset, truncated, gapsOnly, scheme, scannedResources, analyzedResources, resourceScanTruncated, summary}` |
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |

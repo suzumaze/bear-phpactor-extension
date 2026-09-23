@@ -48,8 +48,9 @@ project全体で集約し、個別itemの失敗を外側のquery statusから分
 利用可能・未導入・動的・未解決のどれかを返し、任意のcontract未導入をproject errorとは
 扱いません。`scheme`とproject全体の`summary.schemes`は`app`と`page`を分けますが、schemeだけで
 公開範囲やJSON表現であることは推測しません。
-`bear/project/info`はSemantic API version `1`と利用可能なcapabilityを返します。versioned contractの
-詳細は[`docs/lsp-semantic-requests.md`](docs/lsp-semantic-requests.md)にあります。
+`bear/project/info`は安定したprotocol名`bear-semantic`、利用可能なrequest、capabilityを返します。
+追加的に進化するcontractの詳細は
+[`docs/lsp-semantic-requests.md`](docs/lsp-semantic-requests.md)にあります。
 
 IDEは不要です。同梱clientは実際のPhpactor stdio processを起動します。
 

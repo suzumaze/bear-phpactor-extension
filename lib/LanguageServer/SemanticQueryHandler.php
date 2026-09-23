@@ -64,11 +64,11 @@ use Phpactor\LanguageServer\Core\Handler\Handler;
 final class SemanticQueryHandler implements Handler
 {
     /**
-     * Version of the public bear/* custom-request contract.
-     *
-     * This is independent of the LSP protocol version and the package version.
+     * @deprecated Retained for compatibility with released clients. Discover
+     *             individual requests and capabilities through project info.
      */
     public const SEMANTIC_API_VERSION = 1;
+    public const SEMANTIC_PROTOCOL = 'bear-semantic';
 
     /** @var SemanticResult<WorkspaceContext|null> */
     private SemanticResult $workspace;
@@ -141,6 +141,8 @@ final class SemanticQueryHandler implements Handler
                 $this->projectInfoQuery->describeInWorkspace($workspace, $contextPath),
             fn (ProjectInfo $info): array => [
                 'semanticApiVersion' => self::SEMANTIC_API_VERSION,
+                'semanticProtocol' => self::SEMANTIC_PROTOCOL,
+                'requests' => array_keys($this->methods()),
                 'workspaceName' => $info->workspaceName,
                 'projectPath' => $info->projectPath,
                 'composerPath' => $info->composerPath,
