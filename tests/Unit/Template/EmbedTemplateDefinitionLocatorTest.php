@@ -153,6 +153,17 @@ final class EmbedTemplateDefinitionLocatorTest extends TestCase
         self::assertNull($location);
     }
 
+    public function testUnrelatedEmbedAttributeIsIgnored(): void
+    {
+        $location = $this->requestDefinition(
+            'var/templates/App/Other.html.twig',
+            'twig',
+            'user',
+        );
+
+        self::assertNull($location);
+    }
+
     public function testReturnsNothingForQiqCodeTagAndPropertyAccess(): void
     {
         $codeTagLocation = $this->requestDefinition(

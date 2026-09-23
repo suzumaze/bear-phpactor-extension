@@ -21,9 +21,9 @@ use const JSON_THROW_ON_ERROR;
 
 final class SemanticQueryProtocolTest extends TestCase
 {
-    public function testPublicContractMatchesVersionedSnapshot(): void
+    public function testPublicContractMatchesSnapshot(): void
     {
-        $snapshotContents = file_get_contents(__DIR__ . '/semantic-query-v1.json');
+        $snapshotContents = file_get_contents(__DIR__ . '/semantic-query-contract.json');
         self::assertNotFalse($snapshotContents);
         $expected = json_decode($snapshotContents, true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($expected);
@@ -69,6 +69,7 @@ final class SemanticQueryProtocolTest extends TestCase
 
         $actual = [
             'semanticApiVersion' => SemanticQueryHandler::SEMANTIC_API_VERSION,
+            'semanticProtocol' => SemanticQueryHandler::SEMANTIC_PROTOCOL,
             'statuses' => array_map(
                 static fn (SemanticStatus $status): string => $status->value,
                 SemanticStatus::cases(),

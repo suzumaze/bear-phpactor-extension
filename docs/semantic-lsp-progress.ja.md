@@ -57,7 +57,7 @@ flowchart TD
     p91["Resource References Query抽出\n完了"]
     p92["Semantic error / provenance / freshness\n完了"]
     p93["URI起点Resource References request\n完了"]
-    p94["Custom LSP Semantic API v1契約\n完了"]
+    p94["Custom LSP Semantic API契約\n完了"]
     p95["Resource属性facts / inventory\n完了"]
     p96["presence-only contract比較\n完了"]
     p8["別 repository の薄い MCP-LSP adapter\n稼働中・拡張継続"]
@@ -186,16 +186,18 @@ shutdown・cancellation middleware より前に実行される。そのため前
 custom request は、文書内 Position を起点にできない BEAR identifier 問い合わせのための
 read-only API である。標準 LSP で自然に表現できる操作の代替にはしない。
 
-公開custom request契約はSemantic API v1として固定した。clientは最初に
-`bear/project/info.data.semanticApiVersion`を確認できる。このversionはLSP 3.17やComposer
-package versionとは独立し、交渉は行わない。v1内では新method、default付きoptional parameter、
-optional response field、capabilityを追加できる。既存method/fieldの削除・改名、型や意味の変更、
-optional parameterの必須化、status追加にはSemantic API versionの更新を必要とする。clientは
-未知のobject fieldを無視する。
+公開custom request群は、versionで分断しない`bear-semantic` protocolとして提供する。clientは
+最初に`bear/project/info.data.requests`と`capabilities`を確認し、必要なrequestまたは能力が
+利用可能かを個別に判断する。新method、default付きoptional parameter、optional response field、
+capabilityは追加でき、clientは未知のobject fieldを無視する。公開済みの名前・型・意味・statusは
+維持する。互換でない意味が必要なら、API全体のversionを上げず、新しいrequestまたはcapability名を
+並存させる。
+公開済みの`semanticApiVersion`は互換性のため`1`のまま非推奨memberとして残す。新しいclientは
+version交渉やcapability判断に使用しない。
 
-`tests/Contract/semantic-query-v1.json`とcontract testが、全21 methodの登録名、handler引数の
+`tests/Contract/semantic-query-contract.json`とcontract testが、全21 methodの登録名、handler引数の
 名前・型・default、成功envelopeとtop-level data key、failure envelope、error key、全statusを
-実際のhandler responseに対して検証する。実stdio統合テストでもAPI versionを確認する。
+実際のhandler responseに対して検証する。snapshotはversion交渉ではなく回帰検出に使う。
 
 `bear/project/diagnostics`は保存済みsourceだけを有界に走査し、明示的なResource URI、Route、
 SQL、JsonSchema、ALPS、Twig/Qiq参照、Resource解析失敗、Link/Embed先method、複数contract
@@ -203,7 +205,7 @@ surface間の名前存在差を集約する。個別の破損はitemの`status`�
 `ok`のまま部分結果を返す。Resource discovery自体は全件を対象とし、`items`は1ページ既定100件・最大200件で、安定順序を`offset`で継続取得する。
 概算56 KiBのitem・provenance budgetによって指定件数より短いpageになる場合があるため、返却件数だけ`offset`を進める。単一itemが大きい場合、wire sizeの厳密な保証ではない。`total`は走査対象内の完全件数、`truncated`は後続pageの有無、`scannedFiles`と
 `scannedResources`は走査規模を示す。
-`resourceScanTruncated`はSemantic API v1互換性のため残すが、現在の全件走査では`false`になる。規約templateやSchemaが
+`resourceScanTruncated`は公開済みmemberとして残すが、現在の全件走査では`false`になる。規約templateやSchemaが
 単に無いだけでは診断せず、`unsupported`と`outside_workspace`も既定では異常扱いしない。
 対応する`var/db/sql`規約rootが無い場合は、任意PHP設定からRay.MediaQueryの別directoryを推測せず、
 SQL診断を抑止し、`skippedChecks`に`sql_references`を入れる。これによりclientは問題が無い場合と

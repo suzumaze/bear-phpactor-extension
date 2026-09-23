@@ -49,8 +49,8 @@ request/response JSON Schema and ALPS contract surfaces are available, absent, d
 or unresolved without treating optional adoption gaps as project errors.
 Its `scheme` selector and whole-project `summary.schemes` split `app` and `page`
 URIs without claiming either scheme proves public exposure or JSON rendering.
-`bear/project/info` reports Semantic API version `1` and the
-available capabilities. The complete versioned contract is documented in
+`bear/project/info` reports the stable `bear-semantic` protocol name, its
+available requests, and its capabilities. The additive contract is documented in
 [`docs/lsp-semantic-requests.md`](docs/lsp-semantic-requests.md).
 
 An IDE is not required. The included client starts a real Phpactor stdio process:
@@ -204,6 +204,9 @@ This sends Twig as PHP and can affect highlighting, diagnostics, formatting, and
 
 - Definitions are returned only when the cursor is on a supported reference and the target exists.
 - Targets must remain inside the workspace; traversal and arbitrary external paths are rejected.
+  Editor navigation may additionally follow an ImportApp package root recorded by Composer in
+  `vendor/composer/installed.json`, including a path-repository symlink. Read-only `bear/*`
+  requests keep the stricter workspace-only boundary.
 - Invalid syntax, missing files, and unsupported expressions return no result instead of throwing.
 - Static analysis only is used. Templates are not rendered and application PHP is not executed.
 - Multiple Resource candidates are sorted and presented by fully qualified name for definitions. Ambiguous reference-search sites are treated as unresolved.
@@ -238,4 +241,14 @@ These projects use different architectures and do not replace one another.
 composer check
 ```
 
-The suite includes unit tests and real Phpactor stdio sessions from initialize through shutdown. `tools/coverage.php` and `tools/misfire.php` provide project-level checks against [BEAR.Kata](https://github.com/bearsunday/BEAR.Kata).
+The suite includes unit tests and real Phpactor stdio sessions from initialize through shutdown.
+The repository also ships standalone project-level verification tools:
+
+- `tools/coverage.php`: compare definition targets with independently computed conventions.
+- `tools/misfire.php`: probe positions where the extension must remain silent.
+- `tools/references.php`: compare Resource references and verify definition round trips.
+- `tools/latency.php`: measure cold and warm definition latency.
+- `tools/verify-invariants.php`: check end-to-end LSP invariants mechanically.
+- `tools/verify-kata-conventions.php`: measure convention-based Schema reach in BEAR.Kata.
+
+These tools require an explicit target application and are not run by the normal unit-test suite.

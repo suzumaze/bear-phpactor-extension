@@ -260,6 +260,52 @@ PHP);
         self::assertTrue($matches[0]->details['detailsTruncated']);
     }
 
+    public function testContractDiagnosticsUseEachInventoriedResourceFactsForDuplicateUris(): void
+    {
+        self::assertTrue(mkdir($this->workspace . '/secondary/Resource/App', 0777, true));
+        $this->write('/composer.json', json_encode([
+            'autoload' => ['psr-4' => [
+                'Acme\\App\\' => 'src/',
+                'Acme\\Secondary\\' => 'secondary/',
+            ]],
+        ], JSON_THROW_ON_ERROR));
+        $this->write('/secondary/Resource/App/Compare.php', <<<'PHP'
+<?php
+namespace Acme\Secondary\Resource\App;
+use BEAR\Resource\Annotation\JsonSchema;
+final class Compare extends \BEAR\Resource\ResourceObject
+{
+    #[JsonSchema(params: 'compare.json')]
+    public function onPost(string $secondaryId): void {}
+}
+PHP);
+        $workspace = WorkspaceContext::fromRoot($this->workspace);
+        self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
+
+        $result = (new ProjectDiagnosticsQuery())->diagnoseInWorkspace($workspace->value);
+
+        self::assertInstanceOf(ProjectDiagnostics::class, $result->value);
+        $matches = array_values(array_filter(
+            $result->value->items,
+            static fn ($item): bool => $item->code === 'contract_name_mismatch'
+                && $item->subject === 'app://self/compare#onPost:request',
+        ));
+        self::assertCount(2, $matches);
+        self::assertSame([
+            'secondary/Resource/App/Compare.php',
+            'src/Resource/App/Compare.php',
+        ], array_column($matches, 'path'));
+        $byPath = [];
+        foreach ($matches as $match) {
+            $byPath[$match->path] = $match;
+        }
+        self::assertSame(
+            ['secondaryId'],
+            $byPath['secondary/Resource/App/Compare.php']->details['onlyInResource'],
+        );
+        self::assertSame(['id'], $byPath['src/Resource/App/Compare.php']->details['onlyInResource']);
+    }
+
     public function testPageBudgetReturnsContiguousShorterPagesAndAdvancesPastOversizedItem(): void
     {
         $records = array_fill(0, 120, str_repeat('x', 1024));

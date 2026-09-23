@@ -13,10 +13,13 @@ final class SemanticQueryHandlerTest extends TestCase
 {
     public function testDescribesProjectWithoutAbsolutePaths(): void
     {
-        $response = wait((new SemanticQueryHandler(self::fixtureDir()))->describeProject());
+        $handler = new SemanticQueryHandler(self::fixtureDir());
+        $response = wait($handler->describeProject());
 
         self::assertSame('ok', $response['status']);
         self::assertSame(1, $response['data']['semanticApiVersion']);
+        self::assertSame('bear-semantic', $response['data']['semanticProtocol']);
+        self::assertSame(array_keys($handler->methods()), $response['data']['requests']);
         self::assertSame('Resource', $response['data']['workspaceName']);
         self::assertSame('.', $response['data']['projectPath']);
         self::assertSame('composer.json', $response['data']['composerPath']);
@@ -220,16 +223,17 @@ final class SemanticQueryHandlerTest extends TestCase
         ));
 
         self::assertSame('ok', $response['status']);
-        self::assertSame(2, $response['data']['total']);
+        self::assertSame(3, $response['data']['total']);
         self::assertSame(0, $response['data']['offset']);
         self::assertFalse($response['data']['truncated']);
         self::assertSame(
-            ['app://self/dashboard', 'app://self/user'],
+            ['app://self/dashboard', 'app://self/other', 'app://self/user'],
             array_column(array_column($response['data']['items'], 'resource'), 'uri'),
         );
-        self::assertSame(['ok', 'ok'], array_column($response['data']['items'], 'status'));
+        self::assertSame(['ok', 'ok', 'ok'], array_column($response['data']['items'], 'status'));
         self::assertCount(7, $response['data']['items'][0]['attributes']);
         self::assertSame([], $response['data']['items'][1]['attributes']);
+        self::assertSame([], $response['data']['items'][2]['attributes']);
         self::assertSame([
             'source' => 'explicit_only',
             'constructorDefaultsExpanded' => false,

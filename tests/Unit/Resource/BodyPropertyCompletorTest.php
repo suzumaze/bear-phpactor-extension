@@ -131,6 +131,96 @@ final class BodyPropertyCompletorTest extends TestCase
         self::assertSame([], $items);
     }
 
+    public function testCompletesFromImportedJsonSchemaAlias(): void
+    {
+        $text = <<<'PHP'
+<?php
+
+namespace MyVendor\BodyFixture\Resource\App;
+
+use BEAR\Resource\Annotation\JsonSchema as Schema;
+use BEAR\Resource\ResourceObject;
+
+final class AliasSchema extends ResourceObject
+{
+    #[Schema('profile.json')]
+    public function onGet(): static
+    {
+        $this->body[''];
+
+        return $this;
+    }
+}
+PHP;
+        $caretOffset = strpos($text, "['']") + 2;
+        self::assertNotFalse($caretOffset);
+
+        $items = $this->requestCompletionAt($text, $caretOffset, 'src/Resource/App/AliasSchema.php');
+        $labels = array_map(fn (CompletionItem $item): string => $item->label, $items);
+
+        self::assertContains('nickname', $labels);
+        self::assertContains('bio', $labels);
+    }
+
+    public function testCompletesFromLegacyWrittenJsonSchemaFqn(): void
+    {
+        $text = <<<'PHP'
+<?php
+
+namespace MyVendor\BodyFixture\Resource\App;
+
+use BEAR\Resource\ResourceObject;
+
+final class LegacySchema extends ResourceObject
+{
+    #[BEAR\Resource\Annotation\JsonSchema('profile.json')]
+    public function onGet(): static
+    {
+        $this->body[''];
+
+        return $this;
+    }
+}
+PHP;
+        $caretOffset = strpos($text, "['']") + 2;
+        self::assertNotFalse($caretOffset);
+
+        $items = $this->requestCompletionAt($text, $caretOffset, 'src/Resource/App/LegacySchema.php');
+        $labels = array_map(fn (CompletionItem $item): string => $item->label, $items);
+
+        self::assertContains('nickname', $labels);
+        self::assertContains('bio', $labels);
+    }
+
+    public function testUnrelatedJsonSchemaAttributeIsIgnored(): void
+    {
+        $text = <<<'PHP'
+<?php
+
+namespace MyVendor\BodyFixture\Resource\App;
+
+use Acme\Other\JsonSchema;
+use BEAR\Resource\ResourceObject;
+
+final class UnrelatedSchema extends ResourceObject
+{
+    #[JsonSchema('profile.json')]
+    public function onGet(): static
+    {
+        $this->body[''];
+
+        return $this;
+    }
+}
+PHP;
+        $caretOffset = strpos($text, "['']") + 2;
+        self::assertNotFalse($caretOffset);
+
+        $items = $this->requestCompletionAt($text, $caretOffset, 'src/Resource/App/UnrelatedSchema.php');
+
+        self::assertSame([], $items);
+    }
+
     public function testNoCompletionOneBytePastClosingQuote(): void
     {
         // 閉じクォートの1バイト外では発火しない。クラス名は user.json が実在する

@@ -38,4 +38,10 @@ final class SchemaDemo extends ResourceObject
     {
         return [];
     }
+
+    #[JsonSchema('schema..<caret-6>v2.json')]
+    public function onOptions(): array
+    {
+        return [];
+    }
 }

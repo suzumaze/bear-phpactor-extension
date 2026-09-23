@@ -74,6 +74,14 @@ final class TemplateDefinitionLocatorTest extends TestCase
             'element/component/card.html.twig',
             'var/templates/element/component/card.html.twig',
         ];
+        yield 'whitespace-control include tag' => [
+            'element/component/trimmed.html.twig',
+            'var/templates/element/component/trimmed.html.twig',
+        ];
+        yield 'reference after whitespace-control verbatim' => [
+            'element/component/after-trimmed-verbatim.html.twig',
+            'var/templates/element/component/after-trimmed-verbatim.html.twig',
+        ];
     }
 
     /**
@@ -155,6 +163,11 @@ final class TemplateDefinitionLocatorTest extends TestCase
         self::assertNull($this->requestDefinition(
             'src/Resource/Page/TwigReferences.html.twig',
             'missing/verbatim.html.twig',
+            'twig',
+        ));
+        self::assertNull($this->requestDefinition(
+            'src/Resource/Page/TwigReferences.html.twig',
+            'missing/trimmed-verbatim.html.twig',
             'twig',
         ));
         self::assertNull($this->requestDefinition(

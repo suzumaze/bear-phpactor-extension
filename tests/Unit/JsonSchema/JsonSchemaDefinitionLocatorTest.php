@@ -71,6 +71,15 @@ final class JsonSchemaDefinitionLocatorTest extends TestCase
         );
     }
 
+    public function testAllowsConsecutiveDotsWithinSchemaFileName(): void
+    {
+        $this->assertDefinition(
+            'src/Resource/App/SchemaDemo.php',
+            '<caret-6>',
+            'var/json_schema/schema..v2.json',
+        );
+    }
+
     public function testNoLocationOneBytePastClosingQuote(): void
     {
         // インラインドキュメントの 'user.json' の閉じクォートの1バイト外にカーソルを置く。
@@ -167,7 +176,7 @@ final class JsonSchemaDefinitionLocatorTest extends TestCase
         $markerPosition = strpos($source, $marker);
         self::assertNotFalse($markerPosition, sprintf('Marker "%s" not found in %s', $marker, $relativePath));
 
-        $markers = ['<caret-5>', '<caret-4>', '<caret-3>', '<caret-2>', '<caret-1>', '<caret>'];
+        $markers = ['<caret-6>', '<caret-5>', '<caret-4>', '<caret-3>', '<caret-2>', '<caret-1>', '<caret>'];
         $caretOffset = strlen(str_replace($markers, '', substr($source, 0, $markerPosition)));
         $text = str_replace($markers, '', $source);
 

@@ -32,6 +32,10 @@ use UnexpectedValueException;
  */
 final class ImportAppRegistry
 {
+    public const ORIGIN_INSTALLED_PACKAGE = 'installed_package';
+
+    public const ORIGIN_PROJECT = 'project';
+
     private const IMPORT_APP_CLASS = 'BEAR\Package\Module\Import\ImportApp';
 
     /** @var array<string, self> プロジェクトルート → レジストリ */
@@ -53,6 +57,8 @@ final class ImportAppRegistry
 
     public static function invalidate(?string $root = null): void
     {
+        InstalledPackageMap::invalidate($root);
+
         if ($root !== null) {
             if (isset(self::$byRoot[$root])) {
                 self::$byRoot[$root]->hostToNamespace = null;
@@ -70,7 +76,7 @@ final class ImportAppRegistry
      * インポートされたホストのURIを、対応するパッケージ内のリソースクラスに解決する。
      * ホストが対応表に無い・パッケージの psr-4 に一致しない・クラスが無い場合は null。
      *
-     * @return array{file: string, fqn: string}|null
+     * @return array{file: string, fqn: string, origin: self::ORIGIN_INSTALLED_PACKAGE|self::ORIGIN_PROJECT}|null
      */
     public function resolve(ResourceUri $uri): ?array
     {
@@ -85,12 +91,16 @@ final class ImportAppRegistry
         // ImportApp('catalog', 'BEAR\Kata\Example\ImportedCatalog', 'app') の飛び先を
         // 自分の composer.json の autoload-dev に置いている。vendor だけ見ていたので
         // app://catalog/status に飛べなかった。まず vendor、無ければ自分の psr-4。
-        $file = $this->fileInInstalledPackage($fqn) ?? $this->fileInThisProject($fqn);
-        if ($file === null) {
-            return null;
+        $file = $this->fileInInstalledPackage($fqn);
+        if ($file !== null) {
+            return ['file' => $file, 'fqn' => $fqn, 'origin' => self::ORIGIN_INSTALLED_PACKAGE];
         }
 
-        return ['file' => $file, 'fqn' => $fqn];
+        $file = $this->fileInThisProject($fqn);
+
+        return $file === null
+            ? null
+            : ['file' => $file, 'fqn' => $fqn, 'origin' => self::ORIGIN_PROJECT];
     }
 
     /** @return list<string> */

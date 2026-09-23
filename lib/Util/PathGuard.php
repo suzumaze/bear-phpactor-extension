@@ -23,7 +23,7 @@ final class PathGuard
      * ベースディレクトリに相対パスを結合し、正規化したパスを返す。
      * 次のいずれかに該当する場合は null を返す:
      *
-     * - 相対パスが '..' を含む (親ディレクトリ参照)
+     * - 相対パスが '..' セグメントを含む (親ディレクトリ参照)
      * - 相対パスが '\' を含む (OSによってはディレクトリ区切りとして扱われる)
      * - 相対パスが '/' またはドライブ文字 (C:\) で始まる (絶対パス)
      *
@@ -32,11 +32,15 @@ final class PathGuard
     public static function resolveInside(string $baseDir, string $relativePath): ?string
     {
         if (
-            str_contains($relativePath, '..')
-            || str_contains($relativePath, '\\')
+            str_contains($relativePath, '\\')
             || self::isAbsolutePath($relativePath)
         ) {
             return null;
+        }
+        foreach (explode('/', $relativePath) as $segment) {
+            if ($segment === '..') {
+                return null;
+            }
         }
 
         $baseDir = rtrim($baseDir, '/');
