@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-09-24
+
 ### Changed
 
 - The public `bear/*` contract now identifies itself as the unversioned
@@ -34,6 +36,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   workspace-boundary checks consistently to Resource resolution.
 - Preserve editor navigation to ImportApp packages installed as Composer path-repository
   symlinks, while keeping read-only Semantic API requests inside the workspace boundary.
+- Accept an empty JSON object (`{}`) as parameters in the bundled semantic stdio client while
+  continuing to reject JSON arrays.
 
 ## [0.1.8] - 2026-09-22
 
@@ -151,7 +155,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Invalid, missing, ambiguous, malformed, and outside-workspace inputs return structured
   failure results instead of executing application PHP or exposing exception traces.
 
-[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.8...HEAD
+[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.9...HEAD
+[0.1.9]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.5...v0.1.6
