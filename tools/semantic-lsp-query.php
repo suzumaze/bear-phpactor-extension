@@ -65,15 +65,16 @@ if ($workspace === false || !is_dir($workspace)) {
 }
 
 try {
-    $params = json_decode($jsonParams, true, 64, JSON_THROW_ON_ERROR);
+    $decodedParams = json_decode($jsonParams, false, 64, JSON_THROW_ON_ERROR);
 } catch (JsonException $exception) {
     fwrite(STDERR, 'Invalid JSON params: ' . $exception->getMessage() . "\n");
     exit(2);
 }
-if (!is_array($params) || array_is_list($params)) {
+if (!$decodedParams instanceof stdClass) {
     fwrite(STDERR, "JSON_PARAMS must be an object\n");
     exit(2);
 }
+$params = get_object_vars($decodedParams);
 
 $phpactor = getenv('PHPACTOR_BIN');
 if (!is_string($phpactor) || $phpactor === '') {
