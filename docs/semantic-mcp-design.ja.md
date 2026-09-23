@@ -31,7 +31,9 @@ standalone MCP adapter
 Codex / Claude / other MCP clients
 ```
 
-成功条件は、エディタの定義ジャンプと MCP の回答が同じ規約・同じ曖昧性判定・同じ workspace 境界を使うことである。
+成功条件は、エディタの定義ジャンプと MCP の回答が同じ規約・同じ曖昧性判定を使うことである。
+読み取り境界だけはadapterの役割に応じて異なる。MCPはworkspace内に限定し、エディタはComposerが
+`installed.json`に記録したImportAppパッケージrootを追加の信頼済み定義ジャンプ先として扱える。
 
 ## 2. 背景と prior art
 
@@ -533,9 +535,13 @@ DIの優先順位、`override()`、framework module、provider、multibinding、
 
 ### 8.2 Composer dependency
 
-初期版では、canonical workspace root内の`vendor/`だけを読み取り対象にする。
+read-only Semantic API / MCPでは、canonical workspace root内の`vendor/`だけを読み取り対象にする。
+Composer path repositoryやsymlinkによりdependencyがworkspace外へ出る場合は`outside_workspace`とし、
+存在の有無や内容を返さない。
 
-Composer path repositoryやsymlinkによりdependencyがworkspace外へ出る場合、定義候補の存在を推測せず`outside_workspace`とする。将来許可する場合は、Composer metadataから明示的に得たdependency rootだけを別allowlistへ追加し、任意パス入力から到達できないようにする。
+エディタの定義ジャンプでは、Composer metadataから明示的に得たImportAppパッケージrootだけを
+追加のallowlistとして扱う。任意の外部path、通常のResource symlink、caller入力から到達した
+workspace外pathは許可しない。
 
 ### 8.3 Parser
 

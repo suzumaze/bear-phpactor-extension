@@ -110,11 +110,11 @@ final class TemplateReferenceScanner
 
             $inner = substr($tag, 2, -2);
             $innerOffset = $tagOffset + 2;
-            if (preg_match('/^\s*verbatim\b/', $inner) === 1) {
+            if (preg_match('/^\s*[-~]?\s*verbatim\b/', $inner) === 1) {
                 $verbatim = true;
                 continue;
             }
-            if (preg_match('/^\s*endverbatim\b/', $inner) === 1) {
+            if (preg_match('/^\s*[-~]?\s*endverbatim\b/', $inner) === 1) {
                 $verbatim = false;
                 continue;
             }
@@ -135,7 +135,14 @@ final class TemplateReferenceScanner
     private function collectTwigTagReference(string $code, int $baseOffset, array &$references): void
     {
         $literal = $this->literalPattern('literal');
-        if (preg_match('/^\s*(?:extends|include)\s+' . $literal . '/s', $code, $match, PREG_OFFSET_CAPTURE) !== 1) {
+        if (
+            preg_match(
+                '/^\s*[-~]?\s*(?:extends|include)\s+' . $literal . '/s',
+                $code,
+                $match,
+                PREG_OFFSET_CAPTURE,
+            ) !== 1
+        ) {
             return;
         }
 

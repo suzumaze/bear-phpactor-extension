@@ -220,16 +220,17 @@ final class SemanticQueryHandlerTest extends TestCase
         ));
 
         self::assertSame('ok', $response['status']);
-        self::assertSame(2, $response['data']['total']);
+        self::assertSame(3, $response['data']['total']);
         self::assertSame(0, $response['data']['offset']);
         self::assertFalse($response['data']['truncated']);
         self::assertSame(
-            ['app://self/dashboard', 'app://self/user'],
+            ['app://self/dashboard', 'app://self/other', 'app://self/user'],
             array_column(array_column($response['data']['items'], 'resource'), 'uri'),
         );
-        self::assertSame(['ok', 'ok'], array_column($response['data']['items'], 'status'));
+        self::assertSame(['ok', 'ok', 'ok'], array_column($response['data']['items'], 'status'));
         self::assertCount(7, $response['data']['items'][0]['attributes']);
         self::assertSame([], $response['data']['items'][1]['attributes']);
+        self::assertSame([], $response['data']['items'][2]['attributes']);
         self::assertSame([
             'source' => 'explicit_only',
             'constructorDefaultsExpanded' => false,

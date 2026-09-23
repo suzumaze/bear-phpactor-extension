@@ -7,15 +7,14 @@ namespace Suzumaze\BearPhpactor\Sql;
 use Microsoft\PhpParser\Node\Attribute;
 use Microsoft\PhpParser\Node\DelimitedList\ArgumentExpressionList;
 use Microsoft\PhpParser\Node\Expression\ArgumentExpression;
-use Microsoft\PhpParser\Node\QualifiedName;
 use Microsoft\PhpParser\Node\StringLiteral;
 use Microsoft\PhpParser\Parser;
 use Microsoft\PhpParser\PhpTokenizer;
 use Microsoft\PhpParser\Token;
 use Microsoft\PhpParser\TokenKind;
 use Phpactor\TextDocument\TextDocument;
-use Phpactor\WorseReflection\Core\Util\NodeUtil;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
+use Suzumaze\BearPhpactor\Util\PhpAttributeName;
 
 /**
  * Locates a static Ray.MediaQuery / Ray.QueryModule SQL query ID without resolving it.
@@ -162,18 +161,7 @@ final class SqlQueryAtOffset
 
     private function isDbQueryAttribute(Attribute $attribute): bool
     {
-        if (!$attribute->name instanceof QualifiedName) {
-            return false;
-        }
-
-        $writtenName = ltrim((string) NodeUtil::nameFromTokenOrQualifiedName($attribute, $attribute->name), '\\');
-        if ($writtenName === self::DB_QUERY_FQN) {
-            return true;
-        }
-
-        $resolvedName = ltrim((string) $attribute->name->getResolvedName(), '\\');
-
-        return $resolvedName === self::DB_QUERY_FQN;
+        return PhpAttributeName::is($attribute, self::DB_QUERY_FQN, acceptLegacyWrittenFqn: true);
     }
 
     /** @return array{int,string,int}|null */

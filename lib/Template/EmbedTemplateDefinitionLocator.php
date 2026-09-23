@@ -7,10 +7,10 @@ namespace Suzumaze\BearPhpactor\Template;
 use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
 use Suzumaze\BearPhpactor\Util\PathGuard;
+use Suzumaze\BearPhpactor\Util\PhpAttributeName;
 use Microsoft\PhpParser\Node\Attribute;
 use Microsoft\PhpParser\Node\DelimitedList\ArgumentExpressionList;
 use Microsoft\PhpParser\Node\Expression\ArgumentExpression;
-use Microsoft\PhpParser\Node\QualifiedName;
 use Microsoft\PhpParser\Node\StringLiteral;
 use Microsoft\PhpParser\Parser;
 use Microsoft\PhpParser\Token;
@@ -45,8 +45,6 @@ final class EmbedTemplateDefinitionLocator implements DefinitionLocator
     private const TWIG_EXTENSION = '.html.twig';
 
     private const QIQ_EXTENSION = '.php';
-
-    private const EMBED_SHORT_NAME = 'Embed';
 
     private const EMBED_FQN = 'BEAR\\Resource\\Annotation\\Embed';
 
@@ -202,7 +200,8 @@ final class EmbedTemplateDefinitionLocator implements DefinitionLocator
     private function relationAtOffset(string $source, int $offset, string $kind): ?string
     {
         $pattern = $kind === 'twig'
-            ? '/\{\{\s*(?<relation>[A-Za-z_][A-Za-z0-9_]*)\s*(?:\|[^{}]+)?\}\}/'
+            ? '/\{\{\s*[-~]?\s*(?<relation>[A-Za-z_][A-Za-z0-9_]*)\s*'
+                . '(?:\|[^{}]*?)?\s*[-~]?\s*\}\}/'
             : '/\{\{(?:=|h)\s+\$(?:this->)?(?<relation>[A-Za-z_][A-Za-z0-9_]*)\s*\}\}/';
 
         if (preg_match_all($pattern, $source, $matches, PREG_OFFSET_CAPTURE) === false) {
@@ -259,13 +258,7 @@ final class EmbedTemplateDefinitionLocator implements DefinitionLocator
 
     private function isEmbedAttribute(Attribute $attribute): bool
     {
-        if (!$attribute->name instanceof QualifiedName) {
-            return false;
-        }
-
-        $name = ltrim($attribute->name->getText(), '\\');
-
-        return $name === self::EMBED_SHORT_NAME || $name === self::EMBED_FQN;
+        return PhpAttributeName::is($attribute, self::EMBED_FQN);
     }
 
     /** @return array<string, string> */

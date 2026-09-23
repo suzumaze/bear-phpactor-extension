@@ -542,12 +542,11 @@ final class ProjectDiagnosticsQuery
     ): void {
         foreach ($facts->methods as $method) {
             foreach ([SchemaQuery::KIND_REQUEST, SchemaQuery::KIND_RESPONSE] as $kind) {
-                $result = $this->contractComparisonQuery->compareInWorkspace(
+                $result = $this->contractComparisonQuery->compareFactsInWorkspace(
                     $workspace,
-                    $facts->resource->uri->uri(),
+                    $facts,
                     $method->name,
                     $kind,
-                    contextPath: $relativePath,
                 );
                 if (!$result->value instanceof ContractComparison || $result->value->comparison === null) {
                     continue;

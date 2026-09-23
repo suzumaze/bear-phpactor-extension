@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Suzumaze\BearPhpactor\JsonSchema;
 
 use Suzumaze\BearPhpactor\Util\PathGuard;
+use Suzumaze\BearPhpactor\Util\PhpAttributeName;
 use Suzumaze\BearPhpactor\Util\ProjectLocator;
 use Microsoft\PhpParser\Node\Attribute;
 use Microsoft\PhpParser\Node\Expression\ArgumentExpression;
-use Microsoft\PhpParser\Node\QualifiedName;
 use Microsoft\PhpParser\Node\StringLiteral;
 use Microsoft\PhpParser\Token;
 
@@ -37,6 +37,8 @@ final class JsonSchemaPathResolver
     public const REQUEST_SCHEMA_DIR = 'var/json_validate';
 
     public const JSON_SCHEMA_ATTRIBUTE = 'JsonSchema';
+
+    private const JSON_SCHEMA_FQN = 'BEAR\\Resource\\Annotation\\JsonSchema';
 
     private const RESOURCE_APP_NAMESPACE = '\\Resource\\App\\';
 
@@ -82,16 +84,7 @@ final class JsonSchemaPathResolver
 
     public function isJsonSchemaAttribute(Attribute $attribute): bool
     {
-        $name = $attribute->name;
-        if ($name instanceof QualifiedName) {
-            $text = $name->getText();
-            $separator = strrpos($text, '\\');
-            $shortName = $separator === false ? $text : substr($text, $separator + 1);
-
-            return $shortName === self::JSON_SCHEMA_ATTRIBUTE;
-        }
-
-        return false;
+        return PhpAttributeName::is($attribute, self::JSON_SCHEMA_FQN, acceptLegacyWrittenFqn: true);
     }
 
     /**

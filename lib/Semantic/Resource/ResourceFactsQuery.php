@@ -11,7 +11,6 @@ use Microsoft\PhpParser\Node\Expression\ArgumentExpression;
 use Microsoft\PhpParser\Node\MethodDeclaration;
 use Microsoft\PhpParser\Node\NumericLiteral;
 use Microsoft\PhpParser\Node\Parameter;
-use Microsoft\PhpParser\Node\QualifiedName;
 use Microsoft\PhpParser\Node\Statement\ClassDeclaration;
 use Microsoft\PhpParser\Node\StringLiteral;
 use Microsoft\PhpParser\Parser;
@@ -23,6 +22,7 @@ use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 use Suzumaze\BearPhpactor\Util\PhpClassDeclaration;
+use Suzumaze\BearPhpactor\Util\PhpAttributeName;
 
 /**
  * Reads statically knowable facts from one resolved Resource class.
@@ -389,13 +389,7 @@ final class ResourceFactsQuery
 
     private function attributeFqn(Attribute $attribute): ?string
     {
-        if (!$attribute->name instanceof QualifiedName) {
-            return null;
-        }
-
-        $resolved = $attribute->name->getResolvedName();
-
-        return $resolved === null ? null : ltrim((string) $resolved, '\\');
+        return PhpAttributeName::resolve($attribute);
     }
 
     private function attributeArgument(

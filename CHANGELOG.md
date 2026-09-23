@@ -6,6 +6,30 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- CI now installs the committed dependency lock for reproducible pull-request checks,
+  while a separate scheduled and manually runnable job exercises the latest allowed
+  dependencies.
+- The English and Japanese READMEs now list every Semantic API v1 request and the
+  standalone verification tools.
+
+### Fixed
+
+- Recognize Twig whitespace-control syntax in template references, verbatim blocks,
+  and Embed expressions.
+- Resolve aliased Embed and JsonSchema attributes by their fully qualified names and
+  ignore unrelated attributes with the same short names; all supported attribute
+  scanners now share the same PHP name-resolution helper.
+- Reuse already parsed Resource facts during project contract diagnostics instead of
+  resolving and reading the same Resource again for each method.
+- Refresh imported application package mappings after Composer metadata changes are
+  reported through the LSP file-event listener.
+- Allow valid filenames containing consecutive dots while applying canonical
+  workspace-boundary checks consistently to Resource resolution.
+- Preserve editor navigation to ImportApp packages installed as Composer path-repository
+  symlinks, while keeping read-only Semantic API requests inside the workspace boundary.
+
 ## [0.1.8] - 2026-09-22
 
 ### Added

@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace Suzumaze\BearPhpactor\Tests\Unit\Resource;
 
+use Phpactor\LanguageServer\Event\FilesChanged;
+use Phpactor\LanguageServerProtocol\FileChangeType;
+use Phpactor\LanguageServerProtocol\FileEvent;
+use Suzumaze\BearPhpactor\LanguageServer\ResourceInventoryIndexListener;
 use Suzumaze\BearPhpactor\Resource\Model\ImportAppRegistry;
+use Suzumaze\BearPhpactor\Resource\Model\InstalledPackageMap;
 use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryIndex;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -47,6 +53,7 @@ final class ImportAppRegistryTest extends TestCase
             $candidate['file']
         );
         self::assertSame('Acme\Tags\Resource\App\Api\Search', $candidate['fqn']);
+        self::assertSame(ImportAppRegistry::ORIGIN_INSTALLED_PACKAGE, $candidate['origin']);
     }
 
     public function testResolvesImportedHostToProjectPsr4WithoutExposingItAsSelf(): void
@@ -59,6 +66,7 @@ final class ImportAppRegistryTest extends TestCase
         self::assertNotNull($candidate);
         self::assertSame(self::fixtureDir() . '/imported-tags/Resource/App/Tag.php', $candidate['file']);
         self::assertSame('Acme\Tags\Resource\App\Tag', $candidate['fqn']);
+        self::assertSame(ImportAppRegistry::ORIGIN_PROJECT, $candidate['origin']);
     }
 
     public function testUnknownHostReturnsNull(): void
@@ -130,6 +138,50 @@ final class ImportAppRegistryTest extends TestCase
 
         self::assertNotNull($registry->resolve($labels));
         self::assertNull($registry->resolve($tags));
+    }
+
+    public function testComposerPhpFileChangeEventRefreshesInstalledPackageMap(): void
+    {
+        $root = $this->temporaryProject('/workspace');
+        self::assertTrue(mkdir($root . '/vendor/composer', 0777, true));
+        foreach (['tags-v1', 'tags-v2'] as $package) {
+            self::assertTrue(mkdir($root . '/vendor/acme/' . $package . '/src', 0777, true));
+        }
+        $installedJson = $root . '/vendor/composer/installed.json';
+        $this->writeInstalledPackage($installedJson, '../acme/tags-v1');
+
+        $map = InstalledPackageMap::forProject($root);
+        $first = $map->resolve('Acme\\Tags\\Resource\\App\\Api\\Search');
+        self::assertNotNull($first);
+        self::assertSame(realpath($root . '/vendor/acme/tags-v1'), $first['installPath']);
+
+        $this->writeInstalledPackage($installedJson, '../acme/tags-v2');
+        self::assertSame($first, $map->resolve('Acme\\Tags\\Resource\\App\\Api\\Search'));
+
+        $listener = new ResourceInventoryIndexListener(new ResourceInventoryIndex(true));
+        $event = new FilesChanged(new FileEvent(
+            'file://' . $root . '/vendor/composer/autoload_psr4.php',
+            FileChangeType::CHANGED,
+        ));
+        $listeners = $listener->getListenersForEvent($event);
+        self::assertCount(1, $listeners);
+        foreach ($listeners as $invalidate) {
+            $invalidate($event);
+        }
+
+        $second = $map->resolve('Acme\\Tags\\Resource\\App\\Api\\Search');
+        self::assertSame(realpath($root . '/vendor/acme/tags-v2'), $second['installPath']);
+    }
+
+    private function writeInstalledPackage(string $path, string $installPath): void
+    {
+        self::assertNotFalse(file_put_contents($path, json_encode([
+            'packages' => [[
+                'name' => 'acme/tags-core',
+                'install-path' => $installPath,
+                'autoload' => ['psr-4' => ['Acme\\Tags\\' => 'src/']],
+            ]],
+        ], JSON_THROW_ON_ERROR)));
     }
 
     private function temporaryProject(string $suffix): string

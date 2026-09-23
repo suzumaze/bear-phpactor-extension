@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
 
 jobs:
   test:
@@ -24,9 +27,7 @@ jobs:
           coverage: none
 
       - name: Install dependencies
-        # phpactor pulls dev-master dependencies, hence the stability settings
-        # already declared in composer.json.
-        run: composer update --no-interaction --no-progress --prefer-dist
+        run: composer install --no-interaction --no-progress --prefer-dist
 
       - name: PHPUnit
         run: vendor/bin/phpunit
@@ -40,3 +41,22 @@ jobs:
         # so 256M leaves margin. `parameters.memoryLimit` is not a valid phpstan
         # config key, so the limit must be passed on the command line.
         run: vendor/bin/phpstan analyse --no-progress --memory-limit=256M
+
+  latest-dependencies:
+    name: Latest dependencies
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+
+      - name: Resolve latest compatible dependencies
+        run: composer update --no-interaction --no-progress --prefer-dist
+
+      - name: Check latest dependency set
+        run: composer check

@@ -33,6 +33,21 @@ final class InstalledPackageMap
         return self::$byRoot[$root] ??= new self($root);
     }
 
+    public static function invalidate(?string $root = null): void
+    {
+        if ($root !== null) {
+            if (isset(self::$byRoot[$root])) {
+                self::$byRoot[$root]->prefixes = null;
+            }
+
+            return;
+        }
+
+        foreach (self::$byRoot as $map) {
+            $map->prefixes = null;
+        }
+    }
+
     /**
      * FQN にマッチする最長の psr-4 プレフィックスを返す。無ければ null。
      *

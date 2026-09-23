@@ -40,8 +40,14 @@ VS Code / Neovim / Emacs / その他のLSPクライアント
 
 文書内Positionを使える場合は標準LSP methodを優先します。BEAR identifierは分かっているものの
 開いた文書やPositionがないclient向けに、Language Serverはproject、Resource、Route、SQL、
-Template、ALPS、Schemaを問い合わせる19個のread-only `bear/*` requestも提供します。
+Template、ALPS、Schemaを問い合わせる21個のread-only `bear/*` requestも提供します。
 Resource属性のfactsとworkspace全体の一覧は、application PHPを実行せず取得できます。
+`bear/project/diagnostics`は、保存済みsourceに明示された参照から静的に証明できる不整合を
+project全体で集約し、個別itemの失敗を外側のquery statusから分離します。
+`bear/project/contractCoverage`は、request/response JSON SchemaとALPSのcontract surfaceが
+利用可能・未導入・動的・未解決のどれかを返し、任意のcontract未導入をproject errorとは
+扱いません。`scheme`とproject全体の`summary.schemes`は`app`と`page`を分けますが、schemeだけで
+公開範囲やJSON表現であることは推測しません。
 `bear/project/info`はSemantic API version `1`と利用可能なcapabilityを返します。versioned contractの
 詳細は[`docs/lsp-semantic-requests.md`](docs/lsp-semantic-requests.md)にあります。
 
@@ -69,6 +75,27 @@ php tools/semantic-lsp-query.php /path/to/bear-project \
   bear/contract/compare \
   '{"uri":"app://self/user","method":"onPost","schemaKind":"request"}'
 ```
+
+applicationを起動せず、project全体の静的診断を取得する例:
+
+```bash
+php tools/semantic-lsp-query.php /path/to/bear-project \
+  bear/project/diagnostics \
+  '{"limit":100,"offset":0}'
+```
+
+JSON SchemaやALPSを導入できるResource methodを探す例:
+
+```bash
+php tools/semantic-lsp-query.php /path/to/bear-project \
+  bear/project/contractCoverage \
+  '{"limit":100,"offset":0,"gapsOnly":true,"scheme":"page"}'
+```
+
+project全体の2つのreportは、安定したoffset paginationと概算serialized-byte budgetを使います。
+pageは指定した`limit`より短くなる場合があります。`truncated`がtrueの間、実際に返ったitem数だけ
+`offset`を進めてください。diagnosticsの`limit`は1〜200（既定100）、contract coverageは
+1〜100（既定100）です。非常に大きい単一itemについてwire sizeを厳密に保証するものではありません。
 
 問い合わせは保存済みworkspace fileだけを読みます。BEAR applicationの実行、file変更、network access、
 MCP server機能は行いません。
@@ -174,6 +201,9 @@ Qiqは`.php`なので通常どおりPhpactorへ送られます。[Phpactor公式
 
 - カーソルが対応する参照上にあり、解決先が実在する場合だけ定義を返します。
 - 解決先はworkspace内に限定し、パストラバーサルや任意の外部パスを拒否します。
+  ただしエディタの定義ジャンプは、Composerの`vendor/composer/installed.json`に記録された
+  ImportAppパッケージのrootに限り、path repositoryのsymlink先も許可します。read-onlyの
+  `bear/*`問い合わせは、より厳しいworkspace内限定の境界を維持します。
 - 不正な構文、存在しないファイル、未対応の式は例外にせず結果を返しません。
 - 静的解析だけを行い、テンプレートのレンダリングやアプリケーションPHPの実行はしません。
 - Resourceの候補が複数ある定義ジャンプでは、完全修飾名順の候補を表示します。曖昧な参照検索箇所は未解決として扱います。
@@ -208,4 +238,14 @@ Qiqは`.php`なので通常どおりPhpactorへ送られます。[Phpactor公式
 composer check
 ```
 
-テストにはunit testと、initializeからshutdownまでの実Phpactor stdio sessionが含まれます。`tools/coverage.php`と`tools/misfire.php`では、[BEAR.Kata](https://github.com/bearsunday/BEAR.Kata)を使ったプロジェクト単位の検証も行えます。
+テストにはunit testと、initializeからshutdownまでの実Phpactor stdio sessionが含まれます。
+さらに、対象applicationを明示して実行するproject単位の検証toolを同梱しています。
+
+- `tools/coverage.php`: 独立に計算した規約とDefinitionの着地先を比較
+- `tools/misfire.php`: 拡張が反応してはいけない位置での誤検出を検査
+- `tools/references.php`: Resource参照集合の比較とDefinitionの往復検査
+- `tools/latency.php`: Definitionのcold/warm latencyを測定
+- `tools/verify-invariants.php`: end-to-endのLSP invariantを機械的に検査
+- `tools/verify-kata-conventions.php`: BEAR.Kataで規約によるSchema到達件数を測定
+
+これらは通常のunit test suiteからは実行されません。

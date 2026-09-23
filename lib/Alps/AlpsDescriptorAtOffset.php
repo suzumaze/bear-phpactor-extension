@@ -7,12 +7,11 @@ namespace Suzumaze\BearPhpactor\Alps;
 use Microsoft\PhpParser\Node\Attribute;
 use Microsoft\PhpParser\Node\DelimitedList\ArgumentExpressionList;
 use Microsoft\PhpParser\Node\Expression\ArgumentExpression;
-use Microsoft\PhpParser\Node\QualifiedName;
 use Microsoft\PhpParser\Node\StringLiteral;
 use Microsoft\PhpParser\Parser;
 use Phpactor\TextDocument\TextDocument;
-use Phpactor\WorseReflection\Core\Util\NodeUtil;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
+use Suzumaze\BearPhpactor\Util\PhpAttributeName;
 
 /**
  * Locates an ALPS descriptor ID at a PHP byte offset without resolving it.
@@ -118,20 +117,6 @@ final class AlpsDescriptorAtOffset
 
     private function isAlpsAttribute(Attribute $attribute): bool
     {
-        if (!$attribute->name instanceof QualifiedName) {
-            return false;
-        }
-
-        // Keep the explicit no-leading-backslash spelling for compatibility
-        // with generated BEAR code, then resolve short names and aliases using
-        // PHP namespace/import rules. A coincidental Other\Alps must not match.
-        $writtenName = ltrim((string) NodeUtil::nameFromTokenOrQualifiedName($attribute, $attribute->name), '\\');
-        if ($writtenName === self::ALPS_FQN) {
-            return true;
-        }
-
-        $resolvedName = ltrim((string) $attribute->name->getResolvedName(), '\\');
-
-        return $resolvedName === self::ALPS_FQN;
+        return PhpAttributeName::is($attribute, self::ALPS_FQN, acceptLegacyWrittenFqn: true);
     }
 }

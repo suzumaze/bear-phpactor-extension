@@ -30,4 +30,10 @@ final class PathGuardTest extends TestCase
         // resolveInside も同じ判定を共有している (ドライブ文字付きは絶対パスとして拒否)
         self::assertNull(PathGuard::resolveInside('/base', 'C:/src/User.php'));
     }
+
+    public function testResolveInsideAllowsDotsWithinAFileName(): void
+    {
+        self::assertSame('/base/schema..v2.json', PathGuard::resolveInside('/base', 'schema..v2.json'));
+        self::assertNull(PathGuard::resolveInside('/base', 'schema/../escape.json'));
+    }
 }

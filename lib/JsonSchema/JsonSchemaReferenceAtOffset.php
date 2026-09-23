@@ -7,14 +7,13 @@ namespace Suzumaze\BearPhpactor\JsonSchema;
 use Microsoft\PhpParser\Node\Attribute;
 use Microsoft\PhpParser\Node\DelimitedList\ArgumentExpressionList;
 use Microsoft\PhpParser\Node\Expression\ArgumentExpression;
-use Microsoft\PhpParser\Node\QualifiedName;
 use Microsoft\PhpParser\Node\StringLiteral;
 use Microsoft\PhpParser\Parser;
 use Microsoft\PhpParser\Token;
 use Phpactor\TextDocument\TextDocument;
-use Phpactor\WorseReflection\Core\Util\NodeUtil;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
+use Suzumaze\BearPhpactor\Util\PhpAttributeName;
 
 /**
  * Locates an explicit BEAR JsonSchema file reference at a PHP byte offset.
@@ -141,17 +140,6 @@ final class JsonSchemaReferenceAtOffset
 
     private function isJsonSchemaAttribute(Attribute $attribute): bool
     {
-        if (!$attribute->name instanceof QualifiedName) {
-            return false;
-        }
-
-        $writtenName = ltrim((string) NodeUtil::nameFromTokenOrQualifiedName($attribute, $attribute->name), '\\');
-        if ($writtenName === self::JSON_SCHEMA_FQN) {
-            return true;
-        }
-
-        $resolvedName = ltrim((string) $attribute->name->getResolvedName(), '\\');
-
-        return $resolvedName === self::JSON_SCHEMA_FQN;
+        return PhpAttributeName::is($attribute, self::JSON_SCHEMA_FQN, acceptLegacyWrittenFqn: true);
     }
 }

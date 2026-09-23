@@ -68,13 +68,28 @@ final class ResourceQuery
                 return SemanticResult::notFound();
             }
 
-            return SemanticResult::ok($this->resolution($uri, $target));
+            $resolution = $this->resolution($uri, $target);
+            if ($target['origin'] === ImportAppRegistry::ORIGIN_INSTALLED_PACKAGE) {
+                // Composer path repositories commonly install packages as symlinks.
+                // The package root came from vendor/composer/installed.json, so the
+                // editor-facing resolver may follow it beyond the project root. The
+                // headless workspace entry point still applies its stricter boundary.
+                return SemanticResult::ok($resolution);
+            }
+
+            return $this->insideProject($project, $resolution->file)
+                ? SemanticResult::ok($resolution)
+                : SemanticResult::outsideWorkspace();
         }
 
         $file = $project->classFile($uri);
         $fqn = $project->classFqn($uri);
         if ($file !== null && $fqn !== null && is_file($file)) {
-            return SemanticResult::ok(new ResourceResolution($uri, $file, $fqn));
+            $resolution = new ResourceResolution($uri, $file, $fqn);
+
+            return $this->insideProject($project, $file)
+                ? SemanticResult::ok($resolution)
+                : SemanticResult::outsideWorkspace();
         }
 
         $candidates = array_map(
@@ -89,6 +104,12 @@ final class ResourceQuery
 
         if ($candidates === []) {
             return SemanticResult::notFound();
+        }
+
+        foreach ($candidates as $candidate) {
+            if (!$this->insideProject($project, $candidate->file)) {
+                return SemanticResult::outsideWorkspace();
+            }
         }
 
         if (count($candidates) > 1) {
@@ -115,6 +136,14 @@ final class ResourceQuery
         }
 
         return false;
+    }
+
+    private function insideProject(Project $project, string $file): bool
+    {
+        $policy = WorkspaceAccessPolicy::fromRoot($project->root());
+
+        return $policy->value instanceof WorkspaceAccessPolicy
+            && $policy->value->containsExisting($file);
     }
 
     /**
