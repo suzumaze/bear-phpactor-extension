@@ -1,0 +1,66 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+$readMessage = static function (): ?array {
+    $length = null;
+    while (($line = fgets(STDIN)) !== false) {
+        if (trim($line) === '') {
+            break;
+        }
+        if (preg_match('/^Content-Length:\s*(\d+)/i', trim($line), $matches) === 1) {
+            $length = (int) $matches[1];
+        }
+    }
+    if ($length === null) {
+        return null;
+    }
+
+    $body = '';
+    while (strlen($body) < $length) {
+        $chunk = fread(STDIN, $length - strlen($body));
+        if ($chunk === false || $chunk === '') {
+            return null;
+        }
+        $body .= $chunk;
+    }
+
+    $message = json_decode($body, true, 64, JSON_THROW_ON_ERROR);
+
+    return is_array($message) ? $message : null;
+};
+
+$sendResult = static function (int $id, mixed $result): void {
+    $body = json_encode(
+        ['jsonrpc' => '2.0', 'id' => $id, 'result' => $result],
+        JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
+    );
+    fwrite(STDOUT, sprintf("Content-Length: %d\r\n\r\n%s", strlen($body), $body));
+    fflush(STDOUT);
+};
+
+while (($message = $readMessage()) !== null) {
+    $method = $message['method'] ?? null;
+    if ($method === 'exit') {
+        break;
+    }
+
+    $id = $message['id'] ?? null;
+    if (!is_int($id)) {
+        continue;
+    }
+
+    $result = match ($method) {
+        'initialize' => ['capabilities' => []],
+        'bear/project/info' => [
+            'status' => 'ok',
+            'data' => ['workspaceName' => 'fixture'],
+            'candidates' => [],
+            'provenance' => [],
+        ],
+        'shutdown' => null,
+        default => null,
+    };
+    $sendResult($id, $result);
+}
