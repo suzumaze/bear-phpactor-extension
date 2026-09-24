@@ -164,6 +164,8 @@ shutdown・cancellation middleware より前に実行される。そのため前
 - `bear/project/info`
 - `bear/project/diagnostics`
 - `bear/project/contractCoverage`
+- `bear/di/bindings`
+- `bear/aop/pointcuts`
 - `bear/resource/resolve`
 - `bear/resource/list`
 - `bear/resource/describe`
@@ -195,9 +197,18 @@ capabilityは追加でき、clientは未知のobject fieldを無視する。公�
 公開済みの`semanticApiVersion`は互換性のため`1`のまま非推奨memberとして残す。新しいclientは
 version交渉やcapability判断に使用しない。
 
-`tests/Contract/semantic-query-contract.json`とcontract testが、全21 methodの登録名、handler引数の
+`tests/Contract/semantic-query-contract.json`とcontract testが、全23 methodの登録名、handler引数の
 名前・型・default、成功envelopeとtop-level data key、failure envelope、error key、全statusを
 実際のhandler responseに対して検証する。snapshotはversion交渉ではなく回帰検出に使う。
+
+`bear/di/bindings`は、Ray.Di `AbstractModule`を直接継承するclass内の
+`$this->bind(X)->to(Y)`という静的宣言を一覧化する。`bear/aop/pointcuts`は同じmodule sourceから
+`bindInterceptor`と`bindPriorityInterceptor`の静的宣言を拾い、Ray.Aop matcherを構文木として
+保持する。どちらも保存済みsourceの宣言inventoryであり、application contextやmodule install treeを
+合成せず、`override()`の優先順位、最終的に勝つbinding、pointcutの適用結果、runtime weavingを
+主張しない。dynamic binding、qualifier、provider、multibinding、assisted injection、未対応matcherは
+推測で欠落させず、理由付きの`unresolved`に残す。workspace内のComposer PSR-4 PHP sourceだけを読み、
+moduleのload、DI containerの構築、applicationの実行は行わない。
 
 `bear/project/diagnostics`は保存済みsourceだけを有界に走査し、明示的なResource URI、Route、
 SQL、JsonSchema、ALPS、Twig/Qiq参照、Resource解析失敗、Link/Embed先method、複数contract

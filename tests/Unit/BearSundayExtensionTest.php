@@ -19,7 +19,9 @@ use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceDefinitionLocator;
 use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceReferenceFinder;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
+use Suzumaze\BearPhpactor\Semantic\Aop\AopPointcutQuery;
 use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparisonQuery;
+use Suzumaze\BearPhpactor\Semantic\Di\DiBindingQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverageQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsFactsQuery;
@@ -142,6 +144,14 @@ final class BearSundayExtensionTest extends TestCase
         self::assertInstanceOf(
             ContractCoverageQuery::class,
             $container->get('bear_sunday.semantic.contract_coverage_query'),
+        );
+        self::assertInstanceOf(
+            DiBindingQuery::class,
+            $container->get('bear_sunday.semantic.di_binding_query'),
+        );
+        self::assertInstanceOf(
+            AopPointcutQuery::class,
+            $container->get('bear_sunday.semantic.aop_pointcut_query'),
         );
     }
 

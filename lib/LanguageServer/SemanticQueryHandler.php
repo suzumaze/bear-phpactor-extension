@@ -6,6 +6,9 @@ namespace Suzumaze\BearPhpactor\LanguageServer;
 
 use Amp\Promise;
 use Amp\Success;
+use Suzumaze\BearPhpactor\Semantic\Aop\AopPointcutFact;
+use Suzumaze\BearPhpactor\Semantic\Aop\AopPointcutInventory;
+use Suzumaze\BearPhpactor\Semantic\Aop\AopPointcutQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorFacts;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorRelationFact;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorResolution;
@@ -13,6 +16,9 @@ use Suzumaze\BearPhpactor\Semantic\Alps\AlpsFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparison;
 use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparisonQuery;
+use Suzumaze\BearPhpactor\Semantic\Di\DiBindingFact;
+use Suzumaze\BearPhpactor\Semantic\Di\DiBindingInventory;
+use Suzumaze\BearPhpactor\Semantic\Di\DiBindingQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverage;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverageItem;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverageQuery;
@@ -96,6 +102,8 @@ final class SemanticQueryHandler implements Handler
         private ContractComparisonQuery $contractComparisonQuery = new ContractComparisonQuery(),
         private ProjectDiagnosticsQuery $projectDiagnosticsQuery = new ProjectDiagnosticsQuery(),
         private ContractCoverageQuery $contractCoverageQuery = new ContractCoverageQuery(),
+        private DiBindingQuery $diBindingQuery = new DiBindingQuery(),
+        private AopPointcutQuery $aopPointcutQuery = new AopPointcutQuery(),
     ) {
         $this->workspace = WorkspaceContext::fromRoot($workspaceRoot);
         $this->resourceFactsQuery = $resourceFactsQuery;
@@ -130,6 +138,8 @@ final class SemanticQueryHandler implements Handler
             'bear/schema/forResource' => 'resolveResourceSchema',
             'bear/schema/describeNamed' => 'describeNamedSchema',
             'bear/schema/describeForResource' => 'describeResourceSchema',
+            'bear/di/bindings' => 'inspectDiBindings',
+            'bear/aop/pointcuts' => 'inspectAopPointcuts',
         ];
     }
 
@@ -525,6 +535,50 @@ final class SemanticQueryHandler implements Handler
         ));
     }
 
+    /** @return Promise<array<string,mixed>> */
+    public function inspectDiBindings(
+        ?string $type = null,
+        ?string $contextPath = null,
+        int $limit = DiBindingQuery::DEFAULT_LIMIT,
+        int $offset = 0,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->diBindingQuery->listInWorkspace($workspace, $type, $contextPath, $limit, $offset),
+            fn (DiBindingInventory $inventory): array => [
+                'items' => array_map($this->diBindingData(...), $inventory->items),
+                'total' => $inventory->total,
+                'offset' => $inventory->offset,
+                'truncated' => $inventory->truncated,
+                'scannedModules' => $inventory->scannedModules,
+                'unresolved' => $inventory->unresolved,
+                'type' => $inventory->type,
+            ],
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function inspectAopPointcuts(
+        ?string $interceptor = null,
+        ?string $contextPath = null,
+        int $limit = AopPointcutQuery::DEFAULT_LIMIT,
+        int $offset = 0,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->aopPointcutQuery->listInWorkspace($workspace, $interceptor, $contextPath, $limit, $offset),
+            fn (AopPointcutInventory $inventory): array => [
+                'items' => array_map($this->aopPointcutData(...), $inventory->items),
+                'total' => $inventory->total,
+                'offset' => $inventory->offset,
+                'truncated' => $inventory->truncated,
+                'scannedModules' => $inventory->scannedModules,
+                'unresolved' => $inventory->unresolved,
+                'interceptor' => $inventory->interceptor,
+            ],
+        ));
+    }
+
     /**
      * @template TValue
      * @param callable(WorkspaceContext): SemanticResult<TValue|null> $query
@@ -608,6 +662,42 @@ final class SemanticQueryHandler implements Handler
         $data['details'] = $diagnostic->details;
 
         return $data;
+    }
+
+    /** @return array<string,mixed> */
+    private function diBindingData(DiBindingFact $binding): array
+    {
+        return [
+            'state' => $binding->state,
+            'module' => $binding->module,
+            'sourceType' => $binding->sourceType,
+            'targetType' => $binding->targetType,
+            'reason' => $binding->reason,
+            'path' => $binding->path,
+            'byteRange' => [
+                'start' => $binding->byteStart,
+                'end' => $binding->byteEnd,
+            ],
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function aopPointcutData(AopPointcutFact $pointcut): array
+    {
+        return [
+            'state' => $pointcut->state,
+            'module' => $pointcut->module,
+            'classMatcher' => $pointcut->classMatcher,
+            'methodMatcher' => $pointcut->methodMatcher,
+            'interceptors' => $pointcut->interceptors,
+            'priority' => $pointcut->priority,
+            'reasons' => $pointcut->reasons,
+            'path' => $pointcut->path,
+            'byteRange' => [
+                'start' => $pointcut->byteStart,
+                'end' => $pointcut->byteEnd,
+            ],
+        ];
     }
 
     /** @return array<string,mixed> */

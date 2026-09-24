@@ -273,6 +273,28 @@
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["kind", "source", "path", "titleByteOffset", "resource", "available", "types", "properties"]
+        },
+        "bear/di/bindings": {
+            "handler": "inspectDiBindings",
+            "parameters": [
+                {"name": "type", "type": "string|null", "required": false, "default": null},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null},
+                {"name": "limit", "type": "int", "required": false, "default": 50},
+                {"name": "offset", "type": "int", "required": false, "default": 0}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["items", "total", "offset", "truncated", "scannedModules", "unresolved", "type"]
+        },
+        "bear/aop/pointcuts": {
+            "handler": "inspectAopPointcuts",
+            "parameters": [
+                {"name": "interceptor", "type": "string|null", "required": false, "default": null},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null},
+                {"name": "limit", "type": "int", "required": false, "default": 50},
+                {"name": "offset", "type": "int", "required": false, "default": 0}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["items", "total", "offset", "truncated", "scannedModules", "unresolved", "interceptor"]
         }
     }
 }

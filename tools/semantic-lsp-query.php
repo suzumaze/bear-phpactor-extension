@@ -17,6 +17,8 @@ const METHODS = [
     'bear/project/info',
     'bear/project/diagnostics',
     'bear/project/contractCoverage',
+    'bear/di/bindings',
+    'bear/aop/pointcuts',
     'bear/resource/resolve',
     'bear/resource/list',
     'bear/resource/describe',

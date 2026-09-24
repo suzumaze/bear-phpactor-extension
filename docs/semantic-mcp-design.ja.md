@@ -502,7 +502,13 @@ branchごとのshape表現はM5の独立課題とする。
 
 ### M4: DI and AOP facts
 
-JetBrains版の現在の実装を仕様・失敗事例のprior artとして、次を独立milestoneで設計する。
+最小のsource declaration inventoryとして、`bear/di/bindings`と`bear/aop/pointcuts`を実装済み。
+直接`AbstractModule`を継承するclass内の静的`bind()->to()`宣言と、静的
+`bindInterceptor`/`bindPriorityInterceptor`宣言を保存済みsourceから取得する。matcherは対応する
+Ray.Aop構文をtreeとして保持し、dynamic/未対応の形は理由付き`unresolved`に残す。これはruntimeの
+有効なcontext、最終binding、pointcut適用結果またはweavingを表さない。
+
+JetBrains版の現在の実装を仕様・失敗事例のprior artとして、次の合成・lookup機能は独立milestoneで設計する。
 
 - `bear_app_context_list`
 - `bear_di_binding_lookup`
@@ -513,7 +519,7 @@ JetBrains版の現在の実装を仕様・失敗事例のprior artとして、�
 
 applicationやDI containerを実行せず、PHP sourceとComposer metadataから静的に答える。dynamic binding、読めないqualifier、未対応matcher、module installの未解決部分は欠落させず、理由付きの`unresolved`として返す。
 
-DIの優先順位、`override()`、framework module、provider、multibinding、assisted injectionは誤ると回答全体を誤認させる。M0/M1へ含めず、fixtureとRay.Diの実際の規則を確認する専用設計・専用PRを必要とする。
+DIの優先順位、`override()`、framework module、provider、multibinding、assisted injectionは誤ると回答全体を誤認させる。現在のinventoryへ含めず、fixtureとRay.Diの実際の規則を確認する専用設計・専用PRを必要とする。
 
 ### M5: Deferred contract facts
 

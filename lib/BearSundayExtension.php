@@ -25,11 +25,13 @@ use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
 use Suzumaze\BearPhpactor\Router\RouterDefinitionLocator;
 use Suzumaze\BearPhpactor\Router\RouteReferenceAtOffset;
+use Suzumaze\BearPhpactor\Semantic\Aop\AopPointcutQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsDescriptorReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsProfileQuery;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparisonQuery;
+use Suzumaze\BearPhpactor\Semantic\Di\DiBindingQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverageQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectDiagnosticsQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
@@ -187,6 +189,20 @@ final class BearSundayExtension implements Extension
         );
 
         $container->register(
+            'bear_sunday.semantic.di_binding_query',
+            function (): DiBindingQuery {
+                return new DiBindingQuery();
+            },
+        );
+
+        $container->register(
+            'bear_sunday.semantic.aop_pointcut_query',
+            function (): AopPointcutQuery {
+                return new AopPointcutQuery();
+            },
+        );
+
+        $container->register(
             'bear_sunday.semantic.project_diagnostics_query',
             function (Container $container): ProjectDiagnosticsQuery {
                 return new ProjectDiagnosticsQuery(
@@ -324,6 +340,8 @@ final class BearSundayExtension implements Extension
                     $container->get('bear_sunday.semantic.contract_comparison_query'),
                     $container->get('bear_sunday.semantic.project_diagnostics_query'),
                     $container->get('bear_sunday.semantic.contract_coverage_query'),
+                    $container->get('bear_sunday.semantic.di_binding_query'),
+                    $container->get('bear_sunday.semantic.aop_pointcut_query'),
                 );
             },
             [LanguageServerExtension::TAG_METHOD_HANDLER => []],

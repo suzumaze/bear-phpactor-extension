@@ -254,6 +254,28 @@ a stable published member and is `false` for this complete scan. The query uses 
 return fewer items; advance `offset` by the returned item count until `truncated` is
 false. It is not a strict wire-size guarantee for a single oversized item.
 
+`bear/di/bindings` inventories direct saved-source declarations of the form
+`$this->bind(X)->to(Y)` inside classes that directly extend Ray.Di's `AbstractModule`.
+Both endpoints must be string literals or statically resolvable `::class` expressions.
+The result is deliberately a declaration inventory: it does not compose application
+contexts or module installation trees, apply `override()` precedence, expand providers,
+multibindings, assisted injection, qualifiers, or claim which binding wins at runtime.
+Recognized but unsupported bind chains remain visible in `unresolved` with a reason.
+
+`bear/aop/pointcuts` inventories static `bindInterceptor` and
+`bindPriorityInterceptor` declarations from the same module sources. It preserves the
+supported Ray.Aop matcher syntax as a structured tree: `any`, `annotatedWith`,
+`subclassesOf`, `startsWith`, `logicalOr`, `logicalAnd`, and `logicalNot`. Static
+interceptor arrays are reported without instantiating them. The query does not evaluate
+the matcher against project classes or claim that interception is active or woven.
+Dynamic and unsupported arguments are retained as reasoned `unresolved` entries.
+
+Both inventories filter before stable offset pagination, return at most 100 items per
+page, and use the same approximate serialized-byte budget as other project reports.
+DI filtering matches an exact binding `type`; AOP filtering matches an exact
+`interceptor`. They scan only workspace-contained Composer PSR-4 PHP roots and never
+load module PHP, construct a DI container, or execute the application.
+
 ## Methods
 
 | Method | Params | Successful data |
@@ -261,6 +283,8 @@ false. It is not a strict wire-size guarantee for a single oversized item.
 | `bear/project/info` | `{contextPath?}` | `{semanticApiVersion, semanticProtocol, requests, workspaceName, projectPath, composerPath, psr4Roots, excludedPsr4Roots, resourceCount, capabilities, versions, compatibilityIssues}` |
 | `bear/project/diagnostics` | `{contextPath?, limit?, offset?}` | `{items, total, offset, truncated, scannedFiles, scannedResources, resourceScanTruncated, skippedChecks}` |
 | `bear/project/contractCoverage` | `{contextPath?, limit?, offset?, gapsOnly?, scheme?}` | `{items, total, matchingTotal, offset, truncated, gapsOnly, scheme, scannedResources, analyzedResources, resourceScanTruncated, summary}` |
+| `bear/di/bindings` | `{contextPath?, type?, limit?, offset?}` | `{items, total, offset, truncated, scannedModules, unresolved, filter}` |
+| `bear/aop/pointcuts` | `{contextPath?, interceptor?, limit?, offset?}` | `{items, total, offset, truncated, scannedModules, unresolved, filter}` |
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
 | `bear/resource/list` | `{scheme?, prefix?, limit?, offset?}` | `{resources, total, offset, truncated}` |
 | `bear/resource/describe` | `{uri, contextPath?, incomingLimit?}` | `{resource, methods[{name, parameters, responseBody}], relationsOut, relationsIn, templates, schemas}` |

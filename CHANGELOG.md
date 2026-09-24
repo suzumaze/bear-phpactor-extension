@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-24
+
 ### Added
 
 - A scheduled and manually runnable BEAR.Kata semantic regression job now checks a pinned
@@ -22,6 +24,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   statically broken Resource, Route, SQL, JSON Schema, ALPS, Twig, and Qiq
   references in the current editor buffer. It resolves against saved workspace
   targets without rescanning the whole project on every edit.
+- `bear/di/bindings` and `bear/aop/pointcuts` now expose bounded saved-source
+  declaration inventories for direct Ray.Di bindings and Ray.Aop interceptor
+  matcher trees. Dynamic or unsupported forms are retained as reasoned unresolved
+  items; the queries do not construct a container, evaluate pointcuts, or claim
+  runtime precedence and weaving.
 
 ## [0.1.9] - 2026-09-24
 
@@ -172,7 +179,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Invalid, missing, ambiguous, malformed, and outside-workspace inputs return structured
   failure results instead of executing application PHP or exposing exception traces.
 
-[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.9...HEAD
+[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.9...v0.2.0
 [0.1.9]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.6...v0.1.7

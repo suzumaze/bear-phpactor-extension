@@ -47,4 +47,49 @@ final class SemanticLspQueryToolTest extends TestCase
         self::assertSame('ok', $result['status'] ?? null);
         self::assertSame('fixture', $result['data']['workspaceName'] ?? null);
     }
+
+    /** @dataProvider newSemanticMethodProvider */
+    public function testAcceptsNewSemanticMethods(string $method): void
+    {
+        $root = dirname(__DIR__, 2);
+        $phpactor = realpath(__DIR__ . '/../Fixture/SemanticCli/fake-phpactor');
+        self::assertNotFalse($phpactor);
+
+        $environment = getenv();
+        $environment['PHPACTOR_BIN'] = $phpactor;
+        $process = proc_open(
+            [
+                PHP_BINARY,
+                $root . '/tools/semantic-lsp-query.php',
+                $root . '/tests/Fixture/Resource',
+                $method,
+                '{}',
+            ],
+            [
+                0 => ['pipe', 'r'],
+                1 => ['pipe', 'w'],
+                2 => ['pipe', 'w'],
+            ],
+            $pipes,
+            $root,
+            $environment,
+        );
+        self::assertIsResource($process);
+
+        fclose($pipes[0]);
+        stream_get_contents($pipes[1]);
+        $stderr = (string) stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        self::assertSame(0, proc_close($process), $stderr);
+        self::assertSame('', $stderr);
+    }
+
+    /** @return iterable<string,array{string}> */
+    public static function newSemanticMethodProvider(): iterable
+    {
+        yield 'DI bindings' => ['bear/di/bindings'];
+        yield 'AOP pointcuts' => ['bear/aop/pointcuts'];
+    }
 }
