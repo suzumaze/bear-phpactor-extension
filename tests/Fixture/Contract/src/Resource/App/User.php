@@ -13,6 +13,11 @@ final class User extends ResourceObject
     #[Alps('getUser')]
     public function onGet(): static
     {
+        $this->body = [
+            'id' => 1,
+            'name' => 'Alice',
+        ];
+
         return $this;
     }
 

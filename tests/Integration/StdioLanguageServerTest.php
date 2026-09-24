@@ -702,7 +702,7 @@ final class StdioLanguageServerTest extends TestCase
             self::assertArrayNotHasKey('error', $contract, $client->stderr());
             self::assertSame('ok', $contract['result']['status'] ?? null);
             self::assertSame(
-                ['unsupported', 'not_found', 'not_found'],
+                ['ok', 'not_found', 'not_found'],
                 array_column($contract['result']['data']['surfaces'] ?? [], 'status'),
             );
             self::assertNull($contract['result']['data']['comparison'] ?? null);

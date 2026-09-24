@@ -59,6 +59,7 @@ final class ResourceFactsQuery
     public function __construct(
         private ResourceQuery $resourceQuery = new ResourceQuery(),
         private Parser $parser = new Parser(),
+        private ResourceResponseShapeExtractor $responseShapeExtractor = new ResourceResponseShapeExtractor(),
         private int $maxCacheEntries = self::MAX_CACHE_ENTRIES,
     ) {
     }
@@ -147,7 +148,11 @@ final class ResourceFactsQuery
                 continue;
             }
 
-            $method = new ResourceMethodFact($member->getName(), $this->parameters($member));
+            $method = new ResourceMethodFact(
+                $member->getName(),
+                $this->parameters($member),
+                $this->responseShapeExtractor->extract($member, $source),
+            );
             $methods[] = $method;
             array_push(
                 $attributes,

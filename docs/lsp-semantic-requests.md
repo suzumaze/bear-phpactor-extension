@@ -242,7 +242,7 @@ false. It is not a strict wire-size guarantee for a single oversized item.
 | `bear/project/contractCoverage` | `{contextPath?, limit?, offset?, gapsOnly?, scheme?}` | `{items, total, matchingTotal, offset, truncated, gapsOnly, scheme, scannedResources, analyzedResources, resourceScanTruncated, summary}` |
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
 | `bear/resource/list` | `{scheme?, prefix?, limit?, offset?}` | `{resources, total, offset, truncated}` |
-| `bear/resource/describe` | `{uri, contextPath?, incomingLimit?}` | `{resource, methods, relationsOut, relationsIn, templates, schemas}` |
+| `bear/resource/describe` | `{uri, contextPath?, incomingLimit?}` | `{resource, methods[{name, parameters, responseBody}], relationsOut, relationsIn, templates, schemas}` |
 | `bear/resource/attributes` | `{uri, contextPath?}` | `{resource, attributes, argumentPolicy}` |
 | `bear/resource/attributeIndex` | `{scheme?, prefix?, limit?, offset?}` | `{items, total, offset, truncated, argumentPolicy}` |
 | `bear/resource/incomingRelations` | `{uri, contextPath?, limit?}` | `{resource, available, items, total, truncated}` |
@@ -360,9 +360,19 @@ overridden explicitly with `descriptorId`.
 
 For `schemaKind: "response"`, the Schema surface is an explicit response Schema or
 the Resource convention Schema. If the ALPS operation has a local `rt`, its target
-representation's contained descriptor IDs form the ALPS surface. Static Resource body
-shape is not implemented, so the Resource response surface reports `unsupported`
-instead of inferring assignments or executing PHP.
+representation's contained descriptor IDs form the ALPS surface. The Resource surface
+is `ok` only when saved source proves an exact top-level body shape: a straight-line
+method must assign a literal-key array to `$this->body`, may then add literal keys, and
+may return `$this`. Conditional control flow, dynamic keys or assignments, unsupported
+body uses, and direct `$this` helper calls stay `unsupported`; application PHP is never
+loaded or executed.
+
+Each `bear/resource/describe` method reports the same evidence as
+`responseBody: {status, names, reason}`. A complete shape has status `ok`, sorted names,
+and a null reason. Unsupported shapes have no names and a stable reason such as
+`no_complete_body_assignment`, `complex_control_flow`, `dynamic_body_assignment`, or
+`dynamic_body_key`. These are exact observations of explicit method-body construction,
+not a claim about runtime interceptors or semantic/type compatibility.
 
 Every surface independently reports `status`, `subject`, and sorted `names`. The
 `comparison` member is `null` until at least two surfaces are `ok`; otherwise it

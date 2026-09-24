@@ -78,6 +78,10 @@ php tools/semantic-lsp-query.php /path/to/bear-project \
   '{"uri":"app://self/user","method":"onPost","schemaKind":"request"}'
 ```
 
+Response comparison can also include statically proven `$this->body` keys. It
+accepts only straight-line literal-key array assignments; dynamic or conditional
+body construction remains explicitly `unsupported` instead of being guessed.
+
 To inspect bounded project-wide diagnostics without booting the application:
 
 ```bash

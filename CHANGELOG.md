@@ -13,6 +13,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   The existing coverage and misfire tools gained opt-in CI gates without changing their default
   report-only behavior. The corpus is read as source only; its dependencies and application are
   never installed or executed.
+- Saved-source Resource facts now expose exact top-level response names when a
+  straight-line method assigns a literal-key array to `$this->body`. Response
+  contract comparison includes that Resource surface only when completeness is
+  statically proven; dynamic assignments and control flow remain reasoned
+  `unsupported` results.
 
 ## [0.1.9] - 2026-09-24
 

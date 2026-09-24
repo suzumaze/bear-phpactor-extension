@@ -67,7 +67,7 @@ final class ContractComparisonQueryTest extends TestCase
         );
     }
 
-    public function testComparesResponseSchemaWithAlpsRepresentationWithoutGuessingBodyShape(): void
+    public function testComparesProvenResponseBodySchemaAndAlpsRepresentation(): void
     {
         $result = (new ContractComparisonQuery())->compareInWorkspace(
             $this->workspace(),
@@ -78,14 +78,30 @@ final class ContractComparisonQueryTest extends TestCase
 
         self::assertSame(SemanticStatus::Ok, $result->status);
         self::assertInstanceOf(ContractComparison::class, $result->value);
-        self::assertSame(SemanticStatus::Unsupported, $result->value->surfaces[0]->status);
+        self::assertSame(SemanticStatus::Ok, $result->value->surfaces[0]->status);
+        self::assertSame(['id', 'name'], $result->value->surfaces[0]->names);
         self::assertSame(['display_name', 'id', 'name'], $result->value->surfaces[1]->names);
         self::assertSame('User', $result->value->surfaces[2]->subject);
         self::assertSame(['id', 'name'], $result->value->surfaces[2]->names);
         self::assertNotNull($result->value->comparison);
-        self::assertSame(['schema', 'alps'], $result->value->comparison->compared);
+        self::assertSame(['resource', 'schema', 'alps'], $result->value->comparison->compared);
         self::assertSame(['id', 'name'], $result->value->comparison->common);
         self::assertSame(['display_name'], $result->value->comparison->onlyInSchema);
+    }
+
+    public function testKeepsUnprovenResponseBodyUnsupported(): void
+    {
+        $result = (new ContractComparisonQuery())->compareInWorkspace(
+            $this->workspace(),
+            'app://self/user',
+            'onPost',
+            SchemaQuery::KIND_RESPONSE,
+        );
+
+        self::assertSame(SemanticStatus::Ok, $result->status);
+        self::assertInstanceOf(ContractComparison::class, $result->value);
+        self::assertSame(SemanticStatus::Unsupported, $result->value->surfaces[0]->status);
+        self::assertSame([], $result->value->surfaces[0]->names);
     }
 
     public function testReturnsSurfaceStatusesAndNoComparisonWhenOnlyOneSurfaceIsAvailable(): void

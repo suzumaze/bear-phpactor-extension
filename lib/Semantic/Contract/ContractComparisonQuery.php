@@ -130,13 +130,18 @@ final class ContractComparisonQuery
 
     private function resourceSurface(ResourceFacts $facts, string $method, string $schemaKind): ContractSurface
     {
-        if ($schemaKind === SchemaQuery::KIND_RESPONSE) {
-            return new ContractSurface('resource', SemanticStatus::Unsupported, $method . ':body', []);
-        }
-
         foreach ($facts->methods as $candidate) {
             if ($candidate->name !== $method) {
                 continue;
+            }
+
+            if ($schemaKind === SchemaQuery::KIND_RESPONSE) {
+                return new ContractSurface(
+                    'resource',
+                    $candidate->responseShape->complete ? SemanticStatus::Ok : SemanticStatus::Unsupported,
+                    $method . ':body',
+                    $candidate->responseShape->names,
+                );
             }
 
             return new ContractSurface(
@@ -150,7 +155,9 @@ final class ContractComparisonQuery
             );
         }
 
-        return new ContractSurface('resource', SemanticStatus::NotFound, $method . ':parameters', []);
+        $subject = $method . ($schemaKind === SchemaQuery::KIND_RESPONSE ? ':body' : ':parameters');
+
+        return new ContractSurface('resource', SemanticStatus::NotFound, $subject, []);
     }
 
     /** @return array{ContractSurface,list<Provenance>} */

@@ -172,6 +172,11 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame('src/Resource/App/Dashboard.php', $response['data']['resource']['path']);
         self::assertSame('onGet', $response['data']['methods'][0]['name']);
         self::assertSame([], $response['data']['methods'][0]['parameters']);
+        self::assertSame([
+            'status' => 'unsupported',
+            'names' => [],
+            'reason' => 'no_complete_body_assignment',
+        ], $response['data']['methods'][0]['responseBody']);
         self::assertSame('embed', $response['data']['relationsOut'][0]['kind']);
         self::assertSame('app://self/missing', $response['data']['relationsOut'][0]['targetUri']);
         self::assertSame('src/Resource/App/Dashboard.php', $response['data']['relationsOut'][0]['sourcePath']);
@@ -184,6 +189,23 @@ final class SemanticQueryHandlerTest extends TestCase
             ['engine' => 'twig', 'path' => 'var/templates/App/Dashboard.html.twig'],
         ], $response['data']['templates']);
         self::assertSame([], $response['data']['schemas']);
+    }
+
+    public function testDescribesStaticallyProvenResponseBodyNames(): void
+    {
+        $response = wait((new SemanticQueryHandler($this->fixture('Contract')))->describeResource(
+            'app://self/user',
+            'src/Resource/App/User.php',
+        ));
+
+        self::assertSame('ok', $response['status']);
+        $methods = array_column($response['data']['methods'], null, 'name');
+        self::assertSame([
+            'status' => 'ok',
+            'names' => ['id', 'name'],
+            'reason' => null,
+        ], $methods['onGet']['responseBody']);
+        self::assertSame('unsupported', $methods['onPost']['responseBody']['status']);
     }
 
     public function testDescribesResourceAttributesWithStaticEvidence(): void

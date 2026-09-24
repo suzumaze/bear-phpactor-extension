@@ -10,6 +10,7 @@ final readonly class ResourceMethodFact
     public function __construct(
         public string $name,
         public array $parameters,
+        public ResourceResponseShape $responseShape,
     ) {
     }
 }
