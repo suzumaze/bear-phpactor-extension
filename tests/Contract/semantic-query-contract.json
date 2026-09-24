@@ -109,7 +109,7 @@
                 {"name": "incomingLimit", "type": "int", "required": false, "default": 50}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["resource", "methods", "relationsOut", "relationsIn", "templates", "schemas"]
+            "successDataKeys": ["resource", "methods", "relationsOut", "relationsOutCoverage", "referencesOut", "referencesOutCoverage", "relationsIn", "templates", "schemas"]
         },
         "bear/resource/attributes": {
             "handler": "describeResourceAttributes",

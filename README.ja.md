@@ -39,7 +39,7 @@ VS Code / Neovim / Emacs / その他のLSPクライアント
 
 ## エディタ診断
 
-Phpactorは、現在のeditor bufferに明示されたResource URI、Route、SQL、JSON Schema、ALPS、
+Phpactorは、現在のeditor bufferにある直接的で静的なResource呼び出し、Route、SQL、JSON Schema、ALPS、
 Twig、Qiq参照が静的に`not_found`、`ambiguous`、`invalid_input`、`parse_error`と証明できる場合、
 source `bear`のwarning診断を配信します。解析するのは現在の1文書だけで、参照先は保存済みworkspace
 fileから解決します。編集のたびにproject全体を再走査せず、一度も保存されていない新規fileは対象外です。
@@ -64,6 +64,10 @@ project全体で集約し、個別itemの失敗を外側のquery statusから分
 `bear/project/info`は安定したprotocol名`bear-semantic`、利用可能なrequest、capabilityを返します。
 追加的に進化するcontractの詳細は
 [`docs/lsp-semantic-requests.md`](docs/lsp-semantic-requests.md)にあります。
+
+`bear/resource/describe`は宣言的な`#[Link]`/`#[Embed]`を`relationsOut`、
+直接記述された静的な`$resource`/`$this->resource`呼び出しを`referencesOut`として分けて返します。
+双方の解析範囲はcoverage fieldで機械可読に明示されます。
 
 `bear/di/bindings`は直接記述された静的な`$this->bind(X)->to(Y)`宣言を一覧化し、
 `bear/aop/pointcuts`は静的な`bindInterceptor`宣言とmatcher構文木を一覧化します。

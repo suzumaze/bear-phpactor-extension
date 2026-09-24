@@ -4,19 +4,18 @@ declare(strict_types=1);
 
 namespace Suzumaze\BearPhpactor\Semantic\Project;
 
-use Microsoft\PhpParser\Node\StringLiteral;
 use Microsoft\PhpParser\Parser;
 use Phpactor\TextDocument\TextDocumentBuilder;
 use Suzumaze\BearPhpactor\Alps\AlpsDescriptorAtOffset;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaPathResolver;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaReferenceAtOffset;
-use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
 use Suzumaze\BearPhpactor\Router\RouteReferenceAtOffset;
 use Suzumaze\BearPhpactor\Semantic\Alps\AlpsQuery;
 use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparison;
 use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparisonQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFacts;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceCallScanner;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventory;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
@@ -72,6 +71,7 @@ final class ProjectDiagnosticsQuery
         private RouteReferenceAtOffset $routeReferenceScanner = new RouteReferenceAtOffset(),
         private TemplateReferenceScanner $templateReferenceScanner = new TemplateReferenceScanner(),
         private Parser $parser = new Parser(),
+        private ResourceCallScanner $resourceCallScanner = new ResourceCallScanner(),
     ) {
     }
 
@@ -166,7 +166,6 @@ final class ProjectDiagnosticsQuery
 
         $items = [];
         $scannedFiles = [];
-        $relationSuppressions = [];
         $conventions = $this->referenceConventions($workspace, $project->value->root());
         foreach ($this->phpSourceScanner->scan($workspace, $project->value) as $source) {
             $path = $workspace->accessPolicy()->inspectExisting($source->file);
@@ -227,12 +226,9 @@ final class ProjectDiagnosticsQuery
                 $facts->value,
                 $resourcePath->value->relative,
                 $items,
-                $relationSuppressions,
             );
             $this->diagnoseContracts($workspace, $facts->value, $resourcePath->value->relative, $items);
         }
-
-        $items = $this->withoutDuplicateRelationReferences($items, $relationSuppressions);
 
         $this->sortItems($items);
 
@@ -282,32 +278,36 @@ final class ProjectDiagnosticsQuery
     ): void {
         try {
             $root = $this->parser->parseSourceFile($source->contents, $source->file);
-            foreach ($root->getDescendantNodes() as $node) {
-                if (!$node instanceof StringLiteral) {
-                    continue;
-                }
-                $opening = substr($source->contents, $node->getStartPosition(), 1);
-                if ($opening !== "'" && $opening !== '"') {
-                    continue;
-                }
-                $uri = ResourceUri::fromString($node->getStringContentsText());
-                if ($uri === null) {
-                    continue;
-                }
-                $result = $this->resourceQuery->resolveInWorkspace($workspace, $uri->uri(), $relativePath);
+            foreach ($this->resourceCallScanner->scan($root, $source->contents, $source->file) as $reference) {
+                $result = $this->resourceQuery->resolveInWorkspace(
+                    $workspace,
+                    $reference->targetUri->uri(),
+                    $relativePath,
+                );
                 if (!$this->reportableReferenceFailure($result->status)) {
                     continue;
+                }
+                $details = [
+                    'referenceKind' => 'direct_resource_call',
+                    'call' => $reference->call,
+                    'sourceMethod' => $reference->sourceMethod,
+                    'targetMethod' => $reference->targetMethod,
+                    'sourceSet' => str_starts_with(str_replace('\\', '/', $relativePath), 'tests/')
+                        ? 'test'
+                        : 'source',
+                    'confidence' => 'high',
+                ];
+                if ($result->status === SemanticStatus::Ambiguous) {
+                    $details['candidateCount'] = count($result->candidates);
                 }
                 $items[] = new ProjectDiagnostic(
                     'resource_reference_' . $this->statusSuffix($result->status),
                     $result->status,
-                    $uri->uri(),
+                    $reference->targetUri->uri(),
                     $relativePath,
-                    $node->getStartPosition() + 1,
-                    $node->getEndPosition() - 1,
-                    $result->status === SemanticStatus::Ambiguous
-                        ? ['candidateCount' => count($result->candidates)]
-                        : [],
+                    $reference->contentStart,
+                    $reference->contentEnd,
+                    $details,
                 );
             }
         } catch (Throwable) {
@@ -542,14 +542,12 @@ final class ProjectDiagnosticsQuery
 
     /**
      * @param list<ProjectDiagnostic> $items
-     * @param array<string,list<array{subject:string,start:int,end:int}>> $relationSuppressions
      */
     private function diagnoseRelations(
         WorkspaceContext $workspace,
         ResourceFacts $facts,
         string $relativePath,
         array &$items,
-        array &$relationSuppressions,
     ): void {
         foreach ($facts->outgoingRelations as $relation) {
             [$rangeStart, $rangeEnd] = $this->relationAttributeRange($facts, $relation->byteOffset);
@@ -559,11 +557,6 @@ final class ProjectDiagnosticsQuery
                 $relativePath,
             );
             if ($this->reportableReferenceFailure($target->status)) {
-                $relationSuppressions[$relativePath][] = [
-                    'subject' => $relation->targetUri->uri(),
-                    'start' => $rangeStart,
-                    'end' => $rangeEnd,
-                ];
                 $items[] = new ProjectDiagnostic(
                     'relation_target_' . $this->statusSuffix($target->status),
                     $target->status,
@@ -620,40 +613,6 @@ final class ProjectDiagnosticsQuery
         }
 
         return [$byteOffset, $byteOffset];
-    }
-
-    /**
-     * Prefer the richer relation diagnostic over the generic URI literal report.
-     *
-     * @param list<ProjectDiagnostic> $items
-     * @param array<string,list<array{subject:string,start:int,end:int}>> $relationSuppressions
-     * @return list<ProjectDiagnostic>
-     */
-    private function withoutDuplicateRelationReferences(array $items, array $relationSuppressions): array
-    {
-        return array_values(array_filter(
-            $items,
-            static function (ProjectDiagnostic $item) use ($relationSuppressions): bool {
-                if (
-                    !str_starts_with($item->code, 'resource_reference_')
-                    || $item->byteStart === null
-                    || $item->byteEnd === null
-                ) {
-                    return true;
-                }
-                foreach ($relationSuppressions[$item->path] ?? [] as $suppression) {
-                    if (
-                        $item->subject === $suppression['subject']
-                        && $item->byteStart >= $suppression['start']
-                        && $item->byteEnd <= $suppression['end']
-                    ) {
-                        return false;
-                    }
-                }
-
-                return true;
-            },
-        ));
     }
 
     /** @param list<ProjectDiagnostic> $items */

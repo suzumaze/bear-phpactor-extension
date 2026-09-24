@@ -36,7 +36,17 @@ final class BearDiagnosticsProviderTest extends TestCase
 
     public function testPublishesWarningFromCurrentBufferWithStableCodeAndData(): void
     {
-        $source = "<?php\n\$label = '😀';\n\$uri = 'app://self/missing';\n";
+        $source = <<<'PHP'
+<?php
+$label = '😀';
+final class Client
+{
+    public function request(): void
+    {
+        $this->resource->get('app://self/missing');
+    }
+}
+PHP;
         $diagnostics = wait($this->provider()->provideDiagnostics(
             new TextDocumentItem(
                 (string) TextDocumentUri::fromString($this->workspace . '/src/Client.php'),
@@ -53,7 +63,7 @@ final class BearDiagnosticsProviderTest extends TestCase
         self::assertSame('bear', $diagnostics[0]->source);
         self::assertSame('Resource reference was not found: app://self/missing', $diagnostics[0]->message);
         self::assertSame('app://self/missing', $diagnostics[0]->data['subject']);
-        self::assertSame(2, $diagnostics[0]->range->start->line);
+        self::assertSame(6, $diagnostics[0]->range->start->line);
         self::assertGreaterThan($diagnostics[0]->range->start->character, $diagnostics[0]->range->end->character);
     }
 

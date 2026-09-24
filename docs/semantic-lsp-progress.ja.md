@@ -210,7 +210,8 @@ version交渉やcapability判断に使用しない。
 推測で欠落させず、理由付きの`unresolved`に残す。workspace内のComposer PSR-4 PHP sourceだけを読み、
 moduleのload、DI containerの構築、applicationの実行は行わない。
 
-`bear/project/diagnostics`は保存済みsourceだけを有界に走査し、明示的なResource URI、Route、
+`bear/project/diagnostics`は保存済みsourceだけを有界に走査し、`$resource`または
+`$this->resource`への直接的で静的なResource呼び出し、Route、
 SQL、JsonSchema、ALPS、Twig/Qiq参照、Resource解析失敗、Link/Embed先method、複数contract
 surface間の名前存在差を集約する。個別の破損はitemの`status`として保持し、外側のqueryは
 `ok`のまま部分結果を返す。Resource discovery自体は全件を対象とし、`items`は1ページ既定100件・最大200件で、安定順序を`offset`で継続取得する。
@@ -229,7 +230,7 @@ Schema/ALPS参照検査を省き、`skippedChecks`に`request_schema_references`
 標準LSP診断provider `bear`は、現在のeditor bufferに対して同じ参照診断規則を適用し、
 `textDocument/publishDiagnostics`でwarningを配信する。参照元は未保存buffer、参照先は保存済み
 workspace fileであり、1回の編集でproject全体を走査しない。一度も保存されていない新規fileは
-workspace境界を確定できないため対象外とする。editor診断は明示的なResource URI、Route、SQL、
+workspace境界を確定できないため対象外とする。editor診断は直接的で静的なResource呼び出し、Route、SQL、
 JsonSchema、ALPS、Twig/Qiq参照に限定し、Resource解析失敗、Link/Embed先method、contract差は
 保存済みproject全体を扱う`bear/project/diagnostics`に残す。diagnosticの`source`は`bear`、`code`は
 project診断と同じ安定したsnake_case名を使う。
@@ -267,8 +268,10 @@ object memberを省略するため、wire上では失敗時の`data`と未解決
 未発見の場合は`partial`も付かないため、両者を区別できる。
 
 `bear/resource/describe` は、Resource class と public `on*` method、外向き・内向きの
-Link/Embed、既存の Qiq/Twig template、規約で解決できる response Schema を1回の
-問い合わせに集約する。内向き関係は件数上限と切り捨て状態を明示する。
+Link/Embed、直接記述された静的なResource client呼び出し、既存の Qiq/Twig template、
+規約で解決できる response Schema を1回の問い合わせに集約する。Link/Embedは
+`relationsOut`、命令的な呼び出しは`referencesOut`に分け、coverage fieldで解析範囲を明示する。
+内向き関係は件数上限と切り捨て状態を明示する。
 
 `bear/resource/attributes`は、Resource classとpublic `on*` methodに付いた対応属性を、
 FQN、引数、保存済みfileのbyte rangeとともに返す。対象は`Alps`、`Cacheable`、

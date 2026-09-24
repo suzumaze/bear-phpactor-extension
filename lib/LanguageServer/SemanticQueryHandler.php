@@ -764,6 +764,32 @@ final class SemanticQueryHandler implements Handler
                 $this->relationData(...),
                 $facts->outgoingRelations,
             ),
+            'relationsOutCoverage' => [
+                'source' => 'link_embed_attributes',
+                'includesStaticResourceCalls' => false,
+            ],
+            'referencesOut' => array_map(
+                fn ($reference): array => [
+                    'kind' => 'resource_call',
+                    'call' => $reference->call,
+                    'sourceMethod' => $reference->sourceMethod,
+                    'targetUri' => $reference->targetUri->uri(),
+                    'targetMethod' => $reference->targetMethod,
+                    'sourcePath' => $this->relativePath($reference->sourceFile),
+                    'byteRange' => [
+                        'start' => $reference->contentStart,
+                        'end' => $reference->contentEnd,
+                    ],
+                    'confidence' => 'high',
+                ],
+                $facts->outgoingReferences,
+            ),
+            'referencesOutCoverage' => [
+                'source' => 'direct_resource_calls',
+                'receiverForms' => ['$resource', '$this->resource'],
+                'staticUrisOnly' => true,
+                'includesDynamicUris' => false,
+            ],
         ];
     }
 
