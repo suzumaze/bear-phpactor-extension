@@ -10,6 +10,7 @@ use Suzumaze\BearPhpactor\Alps\AlpsReferenceFinder;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaConventionTypeLocator;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaReferenceAtOffset;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaReferenceFinder;
+use Suzumaze\BearPhpactor\LanguageServer\BearDiagnosticsProvider;
 use Suzumaze\BearPhpactor\LanguageServer\BearHoverMiddleware;
 use Suzumaze\BearPhpactor\LanguageServer\ResourceInventoryIndexListener;
 use Suzumaze\BearPhpactor\LanguageServer\SemanticQueryHandler;
@@ -63,6 +64,7 @@ use Phpactor\Container\Extension;
 use Phpactor\Extension\Completion\CompletionExtension;
 use Phpactor\Extension\FilePathResolver\FilePathResolverExtension;
 use Phpactor\Extension\LanguageServer\LanguageServerExtension;
+use Phpactor\Extension\LanguageServer\Container\DiagnosticProviderTag;
 use Phpactor\Extension\ReferenceFinder\ReferenceFinderExtension;
 use Phpactor\Extension\WorseReflection\WorseReflectionExtension;
 use Phpactor\MapResolver\Resolver;
@@ -205,6 +207,21 @@ final class BearSundayExtension implements Extension
                     templateReferenceScanner: $container->get('bear_sunday.template.reference_scanner'),
                 );
             },
+        );
+
+        $container->register(
+            'bear_sunday.language_server.diagnostics_provider',
+            function (Container $container): BearDiagnosticsProvider {
+                $pathResolver = $container->get(FilePathResolverExtension::SERVICE_FILE_PATH_RESOLVER);
+
+                return new BearDiagnosticsProvider(
+                    $pathResolver->resolve('%project_root%'),
+                    $container->get('bear_sunday.semantic.project_diagnostics_query'),
+                );
+            },
+            [
+                LanguageServerExtension::TAG_DIAGNOSTICS_PROVIDER => DiagnosticProviderTag::create('bear'),
+            ],
         );
 
         $container->register(

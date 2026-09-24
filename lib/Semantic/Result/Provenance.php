@@ -49,6 +49,14 @@ final readonly class Provenance
         return new self(self::SOURCE_FILE, $relativePath, Freshness::Saved, $byteStart, $byteEnd);
     }
 
+    public static function bufferFile(
+        string $relativePath,
+        ?int $byteStart = null,
+        ?int $byteEnd = null,
+    ): self {
+        return new self(self::SOURCE_FILE, $relativePath, Freshness::Buffer, $byteStart, $byteEnd);
+    }
+
     public static function derived(Freshness $freshness = Freshness::Saved): self
     {
         return new self(self::SOURCE_DERIVED, null, $freshness);

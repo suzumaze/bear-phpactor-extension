@@ -33,8 +33,21 @@ VS Code / Neovim / Emacs / その他のLSPクライアント
 | [ALPS](https://bearsunday.github.io/manuals/1.0/ja/apidoc.html) | `apidoc.xml`で選択されたdescriptorのDefinition、References、Hover |
 | [TwigとQiq](https://bearsunday.github.io/manuals/1.0/ja/html.html) | 静的テンプレート参照のDefinition、References、Hover、Document Linkと、`#[Embed]` relationからのDefinition |
 | [Aura Router](https://bearsunday.github.io/manuals/1.0/ja/router.html) | ルート名からPage ResourceへのDefinition、References、Hover |
+| 静的な不整合 | 現在のeditor bufferに明示された壊れたBEAR参照を標準LSP診断として表示 |
 
 プロジェクトルートと名前空間の接頭辞は、対象プロジェクトの`composer.json`から取得します。通常のPHP定義ジャンプは引き続きPhpactorが処理します。
+
+## エディタ診断
+
+Phpactorは、現在のeditor bufferに明示されたResource URI、Route、SQL、JSON Schema、ALPS、
+Twig、Qiq参照が静的に`not_found`、`ambiguous`、`invalid_input`、`parse_error`と証明できる場合、
+source `bear`のwarning診断を配信します。解析するのは現在の1文書だけで、参照先は保存済みworkspace
+fileから解決します。編集のたびにproject全体を再走査せず、一度も保存されていない新規fileは対象外です。
+
+保存済みproject全体を扱う`bear/project/diagnostics`は、これに加えてResource解析失敗、Link/Embed先
+method、contract名の差も検査します。editor診断は意図的にそれらのproject-wide検査を行いません。
+provider名は`bear`です。Phpactor標準の`language_server.diagnostics_*`設定に従い、providerを明示選択
+する場合は`language_server.diagnostic_providers`で有効・無効を制御できます。
 
 ## ヘッドレスSemantic Query
 

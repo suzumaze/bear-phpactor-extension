@@ -18,6 +18,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   contract comparison includes that Resource surface only when completeness is
   statically proven; dynamic assignments and control flow remain reasoned
   `unsupported` results.
+- A standard LSP diagnostic provider named `bear` now publishes warnings for
+  statically broken Resource, Route, SQL, JSON Schema, ALPS, Twig, and Qiq
+  references in the current editor buffer. It resolves against saved workspace
+  targets without rescanning the whole project on every edit.
 
 ## [0.1.9] - 2026-09-24
 

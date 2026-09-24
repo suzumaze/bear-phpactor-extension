@@ -180,6 +180,27 @@ not exposed. `versions` contains only runtime packages whose versions can be det
 `compatibilityIssues` is empty unless a known, safely comparable incompatibility is
 present.
 
+## Standard LSP diagnostics
+
+The diagnostic provider named `bear` uses the current LSP document buffer as its
+source and saved workspace files as reference targets. It publishes standard
+`textDocument/publishDiagnostics` warnings with `source: "bear"`, the stable project
+diagnostic code, and structured `status`, `subject`, and `details` data. Only the
+current existing file is analyzed, so an edit does not trigger a full project scan.
+
+The provider covers explicit Resource URI, Route, SQL, JsonSchema, ALPS, and Twig/Qiq
+references. As in the project query, SQL, Schema, and ALPS checks are omitted when the
+corresponding supported convention root does not exist. Newly created files must be
+saved once before the workspace boundary can be established. Resource parse failures,
+Link/Embed target-method checks, and contract comparisons remain exclusive to the
+saved-project `bear/project/diagnostics` request because they require project-wide
+context or do not have a precise current-buffer range.
+
+Phpactor's normal `language_server.diagnostics_on_open`, `_on_update`, `_on_save`, and
+`diagnostic_sleep_time` settings control scheduling. If
+`language_server.diagnostic_providers` is set explicitly, include `bear` to enable this
+provider or omit it to disable the provider.
+
 `bear/project/diagnostics` scans bounded saved sources and returns a deterministic,
 limited item list plus the complete diagnostic count for the scanned set. Individual
 missing, ambiguous, invalid, or malformed references are diagnostic items; they do not

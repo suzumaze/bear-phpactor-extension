@@ -99,6 +99,33 @@ final class StdioLspClient
         ]);
     }
 
+    /**
+     * @param (callable(array<string,mixed>):bool)|null $predicate
+     * @return array<string,mixed>
+     */
+    public function waitForNotification(
+        string $method,
+        ?callable $predicate = null,
+        float $timeoutSeconds = 10.0,
+    ): array {
+        $deadline = microtime(true) + $timeoutSeconds;
+        while (true) {
+            $message = $this->readMessage($deadline);
+            if (isset($message['method'], $message['id'])) {
+                $this->replyToServerRequest($message);
+                continue;
+            }
+            if (($message['method'] ?? null) !== $method) {
+                continue;
+            }
+            if ($predicate !== null && !$predicate($message)) {
+                continue;
+            }
+
+            return $message;
+        }
+    }
+
     public function stderr(): string
     {
         $this->drainAvailableStderr();
