@@ -245,7 +245,14 @@ The suite includes unit tests and real Phpactor stdio sessions from initialize t
 The repository also ships standalone project-level verification tools:
 
 - `tools/coverage.php`: compare definition targets with independently computed conventions.
+  `--assert-clean --expect-sites=N` turns the report into a reproducible CI gate.
 - `tools/misfire.php`: probe positions where the extension must remain silent.
+  `--assert-clean --expect-sites=N --expect-probes=N` fails on false positives,
+  ambiguous pickers, missing responses, or a changed fixed corpus.
+
+The scheduled regression job reads a pinned BEAR.Kata source snapshot without installing
+its dependencies or running the application. These measurements are regression oracles for
+the human-readable conventions documented here, not a replacement for those conventions.
 - `tools/references.php`: compare Resource references and verify definition round trips.
 - `tools/latency.php`: measure cold and warm definition latency.
 - `tools/verify-invariants.php`: check end-to-end LSP invariants mechanically.

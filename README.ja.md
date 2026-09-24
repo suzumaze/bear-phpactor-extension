@@ -242,8 +242,15 @@ composer check
 テストにはunit testと、initializeからshutdownまでの実Phpactor stdio sessionが含まれます。
 さらに、対象applicationを明示して実行するproject単位の検証toolを同梱しています。
 
-- `tools/coverage.php`: 独立に計算した規約とDefinitionの着地先を比較
-- `tools/misfire.php`: 拡張が反応してはいけない位置での誤検出を検査
+- `tools/coverage.php`: 独立に計算した規約とDefinitionの着地先を比較。
+  `--assert-clean --expect-sites=N`で再現可能なCI gateとして利用できます。
+- `tools/misfire.php`: 拡張が反応してはいけない位置での誤検出を検査。
+  `--assert-clean --expect-sites=N --expect-probes=N`は誤爆、曖昧な選択、
+  無応答、固定corpusの母集団変化を失敗として扱います。
+
+定期回帰jobは、固定したBEAR.Kataのsource snapshotを、依存を導入せずapplicationも
+実行せずに読み取ります。この測定は、ここに記述した人間可読な規約を補助する回帰oracleであり、
+規約そのものの代替ではありません。
 - `tools/references.php`: Resource参照集合の比較とDefinitionの往復検査
 - `tools/latency.php`: Definitionのcold/warm latencyを測定
 - `tools/verify-invariants.php`: end-to-endのLSP invariantを機械的に検査

@@ -21,6 +21,7 @@ declare(strict_types=1);
  * mismatch.
  *
  *   php tools/coverage.php /path/to/bear-app
+ *   php tools/coverage.php /path/to/bear-app --assert-clean --expect-sites=474
  *
  * Output: per kind, the number of collected sites plus counts of match /
  * silent / mismatch / undeterminable / picker / no-response, plus one detail
@@ -33,10 +34,24 @@ declare(strict_types=1);
 
 $app = $argv[1] ?? null;
 if ($app === null || !is_dir($app)) {
-    fwrite(STDERR, "usage: php tools/coverage.php <bear-sunday-app-dir>\n");
+    fwrite(STDERR, "usage: php tools/coverage.php <bear-sunday-app-dir> [--assert-clean] [--expect-sites=N]\n");
     exit(1);
 }
 $app = (string) realpath($app);
+$assertClean = false;
+$expectedSites = null;
+foreach (array_slice($argv, 2) as $option) {
+    if ($option === '--assert-clean') {
+        $assertClean = true;
+        continue;
+    }
+    if (preg_match('/^--expect-sites=([1-9][0-9]*)$/', $option, $match) === 1) {
+        $expectedSites = (int) $match[1];
+        continue;
+    }
+    fwrite(STDERR, "unknown option: {$option}\n");
+    exit(1);
+}
 require dirname(__DIR__) . '/vendor/autoload.php';
 $bin = dirname(__DIR__) . '/vendor/bin/phpactor';
 
@@ -1031,3 +1046,24 @@ foreach ($results as $kind => $r) {
     }
 }
 echo "\n";
+
+if ($assertClean) {
+    $problems = [];
+    $siteTotal = array_sum(array_map('count', $sites));
+    if ($expectedSites !== null && $siteTotal !== $expectedSites) {
+        $problems[] = sprintf('site population changed: expected %d, got %d', $expectedSites, $siteTotal);
+    }
+    if ($total['mismatch'] !== 0) {
+        $problems[] = sprintf('%d definition mismatches', $total['mismatch']);
+    }
+    if ($total['picker'] !== 0) {
+        $problems[] = sprintf('%d ambiguous picker responses', $total['picker']);
+    }
+    if ($total['no_response'] !== 0) {
+        $problems[] = sprintf('%d requests without a response', $total['no_response']);
+    }
+    if ($problems !== []) {
+        fwrite(STDERR, "semantic coverage gate failed: " . implode('; ', $problems) . "\n");
+        exit(2);
+    }
+}

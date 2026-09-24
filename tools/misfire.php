@@ -56,6 +56,7 @@ declare(strict_types=1);
  * tool. The report says so explicitly.
  *
  *   php tools/misfire.php /path/to/bear-app
+ *   php tools/misfire.php /path/to/bear-app --assert-clean --expect-sites=474 --expect-probes=948
  *
  * Output: the site population and the probe total (so a 0 count is
  * distinguishable from a broken collection), per-kind counts of false
@@ -69,10 +70,29 @@ declare(strict_types=1);
 
 $app = $argv[1] ?? null;
 if ($app === null || !is_dir($app)) {
-    fwrite(STDERR, "usage: php tools/misfire.php <bear-sunday-app-dir>\n");
+    fwrite(STDERR, "usage: php tools/misfire.php <bear-sunday-app-dir> [--assert-clean] [--expect-sites=N] [--expect-probes=N]\n");
     exit(1);
 }
 $app = (string) realpath($app);
+$assertClean = false;
+$expectedSites = null;
+$expectedProbes = null;
+foreach (array_slice($argv, 2) as $option) {
+    if ($option === '--assert-clean') {
+        $assertClean = true;
+        continue;
+    }
+    if (preg_match('/^--expect-sites=([1-9][0-9]*)$/', $option, $match) === 1) {
+        $expectedSites = (int) $match[1];
+        continue;
+    }
+    if (preg_match('/^--expect-probes=([1-9][0-9]*)$/', $option, $match) === 1) {
+        $expectedProbes = (int) $match[1];
+        continue;
+    }
+    fwrite(STDERR, "unknown option: {$option}\n");
+    exit(1);
+}
 require dirname(__DIR__) . '/vendor/autoload.php';
 $bin = dirname(__DIR__) . '/vendor/bin/phpactor';
 
@@ -686,3 +706,26 @@ echo "\n補完 (completion) の誤爆は測っていない。候補一覧の中�
 echo "\n注記: クラス宣言名の後ろ側は試さない。名前の直後 (getEndPosition()) はエディタが「単語の上」として扱う位置なので発火するのが正常、\n";
 echo "その1つ後ろ (end + 1) はパーサーが ClassDeclaration 以外のノードを返すため当拡張のコードに到達しない。試す意味のある位置が無い。\n";
 echo "\n";
+
+if ($assertClean) {
+    $problems = [];
+    if ($expectedSites !== null && $siteTotal !== $expectedSites) {
+        $problems[] = sprintf('site population changed: expected %d, got %d', $expectedSites, $siteTotal);
+    }
+    if ($expectedProbes !== null && $probeTotal !== $expectedProbes) {
+        $problems[] = sprintf('probe population changed: expected %d, got %d', $expectedProbes, $probeTotal);
+    }
+    if ($totals['false_positive'] !== 0) {
+        $problems[] = sprintf('%d false-positive responses', $totals['false_positive']);
+    }
+    if ($totals['picker'] !== 0) {
+        $problems[] = sprintf('%d ambiguous picker responses', $totals['picker']);
+    }
+    if ($noResponse !== []) {
+        $problems[] = sprintf('%d requests without a response', count($noResponse));
+    }
+    if ($problems !== []) {
+        fwrite(STDERR, "semantic misfire gate failed: " . implode('; ', $problems) . "\n");
+        exit(2);
+    }
+}
