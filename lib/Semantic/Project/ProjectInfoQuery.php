@@ -132,6 +132,8 @@ final class ProjectInfoQuery
             'schemaResolution',
             'sqlResolution',
             'templateResolution',
+            'diBindingInventory',
+            'aopPointcutInventory',
         ];
     }
 

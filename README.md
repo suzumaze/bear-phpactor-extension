@@ -55,8 +55,8 @@ through `language_server.diagnostic_providers` when selecting providers explicit
 
 Standard position-based LSP methods remain the primary interface. For clients that
 already have a BEAR identifier but no open document position, the Language Server also
-provides 21 read-only `bear/*` requests for project, Resource, Route, SQL, Template,
-ALPS, and Schema facts. Resource attribute facts and their workspace inventory are
+provides 23 read-only `bear/*` requests for project, Resource, Route, SQL, Template,
+ALPS, Schema, DI, and AOP facts. Resource attribute facts and their workspace inventory are
 available without executing application PHP. `bear/project/diagnostics` aggregates
 evidence-backed problems in explicit saved-source references while keeping per-item
 failures out of the outer query status. `bear/project/contractCoverage` reports where
@@ -67,6 +67,12 @@ URIs without claiming either scheme proves public exposure or JSON rendering.
 `bear/project/info` reports the stable `bear-semantic` protocol name, its
 available requests, and its capabilities. The additive contract is documented in
 [`docs/lsp-semantic-requests.md`](docs/lsp-semantic-requests.md).
+
+`bear/di/bindings` inventories direct static `$this->bind(X)->to(Y)` declarations,
+and `bear/aop/pointcuts` inventories static `bindInterceptor` declarations and their
+matcher syntax trees. They report saved-source declarations, not the active application
+context, winning DI binding, evaluated pointcut, or woven runtime behavior. Dynamic or
+unsupported forms remain visible as reasoned `unresolved` items.
 
 An IDE is not required. The included client starts a real Phpactor stdio process:
 
@@ -111,6 +117,14 @@ To find Resource methods that can benefit from JSON Schema or ALPS adoption:
 php tools/semantic-lsp-query.php /path/to/bear-project \
   bear/project/contractCoverage \
   '{"limit":100,"offset":0,"gapsOnly":true,"scheme":"page"}'
+```
+
+To inspect statically declared DI bindings without creating a container:
+
+```bash
+php tools/semantic-lsp-query.php /path/to/bear-project \
+  bear/di/bindings \
+  '{"limit":50,"offset":0}'
 ```
 
 Both project-wide reports use stable offset pagination and an approximate serialized-byte

@@ -584,6 +584,31 @@ final class SemanticQueryHandlerTest extends TestCase
         ], $resourceFacts['data']['properties']);
     }
 
+    public function testReturnsBoundedDiAndAopSourceInventories(): void
+    {
+        $handler = new SemanticQueryHandler($this->fixture('DiAop'));
+
+        $bindings = wait($handler->inspectDiBindings(limit: 1));
+        self::assertSame('ok', $bindings['status']);
+        self::assertSame(3, $bindings['data']['total']);
+        self::assertSame(2, $bindings['data']['unresolved']);
+        self::assertTrue($bindings['data']['truncated']);
+        self::assertSame('resolved', $bindings['data']['items'][0]['state']);
+        self::assertSame('src/Module/AppModule.php', $bindings['data']['items'][0]['path']);
+
+        $pointcuts = wait($handler->inspectAopPointcuts(
+            'Acme\\DiAop\\Interceptor\\TraceInterceptor',
+        ));
+        self::assertSame('ok', $pointcuts['status']);
+        self::assertSame(1, $pointcuts['data']['total']);
+        self::assertTrue($pointcuts['data']['items'][0]['priority']);
+        self::assertSame('logical_not', $pointcuts['data']['items'][0]['methodMatcher']['kind']);
+        self::assertStringNotContainsString(
+            $this->fixture('DiAop'),
+            json_encode([$bindings, $pointcuts], JSON_THROW_ON_ERROR),
+        );
+    }
+
     public function testListsOnlyReadOnlySemanticMethods(): void
     {
         self::assertSame([
@@ -608,6 +633,8 @@ final class SemanticQueryHandlerTest extends TestCase
             'bear/schema/forResource' => 'resolveResourceSchema',
             'bear/schema/describeNamed' => 'describeNamedSchema',
             'bear/schema/describeForResource' => 'describeResourceSchema',
+            'bear/di/bindings' => 'inspectDiBindings',
+            'bear/aop/pointcuts' => 'inspectAopPointcuts',
         ], (new SemanticQueryHandler(self::fixtureDir()))->methods());
     }
 

@@ -156,6 +156,8 @@ final class SemanticQueryProtocolTest extends TestCase
                 'JsonSchema/basic',
                 ['app://self/bodyTypeDemo', 'response', 'src/Resource/App/BodyTypeDemo.php'],
             ],
+            'bear/di/bindings' => ['DiAop', [null, null, 1, 0]],
+            'bear/aop/pointcuts' => ['DiAop', [null, null, 1, 0]],
         ];
     }
 

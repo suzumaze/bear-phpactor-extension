@@ -85,6 +85,8 @@ final class ProjectInfoQueryTest extends TestCase
             'schemaResolution',
             'sqlResolution',
             'templateResolution',
+            'diBindingInventory',
+            'aopPointcutInventory',
         ], $result->value->capabilities);
         self::assertSame('phpactor_did_change_protocol_conflict', $result->value->compatibilityIssues[0]->code);
         self::assertStringNotContainsString(

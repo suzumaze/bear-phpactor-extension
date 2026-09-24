@@ -53,7 +53,7 @@ provider名は`bear`です。Phpactor標準の`language_server.diagnostics_*`設
 
 文書内Positionを使える場合は標準LSP methodを優先します。BEAR identifierは分かっているものの
 開いた文書やPositionがないclient向けに、Language Serverはproject、Resource、Route、SQL、
-Template、ALPS、Schemaを問い合わせる21個のread-only `bear/*` requestも提供します。
+Template、ALPS、Schema、DI、AOPを問い合わせる23個のread-only `bear/*` requestも提供します。
 Resource属性のfactsとworkspace全体の一覧は、application PHPを実行せず取得できます。
 `bear/project/diagnostics`は、保存済みsourceに明示された参照から静的に証明できる不整合を
 project全体で集約し、個別itemの失敗を外側のquery statusから分離します。
@@ -64,6 +64,12 @@ project全体で集約し、個別itemの失敗を外側のquery statusから分
 `bear/project/info`は安定したprotocol名`bear-semantic`、利用可能なrequest、capabilityを返します。
 追加的に進化するcontractの詳細は
 [`docs/lsp-semantic-requests.md`](docs/lsp-semantic-requests.md)にあります。
+
+`bear/di/bindings`は直接記述された静的な`$this->bind(X)->to(Y)`宣言を一覧化し、
+`bear/aop/pointcuts`は静的な`bindInterceptor`宣言とmatcher構文木を一覧化します。
+返すのは保存済みsourceの宣言であり、有効なapplication context、最終的に勝つDI binding、
+評価済みpointcut、runtimeでweaveされた振る舞いではありません。動的または未対応の形式は、
+推測で埋めず理由付きの`unresolved`として残します。
 
 IDEは不要です。同梱clientは実際のPhpactor stdio processを起動します。
 
@@ -108,6 +114,14 @@ JSON SchemaやALPSを導入できるResource methodを探す例:
 php tools/semantic-lsp-query.php /path/to/bear-project \
   bear/project/contractCoverage \
   '{"limit":100,"offset":0,"gapsOnly":true,"scheme":"page"}'
+```
+
+DI containerを生成せず、静的に宣言されたbindingを調べる例:
+
+```bash
+php tools/semantic-lsp-query.php /path/to/bear-project \
+  bear/di/bindings \
+  '{"limit":50,"offset":0}'
 ```
 
 project全体の2つのreportは、安定したoffset paginationと概算serialized-byte budgetを使います。

@@ -23,6 +23,46 @@ final class StdioLanguageServerTest extends TestCase
         $this->removeTree($this->runtimeDirectory);
     }
 
+    public function testRealPhpactorStdioReturnsDiAndAopSourceInventories(): void
+    {
+        $fixture = dirname(__DIR__) . '/Fixture/DiAop';
+        $client = StdioLspClient::start(
+            $this->command($fixture),
+            $fixture,
+            $this->environment(),
+        );
+
+        try {
+            $initialize = $client->request('initialize', [
+                'processId' => getmypid(),
+                'rootUri' => $this->fileUri($fixture),
+                'capabilities' => (object) [],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $initialize, $client->stderr());
+            $client->notify('initialized');
+
+            $bindings = $client->request('bear/di/bindings', ['limit' => 1], 20.0);
+            self::assertArrayNotHasKey('error', $bindings, $client->stderr());
+            self::assertSame('ok', $bindings['result']['status'] ?? null);
+            self::assertSame(3, $bindings['result']['data']['total'] ?? null);
+            self::assertSame('resolved', $bindings['result']['data']['items'][0]['state'] ?? null);
+
+            $pointcuts = $client->request('bear/aop/pointcuts', [
+                'interceptor' => 'Acme\\DiAop\\Interceptor\\TraceInterceptor',
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $pointcuts, $client->stderr());
+            self::assertSame('ok', $pointcuts['result']['status'] ?? null);
+            self::assertSame(1, $pointcuts['result']['data']['total'] ?? null);
+            self::assertTrue($pointcuts['result']['data']['items'][0]['priority'] ?? false);
+
+            $shutdown = $client->request('shutdown', [], 10.0);
+            self::assertArrayNotHasKey('error', $shutdown, $client->stderr());
+            $client->notify('exit');
+        } finally {
+            $client->close();
+        }
+    }
+
     public function testRealPhpactorPublishesBearDiagnosticsForTheUnsavedBuffer(): void
     {
         $workspace = $this->runtimeDirectory . '/diagnostics-workspace';
