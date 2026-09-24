@@ -77,9 +77,12 @@ final class StdioLanguageServerTest extends TestCase
         $buffer = <<<'PHP'
 <?php
 
-function target(): string
+final class Client
 {
-    return 'app://self/missing-buffer';
+    public function target(): void
+    {
+        $this->resource->get('app://self/missing-buffer');
+    }
 }
 PHP;
         $client = StdioLspClient::start(
@@ -759,6 +762,15 @@ PHP;
             );
             self::assertSame('onGet', $description['result']['data']['methods'][0]['name'] ?? null);
             self::assertSame([], $description['result']['data']['relationsOut'] ?? null);
+            self::assertSame(
+                'link_embed_attributes',
+                $description['result']['data']['relationsOutCoverage']['source'] ?? null,
+            );
+            self::assertSame([], $description['result']['data']['referencesOut'] ?? null);
+            self::assertSame(
+                'direct_resource_calls',
+                $description['result']['data']['referencesOutCoverage']['source'] ?? null,
+            );
             self::assertTrue($description['result']['data']['relationsIn']['available'] ?? false);
             self::assertSame(1, $description['result']['data']['relationsIn']['total'] ?? null);
             self::assertFalse($description['result']['data']['relationsIn']['truncated'] ?? true);

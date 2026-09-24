@@ -39,7 +39,13 @@ final class ProjectDiagnosticsQueryTest extends TestCase
 namespace Acme\App;
 use Ray\MediaQuery\Annotation\DbQuery;
 #[DbQuery('missing_query')]
-final class Client { public string $uri = 'app://self/missing'; }
+final class Client
+{
+    public function request(): void
+    {
+        $this->resource->get('app://self/missing');
+    }
+}
 PHP);
         $this->write('/src/Resource/App/Broken.php', <<<'PHP'
 <?php
@@ -163,7 +169,13 @@ PHP);
         $buffer = <<<'PHP'
 <?php
 namespace Acme\App;
-final class Client { public string $uri = 'app://self/from-buffer'; }
+final class Client
+{
+    public function request(): void
+    {
+        $this->resource->get('app://self/from-buffer');
+    }
+}
 PHP;
 
         $result = (new ProjectDiagnosticsQuery())->diagnoseDocumentInWorkspace(
@@ -421,9 +433,25 @@ PHP);
 
     public function testPreservesAmbiguousAndInvalidInputReferenceStatuses(): void
     {
-        $fixture = realpath(dirname(__DIR__, 3) . '/Fixture/Resource');
-        self::assertNotFalse($fixture);
-        $workspace = WorkspaceContext::fromRoot($fixture);
+        self::assertTrue(mkdir($this->workspace . '/src/Resource/Page/Admin', 0777, true));
+        self::assertTrue(mkdir($this->workspace . '/src/Resource/Page/Content', 0777, true));
+        $this->write('/src/Resource/Page/Admin/X.php', '<?php namespace Acme\\App\\Resource\\Page\\Admin; '
+            . 'final class X extends \\BEAR\\Resource\\ResourceObject {}');
+        $this->write('/src/Resource/Page/Content/X.php', '<?php namespace Acme\\App\\Resource\\Page\\Content; '
+            . 'final class X extends \\BEAR\\Resource\\ResourceObject {}');
+        $this->write('/src/Client.php', <<<'PHP'
+<?php
+namespace Acme\App;
+final class Client
+{
+    public function request(): void
+    {
+        $this->resource->get('page://self/x');
+        $this->resource->get('app://self/../../Client');
+    }
+}
+PHP);
+        $workspace = WorkspaceContext::fromRoot($this->workspace);
         self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
 
         $result = (new ProjectDiagnosticsQuery())->diagnoseInWorkspace($workspace->value);
@@ -436,6 +464,41 @@ PHP);
         }
         self::assertSame(SemanticStatus::Ambiguous, $bySubject['page://self/x'] ?? null);
         self::assertSame(SemanticStatus::InvalidInput, $bySubject['app://self/../../Client'] ?? null);
+    }
+
+    public function testIgnoresUriLikeDataWithoutDirectResourceCallEvidence(): void
+    {
+        $workspace = WorkspaceContext::fromRoot($this->workspace);
+        self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
+        $buffer = <<<'PHP'
+<?php
+namespace Acme\App;
+final class Client
+{
+    private const PREFIX = 'page://self/content/';
+
+    public function request(string $uri): void
+    {
+        str_starts_with($uri, 'page://self/content/esi/');
+        new \RuntimeException('app://self/intentionally-missing');
+        $this->resource->get('app://self/actual-missing');
+    }
+}
+PHP;
+
+        $result = (new ProjectDiagnosticsQuery())->diagnoseDocumentInWorkspace(
+            $workspace->value,
+            $this->workspace . '/src/Client.php',
+            $buffer,
+        );
+
+        self::assertSame(SemanticStatus::Ok, $result->status);
+        self::assertIsArray($result->value);
+        self::assertCount(1, $result->value);
+        self::assertSame('app://self/actual-missing', $result->value[0]->subject);
+        self::assertSame('direct_resource_call', $result->value[0]->details['referenceKind']);
+        self::assertSame('get', $result->value[0]->details['call']);
+        self::assertSame('high', $result->value[0]->details['confidence']);
     }
 
     private function write(string $path, string $contents): void

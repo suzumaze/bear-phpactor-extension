@@ -180,6 +180,23 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame('embed', $response['data']['relationsOut'][0]['kind']);
         self::assertSame('app://self/missing', $response['data']['relationsOut'][0]['targetUri']);
         self::assertSame('src/Resource/App/Dashboard.php', $response['data']['relationsOut'][0]['sourcePath']);
+        self::assertSame([
+            'source' => 'link_embed_attributes',
+            'includesStaticResourceCalls' => false,
+        ], $response['data']['relationsOutCoverage']);
+        self::assertCount(1, $response['data']['referencesOut']);
+        self::assertSame('resource_call', $response['data']['referencesOut'][0]['kind']);
+        self::assertSame('get', $response['data']['referencesOut'][0]['call']);
+        self::assertSame('onGet', $response['data']['referencesOut'][0]['sourceMethod']);
+        self::assertSame('app://self/user', $response['data']['referencesOut'][0]['targetUri']);
+        self::assertSame('onGet', $response['data']['referencesOut'][0]['targetMethod']);
+        self::assertSame('high', $response['data']['referencesOut'][0]['confidence']);
+        self::assertSame([
+            'source' => 'direct_resource_calls',
+            'receiverForms' => ['$resource', '$this->resource'],
+            'staticUrisOnly' => true,
+            'includesDynamicUris' => false,
+        ], $response['data']['referencesOutCoverage']);
         self::assertTrue($response['data']['relationsIn']['available']);
         self::assertSame([], $response['data']['relationsIn']['items']);
         self::assertSame(0, $response['data']['relationsIn']['total']);

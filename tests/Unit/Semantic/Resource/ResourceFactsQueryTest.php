@@ -50,6 +50,7 @@ final class Dashboard extends \BEAR\Resource\ResourceObject
     #[Refresh(uri: 'app://self/dashboard')]
     public function onGet(int $id, ?string $name = null): static
     {
+        $this->resource->post('app://self/audit', ['id' => $id]);
         $this->body = [
             'id' => $id,
             'name' => $name,
@@ -113,6 +114,11 @@ PHP,
         self::assertSame('onGet', $result->value->outgoingRelations[1]->targetMethod);
         self::assertSame('onPost', $result->value->outgoingRelations[2]->targetMethod);
         self::assertSame('onGet', $result->value->outgoingRelations[2]->sourceMethod);
+        self::assertCount(1, $result->value->outgoingReferences);
+        self::assertSame('post', $result->value->outgoingReferences[0]->call);
+        self::assertSame('onGet', $result->value->outgoingReferences[0]->sourceMethod);
+        self::assertSame('onPost', $result->value->outgoingReferences[0]->targetMethod);
+        self::assertSame('app://self/audit', $result->value->outgoingReferences[0]->targetUri->uri());
     }
 
     public function testLeavesConditionalAndDynamicResponseBodiesUnsupported(): void

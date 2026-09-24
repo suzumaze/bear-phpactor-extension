@@ -18,6 +18,8 @@ final class Dashboard extends ResourceObject
     #[ResourceEmbed(rel: 'duplicate', src: 'app://self/missing')]
     public function onGet(): static
     {
+        $this->resource->get('app://self/user');
+
         return $this;
     }
 }

@@ -39,7 +39,7 @@ Project roots and namespace prefixes come from the project's `composer.json`. No
 
 ## Editor diagnostics
 
-Phpactor publishes warning diagnostics with source `bear` for explicit Resource URI,
+Phpactor publishes warning diagnostics with source `bear` for direct static Resource calls,
 Route, SQL, JSON Schema, ALPS, Twig, and Qiq references that are statically missing,
 ambiguous, invalid, or malformed. The provider analyzes only the current editor buffer
 and resolves its targets from saved workspace files; it does not rescan the project on
@@ -67,6 +67,10 @@ URIs without claiming either scheme proves public exposure or JSON rendering.
 `bear/project/info` reports the stable `bear-semantic` protocol name, its
 available requests, and its capabilities. The additive contract is documented in
 [`docs/lsp-semantic-requests.md`](docs/lsp-semantic-requests.md).
+
+`bear/resource/describe` keeps declarative `#[Link]`/`#[Embed]` relations in
+`relationsOut` and reports direct static `$resource`/`$this->resource` calls separately
+as `referencesOut`; coverage fields make both boundaries explicit.
 
 `bear/di/bindings` inventories direct static `$this->bind(X)->to(Y)` declarations,
 and `bear/aop/pointcuts` inventories static `bindInterceptor` declarations and their

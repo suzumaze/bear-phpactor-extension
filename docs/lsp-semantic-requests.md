@@ -188,8 +188,10 @@ source and saved workspace files as reference targets. It publishes standard
 diagnostic code, and structured `status`, `subject`, and `details` data. Only the
 current existing file is analyzed, so an edit does not trigger a full project scan.
 
-The provider covers explicit Resource URI, Route, SQL, JsonSchema, ALPS, and Twig/Qiq
-references. As in the project query, SQL, Schema, and ALPS checks are omitted when the
+The provider covers direct static Resource calls through `$resource` or
+`$this->resource`, plus Route, SQL, JsonSchema, ALPS, and Twig/Qiq references. URI-like
+data in constants, prefix tests, exception arguments, and assertions is not a Resource
+call and is therefore not diagnosed. As in the project query, SQL, Schema, and ALPS checks are omitted when the
 corresponding supported convention root does not exist. Newly created files must be
 saved once before the workspace boundary can be established. Resource parse failures,
 Link/Embed target-method checks, and contract comparisons remain exclusive to the
@@ -206,7 +208,7 @@ limited item list plus the complete diagnostic count for the scanned set. Indivi
 missing, ambiguous, invalid, or malformed references are diagnostic items; they do not
 make the outer result fail. Each item contains a stable snake_case `code`, the underlying
 semantic `status`, a concise `subject`, a workspace-relative source `path`, an optional
-byte range, and bounded structured `details`. It checks explicit Resource URI, Route,
+byte range, and bounded structured `details`. It checks direct static Resource calls, Route,
 SQL, JsonSchema, ALPS, and Twig/Qiq references; Resource parse failures; resolved
 Link/Embed target methods; and exact-name-presence contract differences. It does not
 report absent convention templates or Schemas merely because those optional artifacts
@@ -229,6 +231,10 @@ items actually returned until `truncated` is false. The budget reserves room for
 envelope; it is not a strict wire-size guarantee, particularly for a single oversized item.
 Contract-only name lists inside `details` are capped at five names per surface and
 include complete per-surface totals plus `detailsTruncated`.
+Resource-call items include `referenceKind: direct_resource_call`, the call and source/
+target methods, `confidence: high`, and a `sourceSet` of `source` or `test`. Test calls
+remain visible because an actual call can still be a broken test; incidental test data
+does not become a diagnostic.
 
 `bear/project/contractCoverage` is an adoption report, not an error report or quality
 score. For each saved Resource method it inspects three surfaces: request Schema,
@@ -287,7 +293,7 @@ load module PHP, construct a DI container, or execute the application.
 | `bear/aop/pointcuts` | `{contextPath?, interceptor?, limit?, offset?}` | `{items, total, offset, truncated, scannedModules, unresolved, filter}` |
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
 | `bear/resource/list` | `{scheme?, prefix?, limit?, offset?}` | `{resources, total, offset, truncated}` |
-| `bear/resource/describe` | `{uri, contextPath?, incomingLimit?}` | `{resource, methods[{name, parameters, responseBody}], relationsOut, relationsIn, templates, schemas}` |
+| `bear/resource/describe` | `{uri, contextPath?, incomingLimit?}` | `{resource, methods[{name, parameters, responseBody}], relationsOut, relationsOutCoverage, referencesOut, referencesOutCoverage, relationsIn, templates, schemas}` |
 | `bear/resource/attributes` | `{uri, contextPath?}` | `{resource, attributes, argumentPolicy}` |
 | `bear/resource/attributeIndex` | `{scheme?, prefix?, limit?, offset?}` | `{items, total, offset, truncated, argumentPolicy}` |
 | `bear/resource/incomingRelations` | `{uri, contextPath?, limit?}` | `{resource, available, items, total, truncated}` |
@@ -307,6 +313,14 @@ load module PHP, construct a DI container, or execute the application.
 `engine` is `twig` or `qiq`. A relative Qiq name requires `contextPath`. The ALPS
 offset is a byte offset in the saved JSON profile; positional standard LSP methods
 continue to use UTF-16 line/character positions.
+
+For `bear/resource/describe`, `relationsOut` contains only declarative `#[Link]` and
+`#[Embed]` relations. `referencesOut` contains direct static Resource client calls
+such as `$this->resource->get('app://self/user')`, including their call, source method,
+target method, source range, and confidence. Dynamic URIs and differently named client
+properties are not inferred. `relationsOutCoverage` and `referencesOutCoverage` state
+these boundaries explicitly, so an empty list does not claim that the Resource has no
+runtime dependencies.
 
 For `bear/template/forResource`, `searched` contains workspace-relative convention
 paths in the order actually checked. A missing Resource has no successful `data`; an
