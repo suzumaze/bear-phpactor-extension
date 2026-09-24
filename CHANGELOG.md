@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- A scheduled and manually runnable BEAR.Kata semantic regression job now checks a pinned
+  474-site corpus for definition mismatches and 948 non-interference probes for false positives.
+  The existing coverage and misfire tools gained opt-in CI gates without changing their default
+  report-only behavior. The corpus is read as source only; its dependencies and application are
+  never installed or executed.
+
 ## [0.1.9] - 2026-09-24
 
 ### Changed
