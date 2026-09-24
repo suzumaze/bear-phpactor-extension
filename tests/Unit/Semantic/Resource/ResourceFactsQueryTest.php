@@ -7,6 +7,7 @@ namespace Suzumaze\BearPhpactor\Tests\Unit\Semantic\Resource;
 use Suzumaze\BearPhpactor\Resource\Model\ResourceUri;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFacts;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResponseShape;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
@@ -49,6 +50,12 @@ final class Dashboard extends \BEAR\Resource\ResourceObject
     #[Refresh(uri: 'app://self/dashboard')]
     public function onGet(int $id, ?string $name = null): static
     {
+        $this->body = [
+            'id' => $id,
+            'name' => $name,
+        ];
+        $this->body['created'] = true;
+
         return $this;
     }
 
@@ -86,6 +93,14 @@ PHP,
         self::assertSame('int', $result->value->methods[0]->parameters[0]->type);
         self::assertSame('name', $result->value->methods[0]->parameters[1]->name);
         self::assertSame('?string', $result->value->methods[0]->parameters[1]->type);
+        self::assertTrue($result->value->methods[0]->responseShape->complete);
+        self::assertSame(['created', 'id', 'name'], $result->value->methods[0]->responseShape->names);
+        self::assertNull($result->value->methods[0]->responseShape->reason);
+        self::assertFalse($result->value->methods[1]->responseShape->complete);
+        self::assertSame(
+            'no_complete_body_assignment',
+            $result->value->methods[1]->responseShape->reason,
+        );
 
         self::assertSame(
             ['app://self/dynamic', 'app://self/user', 'app://self/users'],
@@ -98,6 +113,81 @@ PHP,
         self::assertSame('onGet', $result->value->outgoingRelations[1]->targetMethod);
         self::assertSame('onPost', $result->value->outgoingRelations[2]->targetMethod);
         self::assertSame('onGet', $result->value->outgoingRelations[2]->sourceMethod);
+    }
+
+    public function testLeavesConditionalAndDynamicResponseBodiesUnsupported(): void
+    {
+        $file = $this->workspace . '/src/Resource/App/Dashboard.php';
+        $source = (string) file_get_contents($file);
+        $source = str_replace(
+            <<<'PHP'
+    function onPost(array $body): static
+    {
+        return $this;
+    }
+PHP,
+            <<<'PHP'
+    function onPost(array $body): static
+    {
+        if ($body !== []) {
+            $this->body = ['id' => 1];
+        }
+
+        return $this;
+    }
+PHP,
+            $source,
+        );
+        self::assertNotFalse(file_put_contents($file, $source));
+
+        $conditional = (new ResourceFactsQuery())->describeInWorkspace(
+            $this->workspace(),
+            'app://self/dashboard',
+        );
+        self::assertInstanceOf(ResourceFacts::class, $conditional->value);
+        self::assertSame(
+            ResourceResponseShape::REASON_COMPLEX_CONTROL_FLOW,
+            $conditional->value->methods[1]->responseShape->reason,
+        );
+
+        $source = str_replace(
+            <<<'PHP'
+        if ($body !== []) {
+            $this->body = ['id' => 1];
+        }
+PHP,
+            '$this->body = $body;',
+            $source,
+        );
+        self::assertNotFalse(file_put_contents($file, $source));
+        $dynamic = (new ResourceFactsQuery())->describeInWorkspace(
+            $this->workspace(),
+            'app://self/dashboard',
+        );
+        self::assertInstanceOf(ResourceFacts::class, $dynamic->value);
+        self::assertSame(
+            ResourceResponseShape::REASON_DYNAMIC_ASSIGNMENT,
+            $dynamic->value->methods[1]->responseShape->reason,
+        );
+
+        $source = str_replace(
+            '$this->body = $body;',
+            <<<'PHP'
+        $this->body = ['id' => 1];
+        $this->body[$body['key']] = 2;
+PHP,
+            $source,
+        );
+        self::assertNotFalse(file_put_contents($file, $source));
+        $dynamicKey = (new ResourceFactsQuery())->describeInWorkspace(
+            $this->workspace(),
+            'app://self/dashboard',
+        );
+        self::assertInstanceOf(ResourceFacts::class, $dynamicKey->value);
+        self::assertSame(
+            ResourceResponseShape::REASON_DYNAMIC_KEY,
+            $dynamicKey->value->methods[1]->responseShape->reason,
+        );
     }
 
     public function testDescribesSupportedAttributesAndMarksDynamicArguments(): void

@@ -662,6 +662,11 @@ final class SemanticQueryHandler implements Handler
                         ],
                         $method->parameters,
                     ),
+                    'responseBody' => [
+                        'status' => $method->responseShape->complete ? 'ok' : 'unsupported',
+                        'names' => $method->responseShape->names,
+                        'reason' => $method->responseShape->reason,
+                    ],
                 ],
                 $facts->methods,
             ),

@@ -496,7 +496,9 @@ route nameからPage Resourceを返す。HTTP pathをResource URIとして推測
 
 少なくとも2面が取得できた場合だけ`onlyInSchema`等を返す。型や意味の一致は主張しない。
 
-Resource body shapeは現在のコアに十分なcollectorがないため、M3の独立課題とする。M1/M2へ前倒ししない。
+Resource body shapeは、直線的なmethod内のliteral-key `$this->body`完全代入に限定して実装済み。
+条件分岐やdynamic assignmentをunionまたは推測で平らにせず、理由付き`unsupported`に残す。
+branchごとのshape表現はM5の独立課題とする。
 
 ### M4: DI and AOP facts
 

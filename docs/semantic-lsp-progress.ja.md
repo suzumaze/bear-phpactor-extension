@@ -269,7 +269,9 @@ default展開には、実行やframework値のhardcodeではなく、install済�
 `bear/contract/compare`は名前のpresenceだけを比較し、型・意味・振る舞いの互換性を主張しない。
 requestではResource method parameter、`JsonSchema(params:)`、ALPS operation内のdescriptorを比較する。
 responseでは明示または規約Schemaと、ALPS operationのローカル`rt`先representationを比較する。
-静的Resource body shapeは未対応なのでResource response面は推測せず`unsupported`になる。各面は独立した
+Resource response面は、直線的なmethodが`$this->body`へliteral-key arrayを完全代入し、その後も
+literal keyだけを追加する場合に限り、top-level名を`ok`として返す。条件分岐、dynamic key・代入、
+未対応のbody操作、`$this`自身のhelper callは理由付き`unsupported`に留める。各面は独立した
 status・subject・namesを持ち、2面以上が`ok`のときだけintersection、単独出現、名前ごとのpresenceを返す。
 
 `bear/alps/describeDescriptor` は、ALPS descriptor の型・表示情報と、同一profile内で

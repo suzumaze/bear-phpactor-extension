@@ -77,6 +77,10 @@ php tools/semantic-lsp-query.php /path/to/bear-project \
   '{"uri":"app://self/user","method":"onPost","schemaKind":"request"}'
 ```
 
+response比較では、静的に証明できる`$this->body`のkeyもResource面として扱います。
+対象は直線的なliteral-key array代入だけです。動的または条件付きのbody構築は推測せず、
+理由付きの`unsupported`として残します。
+
 applicationを起動せず、project全体の静的診断を取得する例:
 
 ```bash
