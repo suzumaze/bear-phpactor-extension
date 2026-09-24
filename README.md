@@ -33,8 +33,23 @@ This package registers Phpactor locators, providers, and completors. It does not
 | [ALPS](https://bearsunday.github.io/manuals/1.0/en/apidoc.html) | Definition, References, and Hover for descriptors selected through `apidoc.xml` |
 | [Twig and Qiq](https://bearsunday.github.io/manuals/1.0/en/html.html) | Definition, References, Hover, and Document Link for static template references; Definition from `#[Embed]` relations |
 | [Aura Router](https://bearsunday.github.io/manuals/1.0/en/router.html) | Definition, References, and Hover from a route name to its Page Resource |
+| Static inconsistencies | Standard LSP diagnostics for broken explicit BEAR references in the current editor buffer |
 
 Project roots and namespace prefixes come from the project's `composer.json`. Normal PHP definitions remain handled by Phpactor.
+
+## Editor diagnostics
+
+Phpactor publishes warning diagnostics with source `bear` for explicit Resource URI,
+Route, SQL, JSON Schema, ALPS, Twig, and Qiq references that are statically missing,
+ambiguous, invalid, or malformed. The provider analyzes only the current editor buffer
+and resolves its targets from saved workspace files; it does not rescan the project on
+each edit. Files that have not yet been saved once are not analyzed.
+
+The full saved-project query `bear/project/diagnostics` additionally checks Resource
+parse failures, Link/Embed target methods, and contract-name differences. The editor
+provider intentionally omits those project-wide checks. It is named `bear` and follows
+Phpactor's standard `language_server.diagnostics_*` settings; include or exclude it
+through `language_server.diagnostic_providers` when selecting providers explicitly.
 
 ## Headless semantic queries
 

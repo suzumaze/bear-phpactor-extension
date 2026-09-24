@@ -10,6 +10,7 @@ use Suzumaze\BearPhpactor\Semantic\Project\ProjectDiagnosticsQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectReportPage;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryIndex;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
+use Suzumaze\BearPhpactor\Semantic\Result\Freshness;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 
@@ -152,6 +153,37 @@ PHP);
         self::assertStringNotContainsString(
             $this->workspace,
             json_encode($result->value, JSON_THROW_ON_ERROR),
+        );
+    }
+
+    public function testDiagnosesOnlyTheCurrentUnsavedDocumentBuffer(): void
+    {
+        $workspace = WorkspaceContext::fromRoot($this->workspace);
+        self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
+        $buffer = <<<'PHP'
+<?php
+namespace Acme\App;
+final class Client { public string $uri = 'app://self/from-buffer'; }
+PHP;
+
+        $result = (new ProjectDiagnosticsQuery())->diagnoseDocumentInWorkspace(
+            $workspace->value,
+            $this->workspace . '/src/Client.php',
+            $buffer,
+        );
+
+        self::assertSame(SemanticStatus::Ok, $result->status);
+        self::assertIsArray($result->value);
+        self::assertCount(1, $result->value);
+        self::assertSame('resource_reference_not_found', $result->value[0]->code);
+        self::assertSame('app://self/from-buffer', $result->value[0]->subject);
+        self::assertSame('src/Client.php', $result->value[0]->path);
+        self::assertSame(
+            [Freshness::Buffer],
+            array_values(array_unique(array_map(
+                static fn ($provenance): Freshness => $provenance->freshness,
+                $result->provenance,
+            ), SORT_REGULAR)),
         );
     }
 

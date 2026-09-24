@@ -23,6 +23,71 @@ final class StdioLanguageServerTest extends TestCase
         $this->removeTree($this->runtimeDirectory);
     }
 
+    public function testRealPhpactorPublishesBearDiagnosticsForTheUnsavedBuffer(): void
+    {
+        $workspace = $this->runtimeDirectory . '/diagnostics-workspace';
+        $sourceDirectory = $workspace . '/src';
+        self::assertTrue(mkdir($sourceDirectory, 0777, true));
+        self::assertNotFalse(file_put_contents(
+            $workspace . '/composer.json',
+            '{"autoload":{"psr-4":{"Acme\\\\Diagnostics\\\\":"src/"}}}',
+        ));
+        $sourceFile = $sourceDirectory . '/Client.php';
+        self::assertNotFalse(file_put_contents($sourceFile, '<?php return null;'));
+        $buffer = <<<'PHP'
+<?php
+
+function target(): string
+{
+    return 'app://self/missing-buffer';
+}
+PHP;
+        $client = StdioLspClient::start(
+            $this->command($workspace, true),
+            $workspace,
+            $this->environment(),
+        );
+
+        try {
+            $initialize = $client->request('initialize', [
+                'processId' => getmypid(),
+                'rootUri' => $this->fileUri($workspace),
+                'capabilities' => (object) [],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $initialize, $client->stderr());
+            $client->notify('initialized');
+            $client->notify('textDocument/didOpen', [
+                'textDocument' => [
+                    'uri' => $this->fileUri($sourceFile),
+                    'languageId' => 'php',
+                    'version' => 1,
+                    'text' => $buffer,
+                ],
+            ]);
+
+            $notification = $client->waitForNotification(
+                'textDocument/publishDiagnostics',
+                static fn (array $message): bool => ($message['params']['diagnostics'] ?? []) !== [],
+                20.0,
+            );
+            $diagnostics = $notification['params']['diagnostics'] ?? [];
+            self::assertCount(1, $diagnostics, $client->stderr());
+            self::assertSame('resource_reference_not_found', $diagnostics[0]['code'] ?? null);
+            self::assertSame('bear', $diagnostics[0]['source'] ?? null);
+            self::assertSame(
+                'app://self/missing-buffer',
+                $diagnostics[0]['data']['subject'] ?? null,
+            );
+            self::assertSame('not_found', $diagnostics[0]['data']['status'] ?? null);
+
+            $shutdown = $client->request('shutdown', [], 10.0);
+            self::assertArrayNotHasKey('error', $shutdown, $client->stderr());
+            $client->notify('exit');
+        } finally {
+            $client->close();
+        }
+    }
+
     public function testRealPhpactorStdioSeparatesPartialTemplateFailureFromSuccessData(): void
     {
         $fixture = dirname(__DIR__) . '/Fixture/Resource';
@@ -1224,7 +1289,7 @@ final class StdioLanguageServerTest extends TestCase
     }
 
     /** @return list<string> */
-    private function command(string $fixture): array
+    private function command(string $fixture, bool $bearDiagnostics = false): array
     {
         $indexDirectory = $this->runtimeDirectory . '/index';
         self::assertTrue(mkdir($indexDirectory, 0777, true));
@@ -1237,9 +1302,13 @@ final class StdioLanguageServerTest extends TestCase
         self::assertIsArray($config);
         $config['indexer.enabled_watchers'] = [];
         $config['indexer.index_path'] = $indexDirectory;
-        $config['language_server.diagnostics_on_open'] = false;
+        $config['language_server.diagnostics_on_open'] = $bearDiagnostics;
         $config['language_server.diagnostics_on_update'] = false;
         $config['language_server.diagnostics_on_save'] = false;
+        if ($bearDiagnostics) {
+            $config['language_server.diagnostic_sleep_time'] = 10;
+            $config['language_server.diagnostic_providers'] = ['bear'];
+        }
 
         return [
             self::repositoryRoot() . '/vendor/bin/phpactor',

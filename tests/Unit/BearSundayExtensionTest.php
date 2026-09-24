@@ -11,6 +11,7 @@ use Suzumaze\BearPhpactor\BearSundayExtension;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaConventionTypeLocator;
 use Suzumaze\BearPhpactor\JsonSchema\JsonSchemaReferenceFinder;
 use Suzumaze\BearPhpactor\LanguageServer\SemanticQueryHandler;
+use Suzumaze\BearPhpactor\LanguageServer\BearDiagnosticsProvider;
 use Suzumaze\BearPhpactor\LanguageServer\ResourceInventoryIndexListener;
 use Suzumaze\BearPhpactor\Resource\Completor\BodyPropertyCompletor;
 use Suzumaze\BearPhpactor\Resource\Completor\ResourceUriCompletor;
@@ -94,6 +95,24 @@ final class BearSundayExtensionTest extends TestCase
         self::assertArrayHasKey(
             'bear_sunday.language_server.hover_middleware',
             $container->getServiceIdsForTag(LanguageServerExtension::TAG_METHOD_HANDLER),
+        );
+    }
+
+    public function testRegistersBearDiagnosticsProvider(): void
+    {
+        $container = PhpactorContainer::fromExtensions([
+            BearSundayExtension::class,
+            FilePathResolverExtension::class,
+            LoggingExtension::class,
+        ]);
+
+        self::assertInstanceOf(
+            BearDiagnosticsProvider::class,
+            $container->get('bear_sunday.language_server.diagnostics_provider'),
+        );
+        self::assertArrayHasKey(
+            'bear_sunday.language_server.diagnostics_provider',
+            $container->getServiceIdsForTag(LanguageServerExtension::TAG_DIAGNOSTICS_PROVIDER),
         );
     }
 

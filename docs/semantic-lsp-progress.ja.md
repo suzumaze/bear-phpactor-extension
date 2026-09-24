@@ -215,6 +215,14 @@ Schema/ALPS参照検査を省き、`skippedChecks`に`request_schema_references`
 5件まで例示し、完全件数と`detailsTruncated`を返す。比較は完全一致する名前の存在だけであり、型・意味・振る舞いの
 互換性を主張しない。その`status: ok`は比較query自体の成功を表し、差分は診断codeで表す。
 
+標準LSP診断provider `bear`は、現在のeditor bufferに対して同じ参照診断規則を適用し、
+`textDocument/publishDiagnostics`でwarningを配信する。参照元は未保存buffer、参照先は保存済み
+workspace fileであり、1回の編集でproject全体を走査しない。一度も保存されていない新規fileは
+workspace境界を確定できないため対象外とする。editor診断は明示的なResource URI、Route、SQL、
+JsonSchema、ALPS、Twig/Qiq参照に限定し、Resource解析失敗、Link/Embed先method、contract差は
+保存済みproject全体を扱う`bear/project/diagnostics`に残す。diagnosticの`source`は`bear`、`code`は
+project診断と同じ安定したsnake_case名を使う。
+
 `bear/project/contractCoverage`は異常検出や品質scoreではなく、JSON SchemaとALPSの導入状況を
 示す。保存済みResource methodごとにrequest Schema、response Schema、methodのALPS descriptorを
 調べ、`available`、`absent`、`dynamic`、`unresolved`、`not_applicable`に分類する。

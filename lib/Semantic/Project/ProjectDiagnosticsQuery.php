@@ -20,6 +20,7 @@ use Suzumaze\BearPhpactor\Semantic\Resource\ResourceFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventory;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceInventoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
+use Suzumaze\BearPhpactor\Semantic\Result\Freshness;
 use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
@@ -74,6 +75,73 @@ final class ProjectDiagnosticsQuery
     ) {
     }
 
+    /**
+     * Diagnose only the current editor document, using its buffer text as the
+     * source while resolving referenced targets from saved workspace files.
+     *
+     * @return SemanticResult<list<ProjectDiagnostic>|null>
+     */
+    public function diagnoseDocumentInWorkspace(
+        WorkspaceContext $workspace,
+        string $file,
+        string $contents,
+    ): SemanticResult {
+        $path = $workspace->accessPolicy()->inspectExisting($file);
+        if ($path->value === null) {
+            return SemanticResult::failure($path->status);
+        }
+        $project = $workspace->project($path->value->relative);
+        if ($project->value === null) {
+            return SemanticResult::failure($project->status);
+        }
+
+        $items = [];
+        $normalized = '/' . ltrim(str_replace('\\', '/', $path->value->relative), '/');
+        $engine = str_ends_with($normalized, '.html.twig')
+            ? 'twig'
+            : (str_contains($normalized, '/var/qiq/template/') && str_ends_with($normalized, '.php')
+                ? 'qiq'
+                : null);
+        if ($engine !== null) {
+            $this->diagnoseTemplateReferences(
+                $workspace,
+                $path->value->absolute,
+                $contents,
+                $engine,
+                $path->value->relative,
+                $items,
+            );
+        } elseif (str_ends_with(strtolower($normalized), '.php')) {
+            $conventions = $this->referenceConventions($workspace, $project->value->root());
+            $this->diagnosePhpReferences(
+                $workspace,
+                new Psr4PhpSource($path->value->absolute, $contents),
+                $path->value->relative,
+                $conventions['sql'],
+                $conventions['schema'],
+                $conventions['alps'],
+                $items,
+            );
+            if (basename($path->value->absolute) === 'aura.route.php') {
+                $this->diagnoseRouteReferences(
+                    $workspace,
+                    $path->value->absolute,
+                    $contents,
+                    $path->value->relative,
+                    $items,
+                );
+            }
+        }
+
+        $this->sortItems($items);
+        $provenance = [Provenance::derived(Freshness::Buffer)];
+        foreach ($items as $item) {
+            $provenance[] = Provenance::bufferFile($item->path, $item->byteStart, $item->byteEnd);
+        }
+
+        return SemanticResult::ok($items, $provenance);
+    }
+
     /** @return SemanticResult<ProjectDiagnostics|null> */
     public function diagnoseInWorkspace(
         WorkspaceContext $workspace,
@@ -99,28 +167,7 @@ final class ProjectDiagnosticsQuery
         $items = [];
         $scannedFiles = [];
         $relationSuppressions = [];
-        $sqlRoot = $workspace->accessPolicy()->inspectExisting(
-            $project->value->root() . '/' . SqlQuery::CONVENTION_DIRECTORY,
-        );
-        $scanSqlReferences = $sqlRoot->value !== null && is_dir($sqlRoot->value->absolute);
-        $skippedChecks = $scanSqlReferences ? [] : ['sql_references'];
-        $schemaRoots = [];
-        $schemaDirectories = [
-            SchemaQuery::KIND_REQUEST => JsonSchemaPathResolver::REQUEST_SCHEMA_DIR,
-            SchemaQuery::KIND_RESPONSE => JsonSchemaPathResolver::RESPONSE_SCHEMA_DIR,
-        ];
-        foreach ($schemaDirectories as $kind => $directory) {
-            $root = $workspace->accessPolicy()->inspectExisting($project->value->root() . '/' . $directory);
-            $schemaRoots[$kind] = $root->value !== null && is_dir($root->value->absolute);
-            if (!$schemaRoots[$kind]) {
-                $skippedChecks[] = $kind . '_schema_references';
-            }
-        }
-        $alpsRoot = $workspace->accessPolicy()->inspectExisting($project->value->root() . '/apidoc.xml');
-        $scanAlpsReferences = $alpsRoot->value !== null && is_file($alpsRoot->value->absolute);
-        if (!$scanAlpsReferences) {
-            $skippedChecks[] = 'alps_descriptors';
-        }
+        $conventions = $this->referenceConventions($workspace, $project->value->root());
         foreach ($this->phpSourceScanner->scan($workspace, $project->value) as $source) {
             $path = $workspace->accessPolicy()->inspectExisting($source->file);
             if ($path->value === null) {
@@ -131,9 +178,9 @@ final class ProjectDiagnosticsQuery
                 $workspace,
                 $source,
                 $path->value->relative,
-                $scanSqlReferences,
-                $schemaRoots,
-                $scanAlpsReferences,
+                $conventions['sql'],
+                $conventions['schema'],
+                $conventions['alps'],
                 $items,
             );
         }
@@ -146,35 +193,14 @@ final class ProjectDiagnosticsQuery
                 continue;
             }
             $scannedFiles[$path->value->relative] = true;
-            $document = TextDocumentBuilder::create($source->contents)
-                ->uri($source->file)
-                ->language($source->engine)
-                ->build();
-            try {
-                $references = $this->templateReferenceScanner->references($document);
-            } catch (Throwable) {
-                $references = [];
-            }
-            foreach ($references as $reference) {
-                $result = $this->templateQuery->resolveInWorkspace(
-                    $workspace,
-                    $reference->engine,
-                    $reference->name,
-                    $path->value->relative,
-                );
-                if (!$this->reportableReferenceFailure($result->status)) {
-                    continue;
-                }
-                $items[] = new ProjectDiagnostic(
-                    'template_reference_' . $this->statusSuffix($result->status),
-                    $result->status,
-                    $reference->name,
-                    $path->value->relative,
-                    $reference->start,
-                    $reference->end,
-                    ['engine' => $reference->engine],
-                );
-            }
+            $this->diagnoseTemplateReferences(
+                $workspace,
+                $source->file,
+                $source->contents,
+                $source->engine,
+                $path->value->relative,
+                $items,
+            );
         }
 
         foreach ($inventory->value->resources as $resource) {
@@ -208,19 +234,7 @@ final class ProjectDiagnosticsQuery
 
         $items = $this->withoutDuplicateRelationReferences($items, $relationSuppressions);
 
-        usort($items, static fn (ProjectDiagnostic $left, ProjectDiagnostic $right): int => [
-            $left->path,
-            $left->byteStart ?? -1,
-            $left->byteEnd ?? -1,
-            $left->code,
-            $left->subject,
-        ] <=> [
-            $right->path,
-            $right->byteStart ?? -1,
-            $right->byteEnd ?? -1,
-            $right->code,
-            $right->subject,
-        ]);
+        $this->sortItems($items);
 
         $total = count($items);
         $selected = ProjectReportPage::slice(
@@ -250,7 +264,7 @@ final class ProjectDiagnosticsQuery
                 count($scannedFiles),
                 count($inventory->value->resources),
                 $inventory->value->truncated,
-                $skippedChecks,
+                $conventions['skipped'],
             ),
             $provenance,
         );
@@ -373,6 +387,77 @@ final class ProjectDiagnosticsQuery
         }
     }
 
+    /**
+     * @return array{sql:bool,schema:array<string,bool>,alps:bool,skipped:list<string>}
+     */
+    private function referenceConventions(WorkspaceContext $workspace, string $projectRoot): array
+    {
+        $sqlRoot = $workspace->accessPolicy()->inspectExisting(
+            $projectRoot . '/' . SqlQuery::CONVENTION_DIRECTORY,
+        );
+        $sql = $sqlRoot->value !== null && is_dir($sqlRoot->value->absolute);
+        $skipped = $sql ? [] : ['sql_references'];
+        $schema = [];
+        $schemaDirectories = [
+            SchemaQuery::KIND_REQUEST => JsonSchemaPathResolver::REQUEST_SCHEMA_DIR,
+            SchemaQuery::KIND_RESPONSE => JsonSchemaPathResolver::RESPONSE_SCHEMA_DIR,
+        ];
+        foreach ($schemaDirectories as $kind => $directory) {
+            $root = $workspace->accessPolicy()->inspectExisting($projectRoot . '/' . $directory);
+            $schema[$kind] = $root->value !== null && is_dir($root->value->absolute);
+            if (!$schema[$kind]) {
+                $skipped[] = $kind . '_schema_references';
+            }
+        }
+        $alpsRoot = $workspace->accessPolicy()->inspectExisting($projectRoot . '/apidoc.xml');
+        $alps = $alpsRoot->value !== null && is_file($alpsRoot->value->absolute);
+        if (!$alps) {
+            $skipped[] = 'alps_descriptors';
+        }
+
+        return ['sql' => $sql, 'schema' => $schema, 'alps' => $alps, 'skipped' => $skipped];
+    }
+
+    /** @param list<ProjectDiagnostic> $items */
+    private function diagnoseTemplateReferences(
+        WorkspaceContext $workspace,
+        string $file,
+        string $contents,
+        string $engine,
+        string $relativePath,
+        array &$items,
+    ): void {
+        $document = TextDocumentBuilder::create($contents)
+            ->uri($file)
+            ->language($engine)
+            ->build();
+        try {
+            $references = $this->templateReferenceScanner->references($document);
+        } catch (Throwable) {
+            $references = [];
+        }
+        foreach ($references as $reference) {
+            $result = $this->templateQuery->resolveInWorkspace(
+                $workspace,
+                $reference->engine,
+                $reference->name,
+                $relativePath,
+            );
+            if (!$this->reportableReferenceFailure($result->status)) {
+                continue;
+            }
+            $items[] = new ProjectDiagnostic(
+                'template_reference_' . $this->statusSuffix($result->status),
+                $result->status,
+                $reference->name,
+                $relativePath,
+                $reference->start,
+                $reference->end,
+                ['engine' => $reference->engine],
+            );
+        }
+    }
+
     /** @param list<ProjectDiagnostic> $items @param array<string,true> $scannedFiles */
     private function diagnoseRoutes(
         WorkspaceContext $workspace,
@@ -389,8 +474,28 @@ final class ProjectDiagnosticsQuery
             return;
         }
         $scannedFiles[$routePath->value->relative] = true;
+        $this->diagnoseRouteReferences(
+            $workspace,
+            $routePath->value->absolute,
+            $contents,
+            $routePath->value->relative,
+            $items,
+        );
+    }
+
+    /** @param list<ProjectDiagnostic> $items */
+    private function diagnoseRouteReferences(
+        WorkspaceContext $workspace,
+        string $file,
+        string $contents,
+        string $relativePath,
+        array &$items,
+    ): void {
+        if (strlen($contents) > self::MAX_ROUTE_BYTES) {
+            return;
+        }
         $document = TextDocumentBuilder::create($contents)
-            ->uri($routePath->value->absolute)
+            ->uri($file)
             ->language('php')
             ->build();
         try {
@@ -399,7 +504,7 @@ final class ProjectDiagnosticsQuery
             $references = [];
         }
         foreach ($references as [$start, $routeName, $end]) {
-            $result = $this->routeQuery->resolveInWorkspace($workspace, $routeName, $routePath->value->relative);
+            $result = $this->routeQuery->resolveInWorkspace($workspace, $routeName, $relativePath);
             if (!$this->reportableReferenceFailure($result->status)) {
                 continue;
             }
@@ -407,7 +512,7 @@ final class ProjectDiagnosticsQuery
                 'route_resource_' . $this->statusSuffix($result->status),
                 $result->status,
                 $routeName,
-                $routePath->value->relative,
+                $relativePath,
                 $start,
                 $end,
                 $result->status === SemanticStatus::Ambiguous
@@ -415,6 +520,24 @@ final class ProjectDiagnosticsQuery
                     : [],
             );
         }
+    }
+
+    /** @param list<ProjectDiagnostic> $items */
+    private function sortItems(array &$items): void
+    {
+        usort($items, static fn (ProjectDiagnostic $left, ProjectDiagnostic $right): int => [
+            $left->path,
+            $left->byteStart ?? -1,
+            $left->byteEnd ?? -1,
+            $left->code,
+            $left->subject,
+        ] <=> [
+            $right->path,
+            $right->byteStart ?? -1,
+            $right->byteEnd ?? -1,
+            $right->code,
+            $right->subject,
+        ]);
     }
 
     /**
