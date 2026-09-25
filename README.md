@@ -74,9 +74,12 @@ as `referencesOut`; coverage fields make both boundaries explicit.
 
 `bear/di/bindings` inventories direct static `$this->bind(X)->to(Y)` declarations,
 and `bear/aop/pointcuts` inventories static `bindInterceptor` declarations and their
-matcher syntax trees. They report saved-source declarations, not the active application
-context, winning DI binding, evaluated pointcut, or woven runtime behavior. Dynamic or
-unsupported forms remain visible as reasoned `unresolved` items.
+matcher syntax trees. Pass an optional literal `applicationContext` such as
+`dev-html-app` to restrict either inventory to workspace modules reached by the saved
+context convention, inheritance, and static module-install edges. This remains a
+saved-source projection, not a claim about the winning DI binding, evaluated pointcut,
+or woven runtime behavior. Dynamic or unsupported forms remain visible as reasoned
+`unresolved` items.
 
 An IDE is not required. The included client starts a real Phpactor stdio process:
 

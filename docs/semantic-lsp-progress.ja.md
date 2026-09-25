@@ -201,12 +201,15 @@ version交渉やcapability判断に使用しない。
 名前・型・default、成功envelopeとtop-level data key、failure envelope、error key、全statusを
 実際のhandler responseに対して検証する。snapshotはversion交渉ではなく回帰検出に使う。
 
-`bear/di/bindings`は、Ray.Di `AbstractModule`を直接継承するclass内の
+`bear/di/bindings`は、保存済みsourceの継承経路がRay.Di `AbstractModule`または
+BEAR.Package `AbstractAppModule`へ到達するworkspace class内の
 `$this->bind(X)->to(Y)`という静的宣言を一覧化する。`bear/aop/pointcuts`は同じmodule sourceから
 `bindInterceptor`と`bindPriorityInterceptor`の静的宣言を拾い、Ray.Aop matcherを構文木として
-保持する。どちらも保存済みsourceの宣言inventoryであり、application contextやmodule install treeを
-合成せず、`override()`の優先順位、最終的に勝つbinding、pointcutの適用結果、runtime weavingを
-主張しない。dynamic binding、qualifier、provider、multibinding、assisted injection、未対応matcherは
+保持する。`applicationContext`を指定した場合は、BEAR.Packageのcontext命名規約、workspace内の継承、
+静的な`install()`/`override()`経路から参加するworkspace moduleへ絞る。これは保存済みsourceの
+部分的なcontext projectionであり、vendor側だけにあるcontext moduleやdynamicなModule生成を推測しない。
+`override()`の優先順位、最終的に勝つbinding、pointcutの適用結果、runtime weavingも主張しない。
+dynamic binding、qualifier、provider、multibinding、assisted injection、未対応matcherは
 推測で欠落させず、理由付きの`unresolved`に残す。workspace内のComposer PSR-4 PHP sourceだけを読み、
 moduleのload、DI containerの構築、applicationの実行は行わない。
 

@@ -134,6 +134,7 @@ final class ProjectInfoQuery
             'templateResolution',
             'diBindingInventory',
             'aopPointcutInventory',
+            'contextScopedDiAopInventory',
         ];
     }
 

@@ -13,11 +13,16 @@ use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 use Throwable;
 
 /**
- * Finds direct AbstractModule subclasses without loading application classes.
+ * Finds AbstractModule subclasses without loading application classes.
+ *
+ * BEAR application modules normally extend AbstractAppModule, and context
+ * modules may extend another application module. Resolve that saved-source
+ * inheritance chain before deciding whether a declaration is a Ray.Di module.
  */
 final readonly class RayModuleScanner
 {
     private const ABSTRACT_MODULE = 'Ray\\Di\\AbstractModule';
+    private const ABSTRACT_APP_MODULE = 'BEAR\\Package\\AbstractAppModule';
 
     public function __construct(
         private Psr4PhpSourceScanner $sourceScanner = new Psr4PhpSourceScanner(),
@@ -28,6 +33,10 @@ final readonly class RayModuleScanner
     /** @return iterable<RayModuleSource> */
     public function scan(WorkspaceContext $workspace, Project $project): iterable
     {
+        /** @var array<string, RayModuleSource> $classes */
+        $classes = [];
+        /** @var array<string, string> $parents */
+        $parents = [];
         foreach ($this->sourceScanner->scan($workspace, $project) as $source) {
             $path = $workspace->accessPolicy()->inspectExisting($source->file);
             if ($path->value === null) {
@@ -36,31 +45,59 @@ final readonly class RayModuleScanner
             try {
                 $root = $this->parser->parseSourceFile($source->contents, $source->file);
                 foreach ($root->getDescendantNodes() as $node) {
-                    if (!$node instanceof ClassDeclaration || !$this->isRayModule($node)) {
+                    if (!$node instanceof ClassDeclaration) {
                         continue;
                     }
                     $name = $node->getNamespacedName();
-                    yield new RayModuleSource(
-                        ltrim((string) $name, '\\'),
+                    $module = ltrim((string) $name, '\\');
+                    $parent = $this->parent($node);
+                    if ($module === '' || $parent === null) {
+                        continue;
+                    }
+                    $classes[$module] = new RayModuleSource(
+                        $module,
+                        $parent,
                         $path->value->relative,
                         $source->contents,
                         $node,
                     );
+                    $parents[$module] = $parent;
                 }
             } catch (Throwable) {
                 continue;
             }
         }
+
+        foreach ($classes as $module => $source) {
+            if ($this->isRayModule($module, $parents)) {
+                yield $source;
+            }
+        }
     }
 
-    private function isRayModule(ClassDeclaration $class): bool
+    private function parent(ClassDeclaration $class): ?string
     {
         $baseClause = $class->getFirstChildNode(ClassBaseClause::class);
         if (!$baseClause instanceof ClassBaseClause) {
-            return false;
+            return null;
         }
         $base = $baseClause->baseClass->getResolvedName();
 
-        return ltrim((string) $base, '\\') === self::ABSTRACT_MODULE;
+        return $base === null ? null : ltrim((string) $base, '\\');
+    }
+
+    /** @param array<string, string> $parents */
+    private function isRayModule(string $class, array $parents): bool
+    {
+        $visited = [];
+        while (isset($parents[$class]) && !isset($visited[$class])) {
+            $visited[$class] = true;
+            $class = $parents[$class];
+            if ($class === self::ABSTRACT_MODULE || $class === self::ABSTRACT_APP_MODULE) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

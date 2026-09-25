@@ -71,9 +71,11 @@ project全体で集約し、個別itemの失敗を外側のquery statusから分
 
 `bear/di/bindings`は直接記述された静的な`$this->bind(X)->to(Y)`宣言を一覧化し、
 `bear/aop/pointcuts`は静的な`bindInterceptor`宣言とmatcher構文木を一覧化します。
-返すのは保存済みsourceの宣言であり、有効なapplication context、最終的に勝つDI binding、
-評価済みpointcut、runtimeでweaveされた振る舞いではありません。動的または未対応の形式は、
-推測で埋めず理由付きの`unresolved`として残します。
+任意の`applicationContext`（例: `dev-html-app`）を渡すと、保存済みsourceから判定できる
+context規約、継承、静的なModule install経路に参加するworkspace内Moduleへ絞れます。
+これは実行時コンテナの完全な再現ではなく、最終的に勝つDI binding、評価済みpointcut、
+runtimeでweaveされた振る舞いを断定しません。動的または未対応の形式は、推測で埋めず
+理由付きの`unresolved`として残します。
 
 IDEは不要です。同梱clientは実際のPhpactor stdio processを起動します。
 

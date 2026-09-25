@@ -13,6 +13,7 @@ final readonly class RayModuleSource
 {
     public function __construct(
         public string $module,
+        public string $parent,
         public string $path,
         public string $contents,
         public ClassDeclaration $declaration,

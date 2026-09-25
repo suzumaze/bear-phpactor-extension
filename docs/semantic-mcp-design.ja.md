@@ -503,10 +503,14 @@ branchごとのshape表現はM5の独立課題とする。
 ### M4: DI and AOP facts
 
 最小のsource declaration inventoryとして、`bear/di/bindings`と`bear/aop/pointcuts`を実装済み。
-直接`AbstractModule`を継承するclass内の静的`bind()->to()`宣言と、静的
+保存済みsourceの継承経路が`AbstractModule`または`AbstractAppModule`へ到達するclass内の
+静的`bind()->to()`宣言と、静的
 `bindInterceptor`/`bindPriorityInterceptor`宣言を保存済みsourceから取得する。matcherは対応する
-Ray.Aop構文をtreeとして保持し、dynamic/未対応の形は理由付き`unresolved`に残す。これはruntimeの
-有効なcontext、最終binding、pointcut適用結果またはweavingを表さない。
+Ray.Aop構文をtreeとして保持し、dynamic/未対応の形は理由付き`unresolved`に残す。
+任意の`applicationContext`を指定すると、BEAR.Packageのcontext命名規約、workspace内の継承、
+静的な`install()`/`override()`経路に参加するworkspace moduleへ絞る。ただし、これはruntime containerの
+完全な合成ではなく、vendor-only module、dynamic module、最終binding、pointcut適用結果またはweavingを
+表さない。
 
 JetBrains版の現在の実装を仕様・失敗事例のprior artとして、次の合成・lookup機能は独立milestoneで設計する。
 

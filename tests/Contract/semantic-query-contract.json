@@ -280,10 +280,11 @@
                 {"name": "type", "type": "string|null", "required": false, "default": null},
                 {"name": "contextPath", "type": "string|null", "required": false, "default": null},
                 {"name": "limit", "type": "int", "required": false, "default": 50},
-                {"name": "offset", "type": "int", "required": false, "default": 0}
+                {"name": "offset", "type": "int", "required": false, "default": 0},
+                {"name": "applicationContext", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["items", "total", "offset", "truncated", "scannedModules", "unresolved", "type"]
+            "successDataKeys": ["items", "total", "offset", "truncated", "scannedModules", "unresolved", "type", "applicationContext"]
         },
         "bear/aop/pointcuts": {
             "handler": "inspectAopPointcuts",
@@ -291,10 +292,11 @@
                 {"name": "interceptor", "type": "string|null", "required": false, "default": null},
                 {"name": "contextPath", "type": "string|null", "required": false, "default": null},
                 {"name": "limit", "type": "int", "required": false, "default": 50},
-                {"name": "offset", "type": "int", "required": false, "default": 0}
+                {"name": "offset", "type": "int", "required": false, "default": 0},
+                {"name": "applicationContext", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["items", "total", "offset", "truncated", "scannedModules", "unresolved", "interceptor"]
+            "successDataKeys": ["items", "total", "offset", "truncated", "scannedModules", "unresolved", "interceptor", "applicationContext"]
         }
     }
 }

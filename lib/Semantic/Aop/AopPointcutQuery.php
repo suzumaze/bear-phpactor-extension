@@ -12,6 +12,7 @@ use Microsoft\PhpParser\Node\Expression\MemberAccessExpression;
 use Microsoft\PhpParser\Node\Expression\Variable;
 use Microsoft\PhpParser\Node\StringLiteral;
 use Microsoft\PhpParser\Token;
+use Suzumaze\BearPhpactor\Semantic\Di\ContextModuleSelector;
 use Suzumaze\BearPhpactor\Semantic\Di\RayModuleCall;
 use Suzumaze\BearPhpactor\Semantic\Di\RayModuleScanner;
 use Suzumaze\BearPhpactor\Semantic\Di\RayModuleSource;
@@ -30,6 +31,7 @@ final readonly class AopPointcutQuery
 
     public function __construct(
         private RayModuleScanner $moduleScanner = new RayModuleScanner(),
+        private ContextModuleSelector $contextModuleSelector = new ContextModuleSelector(),
     ) {
     }
 
@@ -40,8 +42,15 @@ final readonly class AopPointcutQuery
         ?string $contextPath = null,
         int $limit = self::DEFAULT_LIMIT,
         int $offset = 0,
+        ?string $applicationContext = null,
     ): SemanticResult {
-        if ($limit < 1 || $limit > self::MAX_LIMIT || $offset < 0 || $interceptor === '') {
+        if (
+            $limit < 1
+            || $limit > self::MAX_LIMIT
+            || $offset < 0
+            || $interceptor === ''
+            || $applicationContext === ''
+        ) {
             return SemanticResult::invalidInput();
         }
         $project = $workspace->project($contextPath);
@@ -51,7 +60,11 @@ final readonly class AopPointcutQuery
         $interceptor = $interceptor === null ? null : ltrim($interceptor, '\\');
         $items = [];
         $modules = 0;
-        foreach ($this->moduleScanner->scan($workspace, $project->value) as $module) {
+        $moduleSources = iterator_to_array($this->moduleScanner->scan($workspace, $project->value), false);
+        if ($applicationContext !== null) {
+            $moduleSources = $this->contextModuleSelector->select($moduleSources, $applicationContext);
+        }
+        foreach ($moduleSources as $module) {
             ++$modules;
             foreach ($module->declaration->getDescendantNodes() as $node) {
                 if (!$node instanceof CallExpression) {

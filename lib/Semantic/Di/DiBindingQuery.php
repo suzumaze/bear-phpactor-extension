@@ -23,6 +23,7 @@ final readonly class DiBindingQuery
 
     public function __construct(
         private RayModuleScanner $moduleScanner = new RayModuleScanner(),
+        private ContextModuleSelector $contextModuleSelector = new ContextModuleSelector(),
     ) {
     }
 
@@ -33,8 +34,15 @@ final readonly class DiBindingQuery
         ?string $contextPath = null,
         int $limit = self::DEFAULT_LIMIT,
         int $offset = 0,
+        ?string $applicationContext = null,
     ): SemanticResult {
-        if ($limit < 1 || $limit > self::MAX_LIMIT || $offset < 0 || $type === '') {
+        if (
+            $limit < 1
+            || $limit > self::MAX_LIMIT
+            || $offset < 0
+            || $type === ''
+            || $applicationContext === ''
+        ) {
             return SemanticResult::invalidInput();
         }
         $project = $workspace->project($contextPath);
@@ -44,7 +52,11 @@ final readonly class DiBindingQuery
         $type = $type === null ? null : ltrim($type, '\\');
         $items = [];
         $modules = 0;
-        foreach ($this->moduleScanner->scan($workspace, $project->value) as $module) {
+        $moduleSources = iterator_to_array($this->moduleScanner->scan($workspace, $project->value), false);
+        if ($applicationContext !== null) {
+            $moduleSources = $this->contextModuleSelector->select($moduleSources, $applicationContext);
+        }
+        foreach ($moduleSources as $module) {
             ++$modules;
             foreach ($module->declaration->getDescendantNodes() as $node) {
                 if (

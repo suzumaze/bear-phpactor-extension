@@ -23,7 +23,7 @@ final class DiBindingQueryTest extends TestCase
         self::assertSame(SemanticStatus::Ok, $result->status);
         self::assertInstanceOf(DiBindingInventory::class, $result->value);
         self::assertSame(3, $result->value->total);
-        self::assertSame(1, $result->value->scannedModules);
+        self::assertSame(2, $result->value->scannedModules);
         self::assertSame(2, $result->value->unresolved);
         self::assertSame([
             DiBindingFact::STATE_RESOLVED,
@@ -62,6 +62,22 @@ final class DiBindingQueryTest extends TestCase
         self::assertSame(
             SemanticStatus::InvalidInput,
             $query->listInWorkspace($workspace->value, limit: 101)->status,
+        );
+    }
+
+    public function testScopesBindingsToApplicationContextModules(): void
+    {
+        $workspace = WorkspaceContext::fromRoot($this->fixture());
+        self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
+        $query = new DiBindingQuery();
+
+        $result = $query->listInWorkspace($workspace->value, applicationContext: 'app');
+        self::assertInstanceOf(DiBindingInventory::class, $result->value);
+        self::assertSame(3, $result->value->total);
+        self::assertSame(1, $result->value->scannedModules);
+        self::assertSame(
+            SemanticStatus::InvalidInput,
+            $query->listInWorkspace($workspace->value, applicationContext: '')->status,
         );
     }
 

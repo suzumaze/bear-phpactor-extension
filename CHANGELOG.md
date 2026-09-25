@@ -12,6 +12,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   direct static Resource client `referencesOut`, with machine-readable coverage
   for both surfaces.
 
+### Changed
+
+- `bear/di/bindings` and `bear/aop/pointcuts` now discover saved-source module
+  inheritance and accept an optional `applicationContext` scope without constructing
+  the runtime DI container.
+
 ### Fixed
 
 - Project and editor diagnostics now report missing Resource targets only for

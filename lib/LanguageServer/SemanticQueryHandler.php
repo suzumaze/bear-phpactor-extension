@@ -541,10 +541,18 @@ final class SemanticQueryHandler implements Handler
         ?string $contextPath = null,
         int $limit = DiBindingQuery::DEFAULT_LIMIT,
         int $offset = 0,
+        ?string $applicationContext = null,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
-                $this->diBindingQuery->listInWorkspace($workspace, $type, $contextPath, $limit, $offset),
+                $this->diBindingQuery->listInWorkspace(
+                    $workspace,
+                    $type,
+                    $contextPath,
+                    $limit,
+                    $offset,
+                    $applicationContext,
+                ),
             fn (DiBindingInventory $inventory): array => [
                 'items' => array_map($this->diBindingData(...), $inventory->items),
                 'total' => $inventory->total,
@@ -553,6 +561,7 @@ final class SemanticQueryHandler implements Handler
                 'scannedModules' => $inventory->scannedModules,
                 'unresolved' => $inventory->unresolved,
                 'type' => $inventory->type,
+                'applicationContext' => $applicationContext,
             ],
         ));
     }
@@ -563,10 +572,18 @@ final class SemanticQueryHandler implements Handler
         ?string $contextPath = null,
         int $limit = AopPointcutQuery::DEFAULT_LIMIT,
         int $offset = 0,
+        ?string $applicationContext = null,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
-                $this->aopPointcutQuery->listInWorkspace($workspace, $interceptor, $contextPath, $limit, $offset),
+                $this->aopPointcutQuery->listInWorkspace(
+                    $workspace,
+                    $interceptor,
+                    $contextPath,
+                    $limit,
+                    $offset,
+                    $applicationContext,
+                ),
             fn (AopPointcutInventory $inventory): array => [
                 'items' => array_map($this->aopPointcutData(...), $inventory->items),
                 'total' => $inventory->total,
@@ -575,6 +592,7 @@ final class SemanticQueryHandler implements Handler
                 'scannedModules' => $inventory->scannedModules,
                 'unresolved' => $inventory->unresolved,
                 'interceptor' => $inventory->interceptor,
+                'applicationContext' => $applicationContext,
             ],
         ));
     }
