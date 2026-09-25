@@ -607,8 +607,8 @@ final class SemanticQueryHandlerTest extends TestCase
 
         $bindings = wait($handler->inspectDiBindings(limit: 1));
         self::assertSame('ok', $bindings['status']);
-        self::assertSame(3, $bindings['data']['total']);
-        self::assertSame(2, $bindings['data']['unresolved']);
+        self::assertSame(30, $bindings['data']['total']);
+        self::assertSame(16, $bindings['data']['unresolved']);
         self::assertTrue($bindings['data']['truncated']);
         self::assertSame('resolved', $bindings['data']['items'][0]['state']);
         self::assertSame('src/Module/AppModule.php', $bindings['data']['items'][0]['path']);

@@ -69,7 +69,8 @@ project全体で集約し、個別itemの失敗を外側のquery statusから分
 直接記述された静的な`$resource`/`$this->resource`呼び出しを`referencesOut`として分けて返します。
 双方の解析範囲はcoverage fieldで機械可読に明示されます。
 
-`bear/di/bindings`は直接記述された静的な`$this->bind(X)->to(Y)`宣言を一覧化し、
+`bear/di/bindings`は静的な`to`、`toProvider`、`toInstance`、`toConstructor`、
+`toNull`、untargeted bindingとqualifier・scope宣言を一覧化し、
 `bear/aop/pointcuts`は静的な`bindInterceptor`宣言とmatcher構文木を一覧化します。
 任意の`applicationContext`（例: `dev-html-app`）を渡すと、保存済みsourceから判定できる
 context規約、継承、静的なModule install経路に参加するworkspace内Moduleへ絞れます。
@@ -79,6 +80,7 @@ runtimeでweaveされた振る舞いを断定しません。動的または未�
 `bear/di/moduleGraph`は、その絞り込みの根拠となるcontext segment、workspace module、継承、
 静的な`install()`/`override()` edgeを返します。外部またはdynamicなedgeは明示したままにし、
 vendor展開、control flow評価、優先順位、container構築までは断定しません。
+`bear/di/bindings`はModule、provider、constructorを実行せず保存済みsourceを読み、解決不能な箇所を明示します。
 
 IDEは不要です。同梱clientは実際のPhpactor stdio processを起動します。
 

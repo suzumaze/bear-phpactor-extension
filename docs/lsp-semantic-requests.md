@@ -260,18 +260,70 @@ a stable published member and is `false` for this complete scan. The query uses 
 return fewer items; advance `offset` by the returned item count until `truncated` is
 false. It is not a strict wire-size guarantee for a single oversized item.
 
-`bear/di/bindings` inventories direct saved-source declarations of the form
-`$this->bind(X)->to(Y)` inside workspace classes whose saved-source inheritance chain
-reaches Ray.Di's `AbstractModule` or BEAR.Package's `AbstractAppModule`.
-Both endpoints must be string literals or statically resolvable `::class` expressions.
-Without `applicationContext`, the result is deliberately a project-wide declaration
-inventory. With a literal context such as `dev-html-app`, it is restricted to workspace
-modules selected by BEAR.Package's context naming convention, project-local inheritance,
+`bear/di/bindings` inventories direct saved-source `bind()` chains inside workspace
+classes whose saved-source inheritance chain reaches Ray.Di's `AbstractModule` or
+BEAR.Package's `AbstractAppModule`. It recognizes `to`, `toProvider`, `toInstance`,
+`toConstructor`, `toNull`, and untargeted bindings, together with `annotatedWith`
+qualifiers and explicit `in` scope declarations, following Ray.Di 2.x `Bind` method
+signatures; positional and named arguments are both read. Class names and qualifiers must
+be literal strings or statically resolvable `::class` expressions. Static declarations
+remain source facts: providers, constructors, and instance expressions are never executed.
+`$this->bind()` without an argument reports `sourceType` as an empty string, matching
+Ray.Di's default interface.
+
+Each item preserves `state`, `module`, `sourceType`, `targetType`, `reason`, `path`,
+and `byteRange`, and adds:
+
+| Field | Meaning |
+| --- | --- |
+| `kind` | `class`, `provider`, `instance`, `constructor`, `null`, or `untargeted` |
+| `qualifier` | Explicit qualifier, or null when absent/unresolved |
+| `scope` | Declared `in()` scope normalized to `singleton` or `prototype`, or null when absent/unresolved |
+| `targetExpression` | Saved text of the target argument (class, provider, or instance); never an evaluated value |
+| `constructorArguments` | Saved text of the `toConstructor()` parameter-to-binding-name mapping; never evaluated |
+| `valueType` | For instance bindings, a PHP `gettype()` name (`string`, `integer`, `double`, `boolean`, `NULL`, `array`, `object`) fixed by the expression form alone: literals, `::class`, explicit casts, or `new`; otherwise null |
+
+A `resolved` state means the declaration's supported syntax was read, not that the
+runtime dependency resolves. An instance binding whose expression is not a literal is
+still `resolved`: its declaration was read and its saved text is in `targetExpression`.
+`scope` records the declared `in()` argument only; omitted scope does not establish a
+runtime scope. Accepted scope forms are the `Ray\Di\Scope::SINGLETON`/`PROTOTYPE`
+constants (resolved through `use` imports) and the exact literals `'Singleton'`/`'Prototype'`.
+The provider `context` and the `toConstructor()` `postConstruct` arguments are checked for
+static readability but are not reported as separate fields.
+
+Inspect `reason` on `unresolved` items; known parts remain available. The earliest
+problem in the chain wins:
+
+| Reason | Meaning |
+| --- | --- |
+| `binding_source_not_static` | `bind()` argument is not a literal or `::class` |
+| `binding_chain_unsupported` | The chain calls a method other than the recognized `Bind` methods |
+| `binding_multiple_targets` | More than one target method in one chain |
+| `binding_operation_repeated` | `annotatedWith()` or `in()` called twice |
+| `binding_qualifier_after_target` | `annotatedWith()` follows the target; Ray.Di has already registered the unqualified binding |
+| `binding_scope_before_target` | `in()` precedes the target; Ray.Di discards that scope when the target is set |
+| `binding_arguments_unsupported` | Spread, unknown named, surplus, or missing required arguments |
+| `binding_qualifier_not_static` | `annotatedWith()` argument is not a literal or `::class` |
+| `binding_scope_not_static` | `in()` argument is neither a literal nor a `Ray\Di\Scope` constant |
+| `binding_scope_unknown` | `in()` literal is not exactly `Singleton` or `Prototype` |
+| `binding_target_not_static` | Target class or provider is not a non-empty literal or `::class` |
+| `binding_provider_context_not_static` | `toProvider()` context is not a literal |
+| `binding_constructor_arguments_not_static` | `toConstructor()` name mapping is not a literal string or literal string array |
+| `binding_constructor_injection_points_not_static` | `toConstructor()` receives `InjectionPoints` other than literal `null` |
+| `binding_constructor_post_construct_not_static` | `toConstructor()` `postConstruct` is neither a literal nor `null` |
+| `binding_untargeted_type_missing` | `bind()` without a type and without a target |
+
+Null item members may be omitted by the stdio transport.
+
+Without `applicationContext`, the result is a project-wide declaration inventory.
+With a literal context such as `dev-html-app`, it is restricted to workspace modules
+selected by BEAR.Package's context naming convention, project-local inheritance,
 and statically named `install()`/`override()` edges. Vendor-only context segments and
-dynamic module expressions are omitted rather than guessed. This is not a complete
-runtime container composition: the query does not apply `override()` precedence, expand
-providers, multibindings, assisted injection, qualifiers, or claim which binding wins.
-Recognized but unsupported bind chains remain visible in `unresolved` with a reason.
+dynamic module expressions are omitted from this inventory rather than guessed; their
+boundaries are visible in `bear/di/moduleGraph`. The query does not apply override
+precedence, expand providers, multibindings, or assisted injection, or establish which
+binding wins. The query does not execute Modules or create a container.
 
 `bear/aop/pointcuts` inventories static `bindInterceptor` and
 `bindPriorityInterceptor` declarations from the same module sources and accepts the

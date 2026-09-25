@@ -49,6 +49,9 @@ final class SemanticQueryProtocolTest extends TestCase
                 'successEnvelopeKeys' => array_keys($response),
                 'successDataKeys' => array_keys($response['data']),
             ];
+            if ($requestMethod === 'bear/di/bindings') {
+                $methods[$requestMethod]['successItemKeys'] = array_keys($response['data']['items'][0]);
+            }
         }
 
         self::assertSame(array_keys($methodMap), array_keys($methods));

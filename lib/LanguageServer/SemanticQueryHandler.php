@@ -745,6 +745,12 @@ final class SemanticQueryHandler implements Handler
             'module' => $binding->module,
             'sourceType' => $binding->sourceType,
             'targetType' => $binding->targetType,
+            'kind' => $binding->kind,
+            'qualifier' => $binding->qualifier,
+            'scope' => $binding->scope,
+            'targetExpression' => $binding->targetExpression,
+            'constructorArguments' => $binding->constructorArguments,
+            'valueType' => $binding->valueType,
             'reason' => $binding->reason,
             'path' => $binding->path,
             'byteRange' => [

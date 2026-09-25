@@ -284,7 +284,8 @@
                 {"name": "applicationContext", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["items", "total", "offset", "truncated", "scannedModules", "unresolved", "type", "applicationContext"]
+            "successDataKeys": ["items", "total", "offset", "truncated", "scannedModules", "unresolved", "type", "applicationContext"],
+            "successItemKeys": ["state", "module", "sourceType", "targetType", "kind", "qualifier", "scope", "targetExpression", "constructorArguments", "valueType", "reason", "path", "byteRange"]
         },
         "bear/di/moduleGraph": {
             "handler": "inspectDiModuleGraph",

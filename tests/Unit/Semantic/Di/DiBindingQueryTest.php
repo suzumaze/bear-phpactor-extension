@@ -13,34 +13,103 @@ use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 
 final class DiBindingQueryTest extends TestCase
 {
-    public function testInventoriesOnlyDirectStaticClassBindingsAndKeepsUnresolvedDeclarations(): void
+    public function testReadsEveryRayDiBindFormAndKeepsKnownPartsOfUnresolvedDeclarations(): void
     {
         $workspace = WorkspaceContext::fromRoot($this->fixture());
         self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
 
-        $result = (new DiBindingQuery())->listInWorkspace($workspace->value);
+        $result = (new DiBindingQuery())->listInWorkspace($workspace->value, limit: 100);
 
         self::assertSame(SemanticStatus::Ok, $result->status);
         self::assertInstanceOf(DiBindingInventory::class, $result->value);
-        self::assertSame(3, $result->value->total);
+        self::assertSame(30, $result->value->total);
         self::assertSame(3, $result->value->scannedModules);
-        self::assertSame(2, $result->value->unresolved);
+        self::assertSame(16, $result->value->unresolved);
+        // [kind, sourceType, qualifier, scope, targetType, valueType, reason] without the fixture namespace.
         self::assertSame([
-            DiBindingFact::STATE_RESOLVED,
-            DiBindingFact::STATE_UNRESOLVED,
-            DiBindingFact::STATE_UNRESOLVED,
-        ], array_column($result->value->items, 'state'));
+            ['class', 'ClockInterface', null, null, 'Clock', null, null],
+            ['class', null, null, null, 'DynamicService', null, 'binding_source_not_static'],
+            ['class', 'ClockInterface', 'primary', null, 'Clock', null, null],
+            ['class', 'LoggerInterface', 'Annotation\\Primary', 'singleton', 'FileLogger', null, null],
+            ['provider', 'ConnectionInterface', null, 'prototype', 'ConnectionProvider', null, null],
+            ['provider', 'ConnectionInterface', 'write', null, 'ConnectionProvider', null, null],
+            ['untargeted', 'Mailer', null, 'singleton', null, null, null],
+            ['constructor', 'Mailer', 'smtp', null, 'Mailer', null, null],
+            ['constructor', 'Mailer', 'queue', null, 'Mailer', null, null],
+            ['null', 'NotifierInterface', null, null, null, null, null],
+            ['instance', '', 'app_name', null, null, 'string', null],
+            ['instance', '', 'retry', null, null, 'integer', null],
+            ['instance', '', 'hosts', null, null, 'array', null],
+            ['instance', 'Clock', null, null, null, 'object', null],
+            ['instance', '', 'config', null, null, null, null],
+            ['class', 'Clock', null, null, 'Clock', null, 'binding_chain_unsupported'],
+            ['null', 'LoggerInterface', null, null, null, null, 'binding_multiple_targets'],
+            ['class', 'LoggerInterface', 'b', null, 'FileLogger', null, 'binding_operation_repeated'],
+            ['class', 'LoggerInterface', 'late', null, 'FileLogger', null, 'binding_qualifier_after_target'],
+            ['class', 'LoggerInterface', null, 'singleton', 'FileLogger', null, 'binding_scope_before_target'],
+            ['null', 'NotifierInterface', null, null, null, null, 'binding_arguments_unsupported'],
+            ['class', 'LoggerInterface', null, null, 'FileLogger', null, 'binding_qualifier_not_static'],
+            ['class', 'LoggerInterface', null, null, 'FileLogger', null, 'binding_scope_not_static'],
+            ['class', 'LoggerInterface', null, null, 'FileLogger', null, 'binding_scope_unknown'],
+            ['class', 'LoggerInterface', null, null, null, null, 'binding_target_not_static'],
+            [
+                'provider',
+                'ConnectionInterface',
+                null,
+                null,
+                'ConnectionProvider',
+                null,
+                'binding_provider_context_not_static',
+            ],
+            ['constructor', 'Mailer', null, null, 'Mailer', null, 'binding_constructor_arguments_not_static'],
+            ['constructor', 'Mailer', null, null, 'Mailer', null, 'binding_constructor_injection_points_not_static'],
+            ['constructor', 'Mailer', null, null, 'Mailer', null, 'binding_constructor_post_construct_not_static'],
+            ['untargeted', '', 'orphan', null, null, null, 'binding_untargeted_type_missing'],
+        ], array_map(static fn (DiBindingFact $item): array => array_map(
+            static fn (?string $value): ?string => $value === null
+                ? null
+                : str_replace(['Acme\\DiAop\\Service\\', 'Acme\\DiAop\\'], '', $value),
+            [
+                $item->kind,
+                $item->sourceType,
+                $item->qualifier,
+                $item->scope,
+                $item->targetType,
+                $item->valueType,
+                $item->reason,
+            ],
+        ), $result->value->items));
+        foreach ($result->value->items as $item) {
+            self::assertSame(
+                $item->reason === null ? DiBindingFact::STATE_RESOLVED : DiBindingFact::STATE_UNRESOLVED,
+                $item->state,
+            );
+        }
         self::assertSame(
-            'Acme\\DiAop\\Service\\ClockInterface',
-            $result->value->items[0]->sourceType,
-        );
-        self::assertSame('Acme\\DiAop\\Service\\Clock', $result->value->items[0]->targetType);
-        self::assertSame('binding_source_not_static', $result->value->items[1]->reason);
-        self::assertSame('binding_chain_unsupported', $result->value->items[2]->reason);
-        self::assertSame(
-            ['src/Module/AppModule.php'],
+            ['src/Module/AppModule.php', 'src/Module/FeatureModule.php'],
             array_values(array_unique(array_column($result->value->items, 'path'))),
         );
+    }
+
+    public function testKeepsSavedExpressionTextWithoutEvaluatingIt(): void
+    {
+        $workspace = WorkspaceContext::fromRoot($this->fixture());
+        self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
+
+        $result = (new DiBindingQuery())->listInWorkspace($workspace->value, limit: 100);
+
+        self::assertInstanceOf(DiBindingInventory::class, $result->value);
+        $items = $result->value->items;
+        self::assertSame('FileLogger::class', $items[3]->targetExpression);
+        self::assertSame("'host=smtp_host,port=smtp_port'", $items[7]->constructorArguments);
+        self::assertSame("['host' => 'queue_host']", $items[8]->constructorArguments);
+        self::assertNull($items[9]->targetExpression);
+        self::assertSame("'acme'", $items[10]->targetExpression);
+        self::assertSame('(int) $this->retry', $items[11]->targetExpression);
+        self::assertSame('new Clock()', $items[13]->targetExpression);
+        self::assertSame('$this->config', $items[14]->targetExpression);
+        self::assertSame('$loggerClass', $items[24]->targetExpression);
+        self::assertSame("'host=smtp_host'", $items[27]->constructorArguments);
     }
 
     public function testFiltersByExactSourceTypeAndValidatesPagination(): void
@@ -73,7 +142,7 @@ final class DiBindingQueryTest extends TestCase
 
         $result = $query->listInWorkspace($workspace->value, applicationContext: 'app');
         self::assertInstanceOf(DiBindingInventory::class, $result->value);
-        self::assertSame(3, $result->value->total);
+        self::assertSame(30, $result->value->total);
         self::assertSame(2, $result->value->scannedModules);
         self::assertSame(
             SemanticStatus::InvalidInput,

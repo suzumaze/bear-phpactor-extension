@@ -44,7 +44,7 @@ final class StdioLanguageServerTest extends TestCase
             $bindings = $client->request('bear/di/bindings', ['limit' => 1], 20.0);
             self::assertArrayNotHasKey('error', $bindings, $client->stderr());
             self::assertSame('ok', $bindings['result']['status'] ?? null);
-            self::assertSame(3, $bindings['result']['data']['total'] ?? null);
+            self::assertSame(30, $bindings['result']['data']['total'] ?? null);
             self::assertSame('resolved', $bindings['result']['data']['items'][0]['state'] ?? null);
 
             $pointcuts = $client->request('bear/aop/pointcuts', [

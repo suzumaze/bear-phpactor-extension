@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- DI declaration facts now preserve qualifiers, providers, instances, constructor
+  bindings, null and untargeted bindings, and explicit scope without executing Modules,
+  following Ray.Di 2.x `Bind` signatures including named arguments. Instance bindings
+  report a statically inferred `valueType`; unreadable or order-sensitive chains remain
+  visible with specific reasons, and transport includes the new facts.
+
 - Resource descriptions now separate declarative Link/Embed `relationsOut` from
   direct static Resource client `referencesOut`, with machine-readable coverage
   for both surfaces.

@@ -72,7 +72,8 @@ available requests, and its capabilities. The additive contract is documented in
 `relationsOut` and reports direct static `$resource`/`$this->resource` calls separately
 as `referencesOut`; coverage fields make both boundaries explicit.
 
-`bear/di/bindings` inventories direct static `$this->bind(X)->to(Y)` declarations,
+`bear/di/bindings` inventories static `to`, `toProvider`, `toInstance`,
+`toConstructor`, `toNull`, and untargeted declarations, including qualifiers and scope,
 and `bear/aop/pointcuts` inventories static `bindInterceptor` declarations and their
 matcher syntax trees. Pass an optional literal `applicationContext` such as
 `dev-html-app` to restrict either inventory to workspace modules reached by the saved
@@ -84,6 +85,7 @@ or woven runtime behavior. Dynamic or unsupported forms remain visible as reason
 static `install()`/`override()` edges behind that scope. External and dynamic edges remain
 explicit; vendor expansion, control-flow evaluation, precedence, and container construction
 stay outside the claim.
+`bear/di/bindings` reads saved source without executing Modules, providers, or constructors.
 
 An IDE is not required. The included client starts a real Phpactor stdio process:
 
