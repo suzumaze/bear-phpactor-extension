@@ -62,6 +62,14 @@ final class RayModuleCall
     public static function staticName(?Node $expression, string $source): ?string
     {
         if ($expression instanceof StringLiteral) {
+            // Interpolated strings and heredocs carry expression nodes among their parts.
+            $parts = is_array($expression->children) ? $expression->children : [];
+            foreach ($parts as $part) {
+                if ($part instanceof Node) {
+                    return null;
+                }
+            }
+
             return $expression->getStringContentsText();
         }
         if (!$expression instanceof ScopedPropertyAccessExpression) {

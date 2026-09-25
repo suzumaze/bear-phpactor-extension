@@ -150,9 +150,29 @@ final class DiBindingQueryTest extends TestCase
         );
     }
 
-    private function fixture(): string
+    public function testTreatsInterpolatedStringsAsNotStatic(): void
     {
-        $fixture = realpath(dirname(__DIR__, 3) . '/Fixture/DiAop');
+        $workspace = WorkspaceContext::fromRoot($this->fixture('DiAopInterpolation'));
+        self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
+
+        $result = (new DiBindingQuery())->listInWorkspace($workspace->value);
+
+        self::assertInstanceOf(DiBindingInventory::class, $result->value);
+        self::assertSame([
+            'binding_qualifier_not_static',
+            'binding_qualifier_not_static',
+            'binding_source_not_static',
+            null,
+            null,
+            null,
+        ], array_column($result->value->items, 'reason'));
+        self::assertSame('plain_name', $result->value->items[4]->qualifier);
+        self::assertSame('single_$name', $result->value->items[5]->qualifier);
+    }
+
+    private function fixture(string $name = 'DiAop'): string
+    {
+        $fixture = realpath(dirname(__DIR__, 3) . '/Fixture/' . $name);
         self::assertNotFalse($fixture);
 
         return $fixture;

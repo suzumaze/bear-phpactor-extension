@@ -29,6 +29,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- DI and AOP inventories no longer report interpolated strings or heredocs, such as
+  `annotatedWith("db_$env")`, as static names; they remain unresolved with a reason.
+
 - Project and editor diagnostics now report missing Resource targets only for
   direct static calls through `$resource` or `$this->resource`. URI prefixes,
   exception arguments, assertions, and other URI-like data no longer become

@@ -203,13 +203,14 @@ version交渉やcapability判断に使用しない。
 
 `bear/di/bindings`は、保存済みsourceの継承経路がRay.Di `AbstractModule`または
 BEAR.Package `AbstractAppModule`へ到達するworkspace class内の
-`$this->bind(X)->to(Y)`という静的宣言を一覧化する。`bear/aop/pointcuts`は同じmodule sourceから
+静的な`to`、`toProvider`、`toInstance`、`toConstructor`、`toNull`、untargeted bindingと
+qualifier・scope宣言を一覧化する。`bear/aop/pointcuts`は同じmodule sourceから
 `bindInterceptor`と`bindPriorityInterceptor`の静的宣言を拾い、Ray.Aop matcherを構文木として
 保持する。`applicationContext`を指定した場合は、BEAR.Packageのcontext命名規約、workspace内の継承、
 静的な`install()`/`override()`経路から参加するworkspace moduleへ絞る。これは保存済みsourceの
 部分的なcontext projectionであり、vendor側だけにあるcontext moduleやdynamicなModule生成を推測しない。
 `override()`の優先順位、最終的に勝つbinding、pointcutの適用結果、runtime weavingも主張しない。
-dynamic binding、qualifier、provider、multibinding、assisted injection、未対応matcherは
+dynamic binding、multibinding、assisted injection、未対応のbind chainやmatcherは
 推測で欠落させず、理由付きの`unresolved`に残す。workspace内のComposer PSR-4 PHP sourceだけを読み、
 moduleのload、DI containerの構築、applicationの実行は行わない。
 `bear/di/moduleGraph`は同じcontext projectionの根拠を、segment候補、workspace module、継承、

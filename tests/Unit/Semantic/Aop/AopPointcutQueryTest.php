@@ -82,9 +82,24 @@ final class AopPointcutQueryTest extends TestCase
         );
     }
 
-    private function fixture(): string
+    public function testTreatsInterpolatedMatcherAndInterceptorNamesAsUnreadable(): void
     {
-        $fixture = realpath(dirname(__DIR__, 3) . '/Fixture/DiAop');
+        $workspace = WorkspaceContext::fromRoot($this->fixture('DiAopInterpolation'));
+        self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
+
+        $result = (new AopPointcutQuery())->listInWorkspace($workspace->value);
+
+        self::assertInstanceOf(AopPointcutInventory::class, $result->value);
+        self::assertSame(
+            [['method_matcher_unreadable'], ['interceptors_unreadable']],
+            array_column($result->value->items, 'reasons'),
+        );
+        self::assertSame([], $result->value->items[1]->interceptors);
+    }
+
+    private function fixture(string $name = 'DiAop'): string
+    {
+        $fixture = realpath(dirname(__DIR__, 3) . '/Fixture/' . $name);
         self::assertNotFalse($fixture);
 
         return $fixture;
