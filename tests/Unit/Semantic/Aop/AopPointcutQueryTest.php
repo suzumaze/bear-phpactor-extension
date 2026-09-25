@@ -23,7 +23,7 @@ final class AopPointcutQueryTest extends TestCase
         self::assertSame(SemanticStatus::Ok, $result->status);
         self::assertInstanceOf(AopPointcutInventory::class, $result->value);
         self::assertSame(4, $result->value->total);
-        self::assertSame(2, $result->value->scannedModules);
+        self::assertSame(3, $result->value->scannedModules);
         self::assertSame(1, $result->value->unresolved);
         self::assertSame('any', $result->value->items[0]->classMatcher['kind']);
         self::assertSame('logical_or', $result->value->items[0]->methodMatcher['kind']);
@@ -70,12 +70,12 @@ final class AopPointcutQueryTest extends TestCase
         $app = $query->listInWorkspace($workspace->value, applicationContext: 'app');
         self::assertInstanceOf(AopPointcutInventory::class, $app->value);
         self::assertSame(3, $app->value->total);
-        self::assertSame(1, $app->value->scannedModules);
+        self::assertSame(2, $app->value->scannedModules);
 
         $test = $query->listInWorkspace($workspace->value, applicationContext: 'test-app');
         self::assertInstanceOf(AopPointcutInventory::class, $test->value);
         self::assertSame(4, $test->value->total);
-        self::assertSame(2, $test->value->scannedModules);
+        self::assertSame(3, $test->value->scannedModules);
         self::assertSame(
             SemanticStatus::InvalidInput,
             $query->listInWorkspace($workspace->value, applicationContext: '')->status,

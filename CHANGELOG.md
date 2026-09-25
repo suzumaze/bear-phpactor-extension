@@ -17,6 +17,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `bear/di/bindings` and `bear/aop/pointcuts` now discover saved-source module
   inheritance and accept an optional `applicationContext` scope without constructing
   the runtime DI container.
+- Add `bear/di/moduleGraph`, exposing the context segments, workspace inheritance,
+  static module edges, unresolved boundaries, and explicit non-runtime coverage behind
+  context-scoped DI/AOP inventories.
 
 ### Fixed
 

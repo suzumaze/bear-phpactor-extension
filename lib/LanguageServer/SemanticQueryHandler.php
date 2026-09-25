@@ -19,6 +19,8 @@ use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparisonQuery;
 use Suzumaze\BearPhpactor\Semantic\Di\DiBindingFact;
 use Suzumaze\BearPhpactor\Semantic\Di\DiBindingInventory;
 use Suzumaze\BearPhpactor\Semantic\Di\DiBindingQuery;
+use Suzumaze\BearPhpactor\Semantic\Di\ContextModuleGraph;
+use Suzumaze\BearPhpactor\Semantic\Di\ContextModuleGraphQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverage;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverageItem;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverageQuery;
@@ -104,6 +106,7 @@ final class SemanticQueryHandler implements Handler
         private ContractCoverageQuery $contractCoverageQuery = new ContractCoverageQuery(),
         private DiBindingQuery $diBindingQuery = new DiBindingQuery(),
         private AopPointcutQuery $aopPointcutQuery = new AopPointcutQuery(),
+        private ContextModuleGraphQuery $contextModuleGraphQuery = new ContextModuleGraphQuery(),
     ) {
         $this->workspace = WorkspaceContext::fromRoot($workspaceRoot);
         $this->resourceFactsQuery = $resourceFactsQuery;
@@ -139,6 +142,7 @@ final class SemanticQueryHandler implements Handler
             'bear/schema/describeNamed' => 'describeNamedSchema',
             'bear/schema/describeForResource' => 'describeResourceSchema',
             'bear/di/bindings' => 'inspectDiBindings',
+            'bear/di/moduleGraph' => 'inspectDiModuleGraph',
             'bear/aop/pointcuts' => 'inspectAopPointcuts',
         ];
     }
@@ -562,6 +566,57 @@ final class SemanticQueryHandler implements Handler
                 'unresolved' => $inventory->unresolved,
                 'type' => $inventory->type,
                 'applicationContext' => $applicationContext,
+            ],
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function inspectDiModuleGraph(
+        string $applicationContext,
+        ?string $contextPath = null,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->contextModuleGraphQuery->describeInWorkspace(
+                    $workspace,
+                    $applicationContext,
+                    $contextPath,
+                ),
+            fn (ContextModuleGraph $graph): array => [
+                'applicationContext' => $graph->applicationContext,
+                'segments' => array_map(static fn ($root): array => [
+                    'segment' => $root->segment,
+                    'priority' => $root->priority,
+                    'candidates' => $root->candidates,
+                    'selected' => $root->selected,
+                    'state' => $root->state,
+                ], $graph->segments),
+                'modules' => array_map(static fn ($module): array => [
+                    'module' => $module->module,
+                    'parent' => $module->parent,
+                    'path' => $module->path,
+                ], $graph->modules),
+                'edges' => array_map(static fn ($edge): array => [
+                    'source' => $edge->source,
+                    'target' => $edge->target,
+                    'kind' => $edge->kind,
+                    'state' => $edge->state,
+                    'reason' => $edge->reason,
+                    'path' => $edge->path,
+                    'byteRange' => [
+                        'start' => $edge->byteStart,
+                        'end' => $edge->byteEnd,
+                    ],
+                ], $graph->edges),
+                'truncated' => $graph->truncated,
+                'coverage' => [
+                    'source' => 'saved_workspace_source',
+                    'vendorModulesExpanded' => false,
+                    'dynamicEdgesExpanded' => false,
+                    'controlFlowEvaluated' => false,
+                    'precedenceResolved' => false,
+                    'runtimeContainerConstructed' => false,
+                ],
             ],
         ));
     }

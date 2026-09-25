@@ -18,6 +18,7 @@ const METHODS = [
     'bear/project/diagnostics',
     'bear/project/contractCoverage',
     'bear/di/bindings',
+    'bear/di/moduleGraph',
     'bear/aop/pointcuts',
     'bear/resource/resolve',
     'bear/resource/list',

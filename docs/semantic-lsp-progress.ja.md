@@ -197,7 +197,7 @@ capabilityは追加でき、clientは未知のobject fieldを無視する。公�
 公開済みの`semanticApiVersion`は互換性のため`1`のまま非推奨memberとして残す。新しいclientは
 version交渉やcapability判断に使用しない。
 
-`tests/Contract/semantic-query-contract.json`とcontract testが、全23 methodの登録名、handler引数の
+`tests/Contract/semantic-query-contract.json`とcontract testが、全24 methodの登録名、handler引数の
 名前・型・default、成功envelopeとtop-level data key、failure envelope、error key、全statusを
 実際のhandler responseに対して検証する。snapshotはversion交渉ではなく回帰検出に使う。
 
@@ -212,6 +212,9 @@ BEAR.Package `AbstractAppModule`へ到達するworkspace class内の
 dynamic binding、qualifier、provider、multibinding、assisted injection、未対応matcherは
 推測で欠落させず、理由付きの`unresolved`に残す。workspace内のComposer PSR-4 PHP sourceだけを読み、
 moduleのload、DI containerの構築、applicationの実行は行わない。
+`bear/di/moduleGraph`は同じcontext projectionの根拠を、segment候補、workspace module、継承、
+静的な`install()`/`override()` edgeとして返す。外部targetとdynamic edgeは消さず、coverageで
+vendor非展開、control flow・優先順位の未評価、runtime container未構築を明示する。
 
 `bear/project/diagnostics`は保存済みsourceだけを有界に走査し、`$resource`または
 `$this->resource`への直接的で静的なResource呼び出し、Route、

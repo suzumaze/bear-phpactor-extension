@@ -80,6 +80,10 @@ context convention, inheritance, and static module-install edges. This remains a
 saved-source projection, not a claim about the winning DI binding, evaluated pointcut,
 or woven runtime behavior. Dynamic or unsupported forms remain visible as reasoned
 `unresolved` items.
+`bear/di/moduleGraph` exposes the context segments, workspace modules, inheritance, and
+static `install()`/`override()` edges behind that scope. External and dynamic edges remain
+explicit; vendor expansion, control-flow evaluation, precedence, and container construction
+stay outside the claim.
 
 An IDE is not required. The included client starts a real Phpactor stdio process:
 

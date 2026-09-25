@@ -282,6 +282,13 @@ interceptor arrays are reported without instantiating them. The query does not e
 the matcher against project classes or claim that interception is active or woven.
 Dynamic and unsupported arguments are retained as reasoned `unresolved` entries.
 
+`bear/di/moduleGraph` requires a literal `applicationContext` and returns the saved-source
+graph used by context-scoped inventories. Context segments expose both application and
+BEAR.Package candidates; workspace roots are followed through project-local inheritance and
+statically named `install()`/`override()` calls. External targets and dynamic expressions remain
+visible as bounded edges instead of being guessed. Coverage explicitly states that vendor modules
+are not expanded, control flow and precedence are not evaluated, and no runtime container is built.
+
 Both inventories filter before stable offset pagination, return at most 100 items per
 page, and use the same approximate serialized-byte budget as other project reports.
 DI filtering matches an exact binding `type`; AOP filtering matches an exact
@@ -296,6 +303,7 @@ load module PHP, construct a DI container, or execute the application.
 | `bear/project/diagnostics` | `{contextPath?, limit?, offset?}` | `{items, total, offset, truncated, scannedFiles, scannedResources, resourceScanTruncated, skippedChecks}` |
 | `bear/project/contractCoverage` | `{contextPath?, limit?, offset?, gapsOnly?, scheme?}` | `{items, total, matchingTotal, offset, truncated, gapsOnly, scheme, scannedResources, analyzedResources, resourceScanTruncated, summary}` |
 | `bear/di/bindings` | `{contextPath?, type?, limit?, offset?, applicationContext?}` | `{items, total, offset, truncated, scannedModules, unresolved, type, applicationContext}` |
+| `bear/di/moduleGraph` | `{applicationContext, contextPath?}` | `{applicationContext, segments, modules, edges, truncated, coverage}` |
 | `bear/aop/pointcuts` | `{contextPath?, interceptor?, limit?, offset?, applicationContext?}` | `{items, total, offset, truncated, scannedModules, unresolved, interceptor, applicationContext}` |
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
 | `bear/resource/list` | `{scheme?, prefix?, limit?, offset?}` | `{resources, total, offset, truncated}` |

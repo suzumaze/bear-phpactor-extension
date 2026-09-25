@@ -76,6 +76,9 @@ context規約、継承、静的なModule install経路に参加するworkspace�
 これは実行時コンテナの完全な再現ではなく、最終的に勝つDI binding、評価済みpointcut、
 runtimeでweaveされた振る舞いを断定しません。動的または未対応の形式は、推測で埋めず
 理由付きの`unresolved`として残します。
+`bear/di/moduleGraph`は、その絞り込みの根拠となるcontext segment、workspace module、継承、
+静的な`install()`/`override()` edgeを返します。外部またはdynamicなedgeは明示したままにし、
+vendor展開、control flow評価、優先順位、container構築までは断定しません。
 
 IDEは不要です。同梱clientは実際のPhpactor stdio processを起動します。
 

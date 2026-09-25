@@ -16,6 +16,7 @@ class AppModule extends AbstractAppModule
 {
     protected function configure(): void
     {
+        $this->install(new FeatureModule());
         $this->bind(ClockInterface::class)->to(Clock::class);
         $this->bind($dynamicInterface)->to(DynamicService::class);
         $this->bind(ClockInterface::class)->annotatedWith('primary')->to(Clock::class);

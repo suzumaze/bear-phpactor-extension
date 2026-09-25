@@ -135,6 +135,7 @@ final class ProjectInfoQuery
             'diBindingInventory',
             'aopPointcutInventory',
             'contextScopedDiAopInventory',
+            'diModuleGraph',
         ];
     }
 

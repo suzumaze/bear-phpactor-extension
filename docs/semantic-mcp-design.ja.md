@@ -516,7 +516,7 @@ JetBrains版の現在の実装を仕様・失敗事例のprior artとして、�
 
 - `bear_app_context_list`
 - `bear_di_binding_lookup`
-- `bear_di_module_tree_read`
+- `bear_di_module_tree_read`（基礎となる`bear/di/moduleGraph`のworkspace graphは実装済み）
 - `bear_di_object_graph`
 - `bear_aop_pointcut_lookup`
 - `bear_resource_attribute_index`
