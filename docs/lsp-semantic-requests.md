@@ -341,6 +341,32 @@ statically named `install()`/`override()` calls. External targets and dynamic ex
 visible as bounded edges instead of being guessed. Coverage explicitly states that vendor modules
 are not expanded, control flow and precedence are not evaluated, and no runtime container is built.
 
+`bear/di/container` composes the container that BEAR.Package would build for a literal
+`applicationContext`, from saved source only. Unlike the inventories above it reads the
+workspace's installed vendor modules as data: Composer autoload metadata is read from
+`composer.json` and `vendor/composer/installed.json` (never `vendor/autoload.php`), and
+module classes are interpreted, not loaded. Composition follows Ray.Di 2.23 write semantics
+(`bind()` replaces, `install()` and module chaining keep the existing binding, `override()`
+lets the overriding module win, `rename()` moves an index) and the BEAR.Package composition
+root named in `coverage.compositionRecipe`. Files outside the workspace root, including
+Composer path repositories that resolve outside it, are not read.
+
+Each item carries `index` (`type-name`, as Ray.Di keys it), `type`, `name`, `kind`
+(`dependency`, `untargeted`, `provider`, `null_object`, `object`, or a `gettype()` name for
+instances), `target`, and the owning `module`. Instance values are never evaluated: a value
+known only at runtime keeps its type when the source fixes it (for example a string cast)
+and is otherwise reported with kind `unknown`.
+`events` counts bind, replace, keep, and move writes; `modules` counts current owners.
+`unknowns` lists every place the interpreter stopped instead of guessing, with a reason,
+path, and line — typically a branch whose condition depends on an environment value.
+An optional `environment` object is an explicit environment profile: `getenv()` returns the
+listed string values and `false` for every other variable, so branches that depend on the
+environment can be decided the way one deployment would decide them. Without it,
+environment values stay unknown. Environment files such as `.env` or `env.json` are never read.
+`coverage.aopWeavingResolved` is false: AOP-woven class names depend on file modification
+times and the runtime temporary directory, so they are not reproduced. The composition is
+not the runtime container and does not prove that dependencies resolve.
+
 Both inventories filter before stable offset pagination, return at most 100 items per
 page, and use the same approximate serialized-byte budget as other project reports.
 DI filtering matches an exact binding `type`; AOP filtering matches an exact
@@ -356,6 +382,7 @@ load module PHP, construct a DI container, or execute the application.
 | `bear/project/contractCoverage` | `{contextPath?, limit?, offset?, gapsOnly?, scheme?}` | `{items, total, matchingTotal, offset, truncated, gapsOnly, scheme, scannedResources, analyzedResources, resourceScanTruncated, summary}` |
 | `bear/di/bindings` | `{contextPath?, type?, limit?, offset?, applicationContext?}` | `{items, total, offset, truncated, scannedModules, unresolved, type, applicationContext}` |
 | `bear/di/moduleGraph` | `{applicationContext, contextPath?}` | `{applicationContext, segments, modules, edges, truncated, coverage}` |
+| `bear/di/container` | `{applicationContext, contextPath?, limit?, offset?, environment?}` | `{applicationContext, appName, items, total, offset, truncated, events, modules, unknowns, coverage}` |
 | `bear/aop/pointcuts` | `{contextPath?, interceptor?, limit?, offset?, applicationContext?}` | `{items, total, offset, truncated, scannedModules, unresolved, interceptor, applicationContext}` |
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
 | `bear/resource/list` | `{scheme?, prefix?, limit?, offset?}` | `{resources, total, offset, truncated}` |

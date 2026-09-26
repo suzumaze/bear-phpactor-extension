@@ -296,6 +296,18 @@
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["applicationContext", "segments", "modules", "edges", "truncated", "coverage"]
         },
+        "bear/di/container": {
+            "handler": "inspectDiContainer",
+            "parameters": [
+                {"name": "applicationContext", "type": "string", "required": true},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null},
+                {"name": "limit", "type": "int", "required": false, "default": 50},
+                {"name": "offset", "type": "int", "required": false, "default": 0},
+                {"name": "environment", "type": "array|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["applicationContext", "appName", "items", "total", "offset", "truncated", "events", "modules", "unknowns", "coverage"]
+        },
         "bear/aop/pointcuts": {
             "handler": "inspectAopPointcuts",
             "parameters": [

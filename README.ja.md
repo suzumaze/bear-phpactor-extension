@@ -81,6 +81,10 @@ runtimeでweaveされた振る舞いを断定しません。動的または未�
 静的な`install()`/`override()` edgeを返します。外部またはdynamicなedgeは明示したままにし、
 vendor展開、control flow評価、優先順位、container構築までは断定しません。
 `bear/di/bindings`はModule、provider、constructorを実行せず保存済みsourceを読み、解決不能な箇所を明示します。
+`bear/di/container`は1つのcontextについてさらに踏み込み、アプリとインストール済みvendorのModuleをデータとして解釈し、
+Ray.Diの合成規則を適用した結果のbindingと所有Moduleを返します。実行時にしか決まらない値と、それに依存する分岐は
+推測せず不明箇所として列挙します。全体Object Graphの生成は別ブランチに退避し、この照会APIには含めません。
+任意の`environment`で環境変数を明示すると、環境に依存する分岐をその前提で決めます。環境変数ファイルは読みません。
 
 IDEは不要です。同梱clientは実際のPhpactor stdio processを起動します。
 

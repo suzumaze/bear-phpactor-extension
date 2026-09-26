@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Add `bear/di/container`, composing the Ray.Di container of one BEAR.Package context from
+  saved application and vendor source without executing it. Bindings, owners, and
+  bind/replace/keep/move counts follow Ray.Di 2.23 composition rules; runtime-only values
+  and the branches depending on them are reported as unknowns with their location.
+  The request accepts an explicit `environment` profile to decide environment branches.
+
 - DI declaration facts now preserve qualifiers, providers, instances, constructor
   bindings, null and untargeted bindings, and explicit scope without executing Modules,
   following Ray.Di 2.x `Bind` signatures including named arguments. Instance bindings
@@ -28,6 +34,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   context-scoped DI/AOP inventories.
 
 ### Fixed
+
+- Keep DI classmap and directory discovery inside the workspace, including symlinked files.
+- Preserve unknown DI branches through short-circuit and null-coalescing expressions,
+  report unresolved helper-produced module installs and overrides, and leave optional
+  extension availability unknown. Decode PHP string literals without losing namespace
+  separators, and preserve nowdoc contents.
 
 - DI and AOP inventories no longer report interpolated strings or heredocs, such as
   `annotatedWith("db_$env")`, as static names; they remain unresolved with a reason.

@@ -652,6 +652,7 @@ final class SemanticQueryHandlerTest extends TestCase
             'bear/schema/describeForResource' => 'describeResourceSchema',
             'bear/di/bindings' => 'inspectDiBindings',
             'bear/di/moduleGraph' => 'inspectDiModuleGraph',
+            'bear/di/container' => 'inspectDiContainer',
             'bear/aop/pointcuts' => 'inspectAopPointcuts',
         ], (new SemanticQueryHandler(self::fixtureDir()))->methods());
     }

@@ -1,0 +1,13 @@
+{
+    "packages": [
+        {"name": "ray/di", "install-path": "../ray/di", "autoload": {"psr-4": {"Ray\\Di\\": "src/"}}},
+        {"name": "ray/aop", "install-path": "../ray/aop", "autoload": {"psr-4": {"Ray\\Aop\\": "src/"}}},
+        {"name": "bear/app-meta", "install-path": "../bear/app-meta", "autoload": {"psr-4": {"BEAR\\AppMeta\\": "src/"}}},
+        {"name": "bear/resource", "install-path": "../bear/resource", "autoload": {"psr-4": {"BEAR\\Resource\\": "src/"}}},
+        {"name": "bear/sunday", "install-path": "../bear/sunday", "autoload": {"psr-4": {"BEAR\\Sunday\\": "src/"}}},
+        {"name": "bear/package", "install-path": "../bear/package", "autoload": {"psr-4": {"BEAR\\Package\\": "src/"}}},
+        {"name": "acme/sentinel", "install-path": "../acme/sentinel", "autoload": {"files": ["sentinel.php"]}}
+    ],
+    "dev": true,
+    "dev-package-names": []
+}

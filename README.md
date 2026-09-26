@@ -86,6 +86,12 @@ static `install()`/`override()` edges behind that scope. External and dynamic ed
 explicit; vendor expansion, control-flow evaluation, precedence, and container construction
 stay outside the claim.
 `bear/di/bindings` reads saved source without executing Modules, providers, or constructors.
+`bear/di/container` goes further for one context: it interprets application and installed
+vendor modules as data, applies Ray.Di's composition rules, and returns the resulting
+bindings with their owning modules. Runtime-only values and the branches that depend on them
+are listed as unknowns rather than guessed. An optional explicit `environment` profile decides
+known environment branches; environment files are never read. Whole object graph generation
+is archived separately and is not part of this inspection API.
 
 An IDE is not required. The included client starts a real Phpactor stdio process:
 

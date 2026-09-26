@@ -136,6 +136,7 @@ final class ProjectInfoQuery
             'aopPointcutInventory',
             'contextScopedDiAopInventory',
             'diModuleGraph',
+            'diContainerComposition',
         ];
     }
 

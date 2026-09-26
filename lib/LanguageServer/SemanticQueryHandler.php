@@ -19,8 +19,11 @@ use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparisonQuery;
 use Suzumaze\BearPhpactor\Semantic\Di\DiBindingFact;
 use Suzumaze\BearPhpactor\Semantic\Di\DiBindingInventory;
 use Suzumaze\BearPhpactor\Semantic\Di\DiBindingQuery;
+use Suzumaze\BearPhpactor\Semantic\Di\Composition\BearPackageComposition;
 use Suzumaze\BearPhpactor\Semantic\Di\ContextModuleGraph;
 use Suzumaze\BearPhpactor\Semantic\Di\ContextModuleGraphQuery;
+use Suzumaze\BearPhpactor\Semantic\Di\DiContainerComposition;
+use Suzumaze\BearPhpactor\Semantic\Di\DiContainerQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverage;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverageItem;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverageQuery;
@@ -107,6 +110,7 @@ final class SemanticQueryHandler implements Handler
         private DiBindingQuery $diBindingQuery = new DiBindingQuery(),
         private AopPointcutQuery $aopPointcutQuery = new AopPointcutQuery(),
         private ContextModuleGraphQuery $contextModuleGraphQuery = new ContextModuleGraphQuery(),
+        private DiContainerQuery $diContainerQuery = new DiContainerQuery(),
     ) {
         $this->workspace = WorkspaceContext::fromRoot($workspaceRoot);
         $this->resourceFactsQuery = $resourceFactsQuery;
@@ -143,6 +147,7 @@ final class SemanticQueryHandler implements Handler
             'bear/schema/describeForResource' => 'describeResourceSchema',
             'bear/di/bindings' => 'inspectDiBindings',
             'bear/di/moduleGraph' => 'inspectDiModuleGraph',
+            'bear/di/container' => 'inspectDiContainer',
             'bear/aop/pointcuts' => 'inspectAopPointcuts',
         ];
     }
@@ -615,6 +620,47 @@ final class SemanticQueryHandler implements Handler
                     'dynamicEdgesExpanded' => false,
                     'controlFlowEvaluated' => false,
                     'precedenceResolved' => false,
+                    'runtimeContainerConstructed' => false,
+                ],
+            ],
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function inspectDiContainer(
+        string $applicationContext,
+        ?string $contextPath = null,
+        int $limit = DiContainerQuery::DEFAULT_LIMIT,
+        int $offset = 0,
+        ?array $environment = null,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->diContainerQuery->composeInWorkspace(
+                    $workspace,
+                    $applicationContext,
+                    $contextPath,
+                    $limit,
+                    $offset,
+                    $environment,
+                ),
+            fn (DiContainerComposition $composition): array => [
+                'applicationContext' => $composition->applicationContext,
+                'appName' => $composition->appName,
+                'items' => $composition->items,
+                'total' => $composition->total,
+                'offset' => $composition->offset,
+                'truncated' => $composition->truncated,
+                'events' => $composition->events,
+                'modules' => $composition->modules,
+                'unknowns' => $composition->unknowns,
+                'coverage' => [
+                    'source' => 'saved_workspace_and_vendor_source',
+                    'vendorModulesExpanded' => true,
+                    'compositionRecipe' => BearPackageComposition::RECIPE_STEPS,
+                    'runtimeValuesEvaluated' => false,
+                    'environmentProfile' => $environment !== null,
+                    'aopWeavingResolved' => false,
                     'runtimeContainerConstructed' => false,
                 ],
             ],

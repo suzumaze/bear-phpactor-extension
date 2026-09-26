@@ -89,6 +89,7 @@ final class ProjectInfoQueryTest extends TestCase
             'aopPointcutInventory',
             'contextScopedDiAopInventory',
             'diModuleGraph',
+            'diContainerComposition',
         ], $result->value->capabilities);
         self::assertSame('phpactor_did_change_protocol_conflict', $result->value->compatibilityIssues[0]->code);
         self::assertStringNotContainsString(

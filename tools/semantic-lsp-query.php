@@ -19,6 +19,7 @@ const METHODS = [
     'bear/project/contractCoverage',
     'bear/di/bindings',
     'bear/di/moduleGraph',
+    'bear/di/container',
     'bear/aop/pointcuts',
     'bear/resource/resolve',
     'bear/resource/list',
