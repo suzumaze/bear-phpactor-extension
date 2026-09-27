@@ -39,4 +39,14 @@ final class ClassSourceIndexTest extends CompositionTestCase
             static fn (string $file): bool => str_starts_with($file, $fixture),
         )));
     }
+    public function testEvidenceRootDoesNotChangeSourceFileIdentity(): void
+    {
+        $root = realpath(dirname(__DIR__, 4) . '/Fixture/DiComposition');
+        self::assertIsString($root);
+        $index = new \Suzumaze\BearPhpactor\Semantic\Di\Composition\ClassSourceIndex($root, dirname($root));
+        $source = $index->find('Acme\\Shop\\Module\\AppModule');
+        self::assertNotNull($source);
+        self::assertSame('DiComposition/src/Module/AppModule.php', $source->path);
+        self::assertSame($root . '/src/Module/AppModule.php', $index->absolutePath($source->path));
+    }
 }

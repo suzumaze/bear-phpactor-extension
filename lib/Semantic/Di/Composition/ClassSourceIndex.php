@@ -42,7 +42,7 @@ final class ClassSourceIndex
 
     private Parser $parser;
 
-    public function __construct(private readonly string $root)
+    public function __construct(private readonly string $root, private readonly ?string $evidenceRoot = null)
     {
         $this->parser = new Parser();
         $installed = $this->readJson($this->root . '/vendor/composer/installed.json');
@@ -124,9 +124,14 @@ final class ClassSourceIndex
 
     public function relativePath(string $file): string
     {
-        $prefix = rtrim($this->root, '/') . '/';
+        $prefix = rtrim($this->evidenceRoot ?? $this->root, '/') . '/';
 
         return str_starts_with($file, $prefix) ? substr($file, strlen($prefix)) : $file;
+    }
+
+    public function absolutePath(string $path): string
+    {
+        return str_starts_with($path, '/') ? $path : rtrim($this->evidenceRoot ?? $this->root, '/') . '/' . $path;
     }
 
     /** @return iterable<string> */

@@ -402,6 +402,7 @@ final class ModuleInterpreter
                     $bind->interface . '-' . $bind->name,
                     ['kind' => 'dependency', 'target' => $bind->interface],
                     $bind->source,
+                    $bind->origin,
                 );
             }
         }
@@ -649,9 +650,7 @@ final class ModuleInterpreter
 
     private function constantName(QualifiedName $node, Frame $frame): mixed
     {
-        $file = str_starts_with($frame->declaring->path, '/')
-            ? $frame->declaring->path
-            : rtrim($this->classes->root(), '/') . '/' . $frame->declaring->path;
+        $file = $this->classes->absolutePath($frame->declaring->path);
 
         return match (strtoupper(ltrim($node->getText(), '\\'))) {
             '__DIR__' => dirname($file),
@@ -1269,7 +1268,11 @@ final class ModuleInterpreter
                 $module->container = $this->newContainer();
                 $this->callMethod($module, 'configure', [], $caller);
                 if ($last instanceof ObjectValue && $this->isModule($last)) {
-                    $module->container->merge($this->containerOf($last));
+                    $module->container->merge(
+                        $this->containerOf($last),
+                        $this->edge('constructor_chain', $module, $last, $caller),
+                        'kept_outer_module_binding',
+                    );
                 }
 
                 return null;
@@ -1278,7 +1281,10 @@ final class ModuleInterpreter
             case 'install':
                 $installed = $argument(0, 'module');
                 if ($installed instanceof ObjectValue && $this->isModule($installed)) {
-                    $this->containerOf($module)->merge($this->containerOf($installed));
+                    $this->containerOf($module)->merge(
+                        $this->containerOf($installed),
+                        $this->edge('install', $module, $installed, $caller),
+                    );
                 } elseif (!$installed instanceof UnknownValue || !$installed->reported) {
                     $this->callerUnknown('install_module_unknown', $caller, $module);
                 }
@@ -1288,7 +1294,10 @@ final class ModuleInterpreter
                 $override = $argument(0, 'module');
                 if ($override instanceof ObjectValue && $this->isModule($override)) {
                     $overrideContainer = $this->containerOf($override);
-                    $overrideContainer->merge($this->containerOf($module));
+                    $edge = $this->edge('override', $module, $override, $caller);
+                    $overrideContainer->traceThrough($edge);
+                    $override->via = [$edge, ...$override->via];
+                    $overrideContainer->merge($this->containerOf($module), reason: 'overridden');
                     $module->container = $overrideContainer;
                 } elseif (!$override instanceof UnknownValue || !$override->reported) {
                     $this->callerUnknown('override_module_unknown', $caller, $module);
@@ -1307,7 +1316,8 @@ final class ModuleInterpreter
                 $untarget = $interface !== ''
                     && $this->isInstantiable($interface)
                     && !isset($container->bindings[$interface . '-']);
-                $bind = new BindValue($container, $interface, $module->class, $untarget);
+                $origin = $this->origin($module, $caller);
+                $bind = new BindValue($container, $interface, $module->class, $untarget, $origin);
                 $this->pendingBinds[] = $bind;
 
                 return $bind;
@@ -1337,6 +1347,7 @@ final class ModuleInterpreter
                             $interceptor . '-',
                             ['kind' => 'dependency', 'target' => $interceptor],
                             $module->class,
+                            $this->origin($module, $caller),
                         );
                     }
                 }
@@ -1416,18 +1427,23 @@ final class ModuleInterpreter
                     // Ray\Di\Name for the constructor parameters; unknown values stay unmapped.
                     $dependency['names'] = is_array($names) ? array_filter($names, 'is_string') : $names;
                 }
-                $bind->container->add($index(), $dependency, $bind->source);
+                $bind->container->add($index(), $dependency, $bind->source, $bind->origin);
 
                 return $bind;
             case 'toInstance':
                 $bind->untarget = false;
                 $dependency = $this->instanceDependency($arguments['instance'] ?? $first);
-                $bind->container->add($index(), $dependency, $bind->source);
+                $bind->container->add($index(), $dependency, $bind->source, $bind->origin);
 
                 return $bind;
             case 'toNull':
                 $bind->untarget = false;
-                $bind->container->add($index(), ['kind' => 'null_object', 'target' => null], $bind->source);
+                $bind->container->add(
+                    $index(),
+                    ['kind' => 'null_object', 'target' => null],
+                    $bind->source,
+                    $bind->origin,
+                );
 
                 return $bind;
             default:
@@ -1464,6 +1480,24 @@ final class ModuleInterpreter
         $list = new ResourceClassList($this->classes, $this);
 
         return $list($name . '\\Resource', $appDir . '/src/Resource', self::RESOURCE_OBJECT);
+    }
+
+    private function origin(ObjectValue $module, ?Frame $caller): BindingOrigin
+    {
+        return new BindingOrigin(
+            $module->class,
+            $caller?->declaring->path,
+            $caller?->statement === null ? null
+                : $this->lineOf($caller->declaring->contents, $caller->statement->getStartPosition()),
+            $module->via,
+        );
+    }
+
+    private function edge(string $operation, ObjectValue $module, ObjectValue $target, ?Frame $caller): ModuleEdge
+    {
+        $origin = $this->origin($module, $caller);
+
+        return new ModuleEdge($operation, $module->class, $target->class, $origin->path, $origin->line);
     }
 
     public function callerUnknown(string $reason, ?Frame $caller, ObjectValue $module): void

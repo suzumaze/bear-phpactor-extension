@@ -18,6 +18,7 @@ final class BindValue
         public readonly string $interface,
         public readonly string $source,
         bool $untarget,
+        public readonly ?BindingOrigin $origin = null,
     ) {
         $this->untarget = $untarget;
     }

@@ -137,6 +137,8 @@ final class ProjectInfoQuery
             'contextScopedDiAopInventory',
             'diModuleGraph',
             'diContainerComposition',
+            'appContextDiscovery',
+            'diBindingLookup',
         ];
     }
 

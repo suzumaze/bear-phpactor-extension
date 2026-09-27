@@ -8,6 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Discover saved entry-point context candidates with `bear/app/contexts`, including source
+  locations and incomplete-scan metadata, without automatically choosing a context.
+- Explain source-derived binding selections with `bear/di/bindingLookup`: exact type/qualifier
+  filters, Resource/conflict filters, declaration sites, module import paths and local
+  retained/discarded decisions. Unresolved composition makes selections provisional;
+  instance values are never returned.
+
 - Add `bear/di/container`, composing the Ray.Di container of one BEAR.Package context from
   saved application and vendor source without executing it. Bindings, owners, and
   bind/replace/keep/move counts follow Ray.Di 2.23 composition rules; runtime-only values

@@ -20,6 +20,8 @@ const METHODS = [
     'bear/di/bindings',
     'bear/di/moduleGraph',
     'bear/di/container',
+    'bear/app/contexts',
+    'bear/di/bindingLookup',
     'bear/aop/pointcuts',
     'bear/resource/resolve',
     'bear/resource/list',

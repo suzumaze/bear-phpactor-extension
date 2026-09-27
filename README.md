@@ -86,6 +86,12 @@ static `install()`/`override()` edges behind that scope. External and dynamic ed
 explicit; vendor expansion, control-flow evaluation, precedence, and container construction
 stay outside the claim.
 `bear/di/bindings` reads saved source without executing Modules, providers, or constructors.
+
+Use `bear/app/contexts` to discover declared entry-point contexts without selecting a default.
+Use `bear/di/bindingLookup` with an explicit context to inspect binding selections, declaration
+locations and discarded alternatives; filter conflicts or Resource bindings before pagination.
+Unknown composition conditions make every selection provisional. See [DI inspection](docs/di-inspection.md).
+
 `bear/di/container` goes further for one context: it interprets application and installed
 vendor modules as data, applies Ray.Di's composition rules, and returns the resulting
 bindings with their owning modules. Runtime-only values and the branches that depend on them

@@ -341,6 +341,21 @@ statically named `install()`/`override()` calls. External targets and dynamic ex
 visible as bounded edges instead of being guessed. Coverage explicitly states that vendor modules
 are not expanded, control flow and precedence are not evaluated, and no runtime container is built.
 
+`bear/app/contexts` lists source-declared context candidates and their entry-point locations.
+It never selects a context or asserts runtime usage. Inspect `scanTruncated`, `skippedFiles`,
+`unresolvedTotal` and per-item `sourcesTruncated` before treating the list as complete.
+
+`bear/di/bindingLookup` requires `applicationContext`; it returns selected binding candidates
+and local retained/discarded decisions, with declaration paths/lines and module import paths.
+`type` and `name` are optional exact filters (empty strings select scalar types/unqualified names).
+`overridesOnly` selects conflicting declarations; `resourcesOnly` selects known Resource
+subclasses in the key, selected target or discarded target. Filtering precedes pagination.
+Every item is `provisional` if composition has any unknown; `source_selected` is selection under
+supported source rules, never a runtime observation. Empty results do not prove unboundness.
+`decisionTotal`/`decisionsTruncated` and `unknownTotal`/`unknownsTruncated` describe independent
+bounds. Raw instance values and source expressions are not returned. See [DI inspection](di-inspection.md)
+for coverage, context handling, archive branches and the AOP work that remains.
+
 `bear/di/container` composes the container that BEAR.Package would build for a literal
 `applicationContext`, from saved source only. Unlike the inventories above it reads the
 workspace's installed vendor modules as data: Composer autoload metadata is read from
@@ -382,6 +397,8 @@ load module PHP, construct a DI container, or execute the application.
 | `bear/project/contractCoverage` | `{contextPath?, limit?, offset?, gapsOnly?, scheme?}` | `{items, total, matchingTotal, offset, truncated, gapsOnly, scheme, scannedResources, analyzedResources, resourceScanTruncated, summary}` |
 | `bear/di/bindings` | `{contextPath?, type?, limit?, offset?, applicationContext?}` | `{items, total, offset, truncated, scannedModules, unresolved, type, applicationContext}` |
 | `bear/di/moduleGraph` | `{applicationContext, contextPath?}` | `{applicationContext, segments, modules, edges, truncated, coverage}` |
+| `bear/app/contexts` | `{contextPath?, limit?, offset?}` | `{items, total, offset, truncated, selectedContext, scannedFiles, skippedFiles, scanTruncated, unresolved, unresolvedTotal, unresolvedTruncated, coverage}` |
+| `bear/di/bindingLookup` | `{applicationContext, type?, name?, contextPath?, limit?, offset?, overridesOnly?, resourcesOnly?, environment?}` | `{applicationContext, type, name, overridesOnly, resourcesOnly, items, total, offset, truncated, unknowns, unknownTotal, unknownsTruncated, coverage}` |
 | `bear/di/container` | `{applicationContext, contextPath?, limit?, offset?, environment?}` | `{applicationContext, appName, items, total, offset, truncated, events, modules, unknowns, coverage}` |
 | `bear/aop/pointcuts` | `{contextPath?, interceptor?, limit?, offset?, applicationContext?}` | `{items, total, offset, truncated, scannedModules, unresolved, interceptor, applicationContext}` |
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |

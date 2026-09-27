@@ -308,6 +308,128 @@
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["applicationContext", "appName", "items", "total", "offset", "truncated", "events", "modules", "unknowns", "coverage"]
         },
+        "bear/app/contexts": {
+            "handler": "listAppContexts",
+            "parameters": [
+                {
+                    "name": "contextPath",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "limit",
+                    "type": "int",
+                    "required": false,
+                    "default": 50
+                },
+                {
+                    "name": "offset",
+                    "type": "int",
+                    "required": false,
+                    "default": 0
+                }
+            ],
+            "successEnvelopeKeys": [
+                "status",
+                "data",
+                "candidates",
+                "provenance"
+            ],
+            "successDataKeys": [
+                "items",
+                "total",
+                "offset",
+                "truncated",
+                "selectedContext",
+                "scannedFiles",
+                "skippedFiles",
+                "scanTruncated",
+                "unresolved",
+                "unresolvedTotal",
+                "unresolvedTruncated",
+                "coverage"
+            ]
+        },
+        "bear/di/bindingLookup": {
+            "handler": "lookupDiBinding",
+            "parameters": [
+                {
+                    "name": "applicationContext",
+                    "type": "string",
+                    "required": true
+                },
+                {
+                    "name": "type",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "name",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "contextPath",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "limit",
+                    "type": "int",
+                    "required": false,
+                    "default": 50
+                },
+                {
+                    "name": "offset",
+                    "type": "int",
+                    "required": false,
+                    "default": 0
+                },
+                {
+                    "name": "overridesOnly",
+                    "type": "bool",
+                    "required": false,
+                    "default": false
+                },
+                {
+                    "name": "resourcesOnly",
+                    "type": "bool",
+                    "required": false,
+                    "default": false
+                },
+                {
+                    "name": "environment",
+                    "type": "array|null",
+                    "required": false,
+                    "default": null
+                }
+            ],
+            "successEnvelopeKeys": [
+                "status",
+                "data",
+                "candidates",
+                "provenance"
+            ],
+            "successDataKeys": [
+                "applicationContext",
+                "type",
+                "name",
+                "overridesOnly",
+                "resourcesOnly",
+                "items",
+                "total",
+                "offset",
+                "truncated",
+                "unknowns",
+                "unknownTotal",
+                "unknownsTruncated",
+                "coverage"
+            ]
+        },
         "bear/aop/pointcuts": {
             "handler": "inspectAopPointcuts",
             "parameters": [

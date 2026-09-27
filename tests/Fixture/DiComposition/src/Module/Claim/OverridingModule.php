@@ -14,4 +14,9 @@ final class OverridingModule extends AbstractModule
     {
         $this->bind(ThingInterface::class)->to(OverridingThing::class);
     }
+
+    public function changeBinding(): void
+    {
+        $this->bind(ThingInterface::class)->to('ChangedAfterOverride');
+    }
 }

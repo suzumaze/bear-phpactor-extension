@@ -24,6 +24,8 @@ use Suzumaze\BearPhpactor\Semantic\Di\ContextModuleGraph;
 use Suzumaze\BearPhpactor\Semantic\Di\ContextModuleGraphQuery;
 use Suzumaze\BearPhpactor\Semantic\Di\DiContainerComposition;
 use Suzumaze\BearPhpactor\Semantic\Di\DiContainerQuery;
+use Suzumaze\BearPhpactor\Semantic\Di\DiBindingLookupQuery;
+use Suzumaze\BearPhpactor\Semantic\App\AppContextListQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverage;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverageItem;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverageQuery;
@@ -111,6 +113,8 @@ final class SemanticQueryHandler implements Handler
         private AopPointcutQuery $aopPointcutQuery = new AopPointcutQuery(),
         private ContextModuleGraphQuery $contextModuleGraphQuery = new ContextModuleGraphQuery(),
         private DiContainerQuery $diContainerQuery = new DiContainerQuery(),
+        private DiBindingLookupQuery $diBindingLookupQuery = new DiBindingLookupQuery(),
+        private AppContextListQuery $appContextListQuery = new AppContextListQuery(),
     ) {
         $this->workspace = WorkspaceContext::fromRoot($workspaceRoot);
         $this->resourceFactsQuery = $resourceFactsQuery;
@@ -148,6 +152,8 @@ final class SemanticQueryHandler implements Handler
             'bear/di/bindings' => 'inspectDiBindings',
             'bear/di/moduleGraph' => 'inspectDiModuleGraph',
             'bear/di/container' => 'inspectDiContainer',
+            'bear/app/contexts' => 'listAppContexts',
+            'bear/di/bindingLookup' => 'lookupDiBinding',
             'bear/aop/pointcuts' => 'inspectAopPointcuts',
         ];
     }
@@ -623,6 +629,45 @@ final class SemanticQueryHandler implements Handler
                     'runtimeContainerConstructed' => false,
                 ],
             ],
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function listAppContexts(?string $contextPath = null, int $limit = 50, int $offset = 0): Promise
+    {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->appContextListQuery->listInWorkspace($workspace, $contextPath, $limit, $offset),
+            static fn (array $data): array => $data,
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function lookupDiBinding(
+        string $applicationContext,
+        ?string $type = null,
+        ?string $name = null,
+        ?string $contextPath = null,
+        int $limit = 50,
+        int $offset = 0,
+        bool $overridesOnly = false,
+        bool $resourcesOnly = false,
+        ?array $environment = null,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult => $this->diBindingLookupQuery->lookupInWorkspace(
+                $workspace,
+                $applicationContext,
+                $type,
+                $name,
+                $contextPath,
+                $limit,
+                $offset,
+                $overridesOnly,
+                $resourcesOnly,
+                $environment,
+            ),
+            static fn (array $data): array => $data,
         ));
     }
 

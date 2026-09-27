@@ -131,7 +131,10 @@ final readonly class BearPackageComposition
     private function install(ObjectValue $module, mixed $installed): void
     {
         if ($installed instanceof ObjectValue) {
-            $this->interpreter->containerOf($module)->merge($this->interpreter->containerOf($installed));
+            $this->interpreter->containerOf($module)->merge(
+                $this->interpreter->containerOf($installed),
+                new ModuleEdge('recipe_install', $module->class, $installed->class),
+            );
         }
     }
 
@@ -139,7 +142,8 @@ final readonly class BearPackageComposition
     {
         if ($override instanceof ObjectValue) {
             $container = $this->interpreter->containerOf($override);
-            $container->merge($this->interpreter->containerOf($module));
+            $container->traceThrough(new ModuleEdge('recipe_override', $module->class, $override->class));
+            $container->merge($this->interpreter->containerOf($module), reason: 'overridden');
             $module->container = $container;
         }
     }

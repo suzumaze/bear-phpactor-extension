@@ -53,7 +53,7 @@ final readonly class DiContainerQuery
         if ($appName === null) {
             return SemanticResult::unsupported();
         }
-        $classes = new ClassSourceIndex($root);
+        $classes = new ClassSourceIndex($root, $workspace->root());
         $interpreter = new ModuleInterpreter($classes, $environment);
         $container = (new BearPackageComposition($classes, $interpreter))($appName, $applicationContext);
 

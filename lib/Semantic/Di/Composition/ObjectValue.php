@@ -13,6 +13,9 @@ final class ObjectValue
 
     public ?ObjectValue $lastModule = null;
 
+    /** @var list<ModuleEdge> routes retained when override shares this module's container */
+    public array $via = [];
+
     /** @param array<string, mixed> $properties */
     public function __construct(public readonly string $class, public array $properties = [])
     {
