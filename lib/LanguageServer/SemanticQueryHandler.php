@@ -6,6 +6,8 @@ namespace Suzumaze\BearPhpactor\LanguageServer;
 
 use Amp\Promise;
 use Amp\Success;
+use Suzumaze\BearPhpactor\Semantic\Aop\AopApplicationsQuery;
+use Suzumaze\BearPhpactor\Semantic\Attribute\AttributeCatalogQuery;
 use Suzumaze\BearPhpactor\Semantic\Aop\AopPointcutFact;
 use Suzumaze\BearPhpactor\Semantic\Aop\AopPointcutInventory;
 use Suzumaze\BearPhpactor\Semantic\Aop\AopPointcutQuery;
@@ -155,6 +157,8 @@ final class SemanticQueryHandler implements Handler
             'bear/app/contexts' => 'listAppContexts',
             'bear/di/bindingLookup' => 'lookupDiBinding',
             'bear/aop/pointcuts' => 'inspectAopPointcuts',
+            'bear/aop/applications' => 'listAopApplications',
+            'bear/attribute/catalog' => 'listAttributeCatalog',
         ];
     }
 
@@ -666,6 +670,54 @@ final class SemanticQueryHandler implements Handler
                 $overridesOnly,
                 $resourcesOnly,
                 $environment,
+            ),
+            static fn (array $data): array => $data,
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function listAopApplications(
+        string $applicationContext,
+        ?string $uri = null,
+        ?string $interceptor = null,
+        ?string $attribute = null,
+        ?string $method = null,
+        ?string $contextPath = null,
+        int $limit = 50,
+        int $offset = 0,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult => (new AopApplicationsQuery())->listInWorkspace(
+                $workspace,
+                $applicationContext,
+                $uri,
+                $interceptor,
+                $attribute,
+                $method,
+                $contextPath,
+                $limit,
+                $offset,
+            ),
+            static fn (array $data): array => $data,
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function listAttributeCatalog(
+        ?string $applicationContext = null,
+        ?string $attribute = null,
+        ?string $contextPath = null,
+        int $limit = 50,
+        int $offset = 0,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult => (new AttributeCatalogQuery())->listInWorkspace(
+                $workspace,
+                $applicationContext,
+                $attribute,
+                $contextPath,
+                $limit,
+                $offset,
             ),
             static fn (array $data): array => $data,
         ));

@@ -441,6 +441,129 @@
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["items", "total", "offset", "truncated", "scannedModules", "unresolved", "interceptor", "applicationContext"]
+        },
+        "bear/aop/applications": {
+            "handler": "listAopApplications",
+            "parameters": [
+                {
+                    "name": "applicationContext",
+                    "type": "string",
+                    "required": true
+                },
+                {
+                    "name": "uri",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "interceptor",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "attribute",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "method",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "contextPath",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "limit",
+                    "type": "int",
+                    "required": false,
+                    "default": 50
+                },
+                {
+                    "name": "offset",
+                    "type": "int",
+                    "required": false,
+                    "default": 0
+                }
+            ],
+            "successEnvelopeKeys": [
+                "status",
+                "data",
+                "candidates",
+                "provenance"
+            ],
+            "successDataKeys": [
+                "applicationContext",
+                "items",
+                "total",
+                "offset",
+                "truncated",
+                "unknowns",
+                "unknownTotal",
+                "unresolvedPointcutTotal",
+                "coverage"
+            ]
+        },
+        "bear/attribute/catalog": {
+            "handler": "listAttributeCatalog",
+            "parameters": [
+                {
+                    "name": "applicationContext",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "attribute",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "contextPath",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "limit",
+                    "type": "int",
+                    "required": false,
+                    "default": 50
+                },
+                {
+                    "name": "offset",
+                    "type": "int",
+                    "required": false,
+                    "default": 0
+                }
+            ],
+            "successEnvelopeKeys": [
+                "status",
+                "data",
+                "candidates",
+                "provenance"
+            ],
+            "successDataKeys": [
+                "applicationContext",
+                "items",
+                "total",
+                "offset",
+                "truncated",
+                "scannedFiles",
+                "skippedFiles",
+                "scanTruncated",
+                "unknowns",
+                "unknownTotal",
+                "coverage"
+            ]
         }
     }
 }

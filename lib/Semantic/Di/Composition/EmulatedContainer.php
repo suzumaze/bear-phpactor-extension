@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Suzumaze\BearPhpactor\Semantic\Di\Composition;
 
+use Suzumaze\BearPhpactor\Semantic\Aop\ComposedPointcut;
+
 /**
  * Ray.Di 2.23 Container and BindingLog write semantics, without instances.
  *
@@ -16,6 +18,9 @@ final class EmulatedContainer
 
     /** @var array<string, array{kind: string, target: ?string, names?: string|array<string, string>}> */
     public array $bindings = [];
+
+    /** @var list<ComposedPointcut> */
+    public array $pointcuts = [];
 
     /**
      * BindingLog events; `dependency` is the surviving binding, `lost` the replaced or
@@ -83,6 +88,7 @@ final class EmulatedContainer
             static fn (string $index): bool => $index !== self::MULTI_BINDINGS_INDEX,
         ));
         array_push($this->events, ...$other->events);
+        array_push($this->pointcuts, ...$other->pointcuts);
         foreach ($colliding as $index) {
             $this->events[] = [
                 'type' => 'keep',
@@ -117,6 +123,9 @@ final class EmulatedContainer
     /** Add evidence without replacing the container identity shared by override() and its module. */
     public function traceThrough(ModuleEdge $edge): void
     {
+        foreach ($this->pointcuts as $index => $pointcut) {
+            $this->pointcuts[$index] = $pointcut->through($edge);
+        }
         foreach ($this->origins as $index => $origin) {
             $this->origins[$index] = $origin->through($edge);
         }

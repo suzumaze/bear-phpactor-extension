@@ -50,21 +50,63 @@ one source file. Ask only when selecting among differing contexts is necessary f
 The client carries the selected context explicitly in each dependent request; the server has
 no hidden mutable active-context state. Null properties can be omitted by LSP serialization.
 
+## Attribute catalog and AOP source matching
+
+`bear/attribute/catalog` (`bear_attribute_catalog` in MCP) discovers PHP attribute
+**definitions**, including unused ones, from application and installed-package Composer
+PSR-4, PSR-0 and classmap roots. It is separate from the Resource attribute usage index.
+It returns declaration locations, application/package origin, allowed targets, repeatability,
+constructor parameter signatures and verbatim source docblocks (bounded to 4,000 bytes).
+Constructor default values are omitted. The server does not generate descriptions.
+
+Without `applicationContext`, the catalog does not select or evaluate a context. With one,
+it adds composed AOP condition references and interceptor `invoke()` locations. References
+include conditions under logical negation and declarations that another pointcut can replace;
+`aop_condition_reference` is deliberately not proof that an attribute activates an interceptor.
+A `Ray\Di\Di\Qualifier` marker is reported as such. Arbitrary framework consumers and usage
+counts remain unresolved. Unknown consumers are not classified as AOP by naming convention.
+
+Discovery is bounded by file count, traversal count, file size, total source bytes and parsed
+attribute-source bytes. Inspect `scanTruncated` and `skippedFiles`; pagination applies only to
+the discovered subset and cannot recover sources omitted by a scan limit. PHP autoload files
+are not executed and declarations outside the project read boundary are not followed.
+
+`bear/aop/applications` (`bear_aop_applications` in MCP) requires `applicationContext` and
+accepts Resource URI, method, interceptor and attribute filters. It follows a source-selected Resource
+class binding, including a replacement, and reports matching public `on*` request handlers
+by default. An exact `method` filter inspects another public method explicitly.
+`coverage.methodScope` records this boundary. Results include ordered interceptors, matcher
+conditions and the originating Module declaration/import path.
+Providers and instance bindings are left unresolved rather than applying matchers to the
+original Resource class. Inherited methods retain their declaration's attributes; trait
+methods are not expanded yet. Unreadable class hierarchies do not become negative matches.
+
+The `ray_aop_php_attribute_onion` ordering model follows the reviewed PHP-attribute
+implementation of Ray.Aop `Bind::getAnnotationPointcuts()` and `MethodMatch`: direct annotated
+method conditions are first replaced by annotation key, then priority pointcuts are evaluated,
+then remaining annotated pointcuts in method-attribute order, then the remainder in declaration
+order. Interceptor duplicates are preserved. This model is not a claim of compatibility with
+arbitrary installed versions or the legacy docblock-annotation mode.
+
+`source_matched` means a match under that source model. `provisional`, unresolved pointcuts,
+composition unknowns, and known final-class/method weaving blockers must be preserved in clients.
+Neither state establishes that weaving succeeds or that a request actually runs the chain.
+An interceptor/attribute filter selects known matches, so an empty filtered list is not evidence
+of absence when unknowns remain. Read both `unknownTotal` and `unresolvedPointcutTotal`.
+Method pages, per-method chains and unknown lists have independent bounds and totals.
+
+Both queries live in the semantic engine and are exposed through LSP and MCP; no MCP-specific
+matcher logic is introduced. Editor hover/CodeLens and IDEA integration are separate work.
+
 ## Next reviewable steps
 
-1. Attribute catalog: definitions in application/vendor source, allowed targets, constructor
-   signatures, docblocks and evidenced readers. Keep this separate from the Resource attribute
-   usage index. Do not classify every attribute as AOP or generate explanations in the server.
-2. AOP applications: share the matcher evaluator and composed Module evidence between MCP and
-   editor features. Return Resource/method, interceptors, declaration sites, and unresolved
-   conditions. Only state order where composition and matching establish it.
-3. Diagnostics: flag ineffective AOP annotations only when their AOP role and the relevant
+1. Diagnostics: flag ineffective AOP annotations only when their AOP role and the relevant
    module/matcher scope are established. Absence from an incomplete index is not a diagnostic.
-4. Module inspection: combine relationships with binding/AOP declaration lists and navigation;
+2. Module inspection: combine relationships with binding/AOP declaration lists and navigation;
    a large FatModule box alone does not solve configuration discovery.
-
-The present change does not expose an AOP-application or attribute-catalog API. Existing pointcut
-and attribute usage inventories remain declaration evidence, not an application result.
+3. Extend source matching only with tested semantics: trait adaptations, remaining dynamic
+   composition forms, and installed-version compatibility checks. Keep unsupported behavior
+   visible rather than promoting source matches to runtime facts.
 
 ## Preserved experiments and merge boundary
 

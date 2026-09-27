@@ -74,6 +74,89 @@ final class ClassSourceIndex
     }
 
     /**
+     * Bounded discovery through Composer maps. Only files containing PHP attributes are parsed.
+     * @return array{classes: list<ClassSource>, scannedFiles: int, skippedFiles: int, truncated: bool}
+     */
+    public function attributeSources(int $maxFiles = 5000): array
+    {
+        $roots = array_values(array_unique([...array_merge([], ...array_values($this->psr4)),
+            ...array_merge([], ...array_values($this->psr0)), ...$this->classmapPaths]));
+        sort($roots);
+        $seen = [];
+        $sources = [];
+        $skipped = 0;
+        $bytes = 0;
+        $visited = 0;
+        $parsedBytes = 0;
+        $truncated = false;
+        foreach ($roots as $root) {
+            $real = realpath($root);
+            if ($real === false || !$this->isInsideRoot($real)) {
+                ++$skipped;
+                continue;
+            }
+            try {
+                $files = is_dir($real) ? new \RecursiveIteratorIterator(
+                    new \RecursiveDirectoryIterator($real, \FilesystemIterator::SKIP_DOTS),
+                ) : [new \SplFileInfo($real)];
+                foreach ($files as $file) {
+                    if (++$visited > 30000 || count($seen) >= $maxFiles || $bytes > 32 * 1024 * 1024) {
+                        $truncated = true;
+                        break 2;
+                    }
+                    if (!$file->isFile() || $file->getExtension() !== 'php') {
+                        continue;
+                    }
+                    $path = $file->getRealPath();
+                    if ($path === false || !$this->isInsideRoot($path)) {
+                        ++$skipped;
+                        continue;
+                    }
+                    if (isset($seen[$path])) {
+                        continue;
+                    }
+                    $seen[$path] = true;
+                    $size = $file->getSize();
+                    if ($size > 1024 * 1024) {
+                        ++$skipped;
+                        continue;
+                    }
+                    if ($size > 32 * 1024 * 1024 - $bytes) {
+                        $truncated = true;
+                        break 2;
+                    }
+                    $text = @file_get_contents($path);
+                    if ($text === false) {
+                        ++$skipped;
+                        continue;
+                    }
+                    $bytes += strlen($text);
+                    if (!str_contains($text, '#[')) {
+                        continue;
+                    }
+                    $parsedBytes += strlen($text);
+                    if ($parsedBytes > 4 * 1024 * 1024) {
+                        $truncated = true;
+                        break 2;
+                    }
+                    $this->parseFile($path);
+                    foreach ($this->classes as $class) {
+                        if ($class !== null && $class->path === $this->relativePath($path)) {
+                            $sources[strtolower($class->name)] = $class;
+                        }
+                    }
+                }
+            } catch (Throwable) {
+                ++$skipped;
+            }
+        }
+        ksort($sources);
+
+        return ['classes' => array_values($sources), 'scannedFiles' => count($seen),
+            'skippedFiles' => $skipped, 'truncated' => $truncated];
+    }
+
+    /**
      * Extensions every PHP build has. Classes from optional extensions (redis, pdo, intl, ...)
      * are left unresolved, so the answer does not depend on the analyzing PHP's configuration.
      */

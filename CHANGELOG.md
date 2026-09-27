@@ -8,6 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Add `bear/attribute/catalog` for available PHP attribute definitions, source docblocks,
+  target flags, parameter signatures, and optional context-specific AOP condition references.
+  Default argument values are omitted and unsupported consumers remain unknown.
+- Add `bear/aop/applications` for source-matched Resource interceptor chains under an explicit
+  context, with DI class replacements, declaration evidence, ordering-model metadata and
+  unresolved conditions. This does not observe runtime execution or validate weaving.
+
 - Discover saved entry-point context candidates with `bear/app/contexts`, including source
   locations and incomplete-scan metadata, without automatically choosing a context.
 - Explain source-derived binding selections with `bear/di/bindingLookup`: exact type/qualifier

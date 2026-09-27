@@ -165,6 +165,8 @@ final class SemanticQueryProtocolTest extends TestCase
             'bear/app/contexts' => ['DiComposition', [null, 1, 0]],
             'bear/di/bindingLookup' => ['DiComposition', ['prod-app']],
             'bear/aop/pointcuts' => ['DiAop', [null, null, 1, 0, 'app']],
+            'bear/aop/applications' => ['DiComposition', ['advice-app']],
+            'bear/attribute/catalog' => ['DiComposition', []],
         ];
     }
 

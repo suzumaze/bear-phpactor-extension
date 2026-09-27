@@ -13,6 +13,11 @@ Status: Draft (LSP phase implemented; MCP phase deferred)
 > Phpactor stdioへ接続する薄いadapterとし、本書中の同一processでcoreを直接呼ぶ案や
 > 未完了を前提とした実装順序は、当初案を残した非規範的な記録として扱う。
 
+> **DI/AOP方針の更新（2026-09-27、未リリース）:** 大規模Object Graphの再現は公開目標から外し、
+> コンテキストの発見、束縛の採用・破棄の根拠、属性カタログ、AOPのソース上の適合を中心に実装する。
+> 本書内のObject Graph案は当初案として残す。現在の仕様・制約・実験ブランチの退避先は
+> [`di-inspection.md`](di-inspection.md)を参照する。
+
 ## 1. 目的
 
 BEAR.Sunday 固有の関係を、特定 IDE に依存しない読み取り専用の semantic facts として提供する。

@@ -139,6 +139,8 @@ final class ProjectInfoQuery
             'diContainerComposition',
             'appContextDiscovery',
             'diBindingLookup',
+            'aopApplications',
+            'attributeCatalog',
         ];
     }
 

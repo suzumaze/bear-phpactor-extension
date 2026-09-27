@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Suzumaze\BearPhpactor\Semantic\Di\Composition;
 
+use Suzumaze\BearPhpactor\Semantic\Aop\MatcherValue;
+use Suzumaze\BearPhpactor\Semantic\Aop\ComposedPointcut;
 use Microsoft\PhpParser\Node;
 use Microsoft\PhpParser\Node\ArrayElement;
 use Microsoft\PhpParser\Node\Expression\AnonymousFunctionCreationExpression;
@@ -686,6 +688,9 @@ final class ModuleInterpreter
                 return new UnknownValue();
             }
             $arguments = $this->arguments($node, $frame);
+            if ($receiver instanceof MatcherValue) {
+                return $receiver->call($method, $arguments);
+            }
             if ($receiver instanceof BindValue) {
                 return $this->bindBuiltin($receiver, $method, $arguments, $node, $frame);
             }
@@ -1266,6 +1271,7 @@ final class ModuleInterpreter
                 $last = $argument(0, 'module');
                 $module->lastModule = $last instanceof ObjectValue ? $last : null;
                 $module->container = $this->newContainer();
+                $module->properties['matcher'] = new MatcherValue('factory');
                 $this->callMethod($module, 'configure', [], $caller);
                 if ($last instanceof ObjectValue && $this->isModule($last)) {
                     $module->container->merge(
@@ -1327,8 +1333,14 @@ final class ModuleInterpreter
                 return new UnknownValue('object');
             case 'bindinterceptor':
             case 'bindpriorityinterceptor':
-                // Pointcuts are not logged, but each interceptor is bound as a singleton.
                 $interceptors = $argument(2, 'interceptors');
+                $this->containerOf($module)->pointcuts[] = new ComposedPointcut(
+                    $argument(0, 'classMatcher'),
+                    $argument(1, 'methodMatcher'),
+                    $interceptors,
+                    strtolower($method) === 'bindpriorityinterceptor',
+                    $this->origin($module, $caller),
+                );
                 if (!is_array($interceptors)) {
                     $this->callerUnknown('interceptors_unknown', $caller, $module);
 

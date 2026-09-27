@@ -341,6 +341,15 @@ statically named `install()`/`override()` calls. External targets and dynamic ex
 visible as bounded edges instead of being guessed. Coverage explicitly states that vendor modules
 are not expanded, control flow and precedence are not evaluated, and no runtime container is built.
 
+`bear/attribute/catalog` discovers available PHP attribute definitions independently of their
+usage. Optional context evaluation adds AOP condition references, not proof of application.
+`bear/aop/applications` requires a context and reports source-matched Resource `on*` handlers (or an explicitly named public method) and
+interceptor order under the reported PHP-attribute model, following source-selected DI class
+replacements. Both requests are bounded, never execute application PHP, and preserve unknowns.
+Catalog constructor defaults are omitted. Read the [DI/AOP inspection boundaries](di-inspection.md)
+before interpreting source matches as behavior. These requests advertise `attributeCatalog`
+and `aopApplications` capabilities and use limits of 1–100 (default 50), with nonnegative offsets.
+
 `bear/app/contexts` lists source-declared context candidates and their entry-point locations.
 It never selects a context or asserts runtime usage. Inspect `scanTruncated`, `skippedFiles`,
 `unresolvedTotal` and per-item `sourcesTruncated` before treating the list as complete.
@@ -401,6 +410,8 @@ load module PHP, construct a DI container, or execute the application.
 | `bear/di/bindingLookup` | `{applicationContext, type?, name?, contextPath?, limit?, offset?, overridesOnly?, resourcesOnly?, environment?}` | `{applicationContext, type, name, overridesOnly, resourcesOnly, items, total, offset, truncated, unknowns, unknownTotal, unknownsTruncated, coverage}` |
 | `bear/di/container` | `{applicationContext, contextPath?, limit?, offset?, environment?}` | `{applicationContext, appName, items, total, offset, truncated, events, modules, unknowns, coverage}` |
 | `bear/aop/pointcuts` | `{contextPath?, interceptor?, limit?, offset?, applicationContext?}` | `{items, total, offset, truncated, scannedModules, unresolved, interceptor, applicationContext}` |
+| `bear/aop/applications` | `{applicationContext, uri?, interceptor?, attribute?, method?, contextPath?, limit?, offset?}` | `{applicationContext, items, total, offset, truncated, unknowns, unknownTotal, unresolvedPointcutTotal, coverage}` |
+| `bear/attribute/catalog` | `{applicationContext?, attribute?, contextPath?, limit?, offset?}` | `{applicationContext, items, total, offset, truncated, scannedFiles, skippedFiles, scanTruncated, unknowns, unknownTotal, coverage}` |
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
 | `bear/resource/list` | `{scheme?, prefix?, limit?, offset?}` | `{resources, total, offset, truncated}` |
 | `bear/resource/describe` | `{uri, contextPath?, incomingLimit?}` | `{resource, methods[{name, parameters, responseBody}], relationsOut, relationsOutCoverage, referencesOut, referencesOutCoverage, relationsIn, templates, schemas}` |
