@@ -508,6 +508,7 @@
                 "unknowns",
                 "unknownTotal",
                 "unresolvedPointcutTotal",
+                "unknownSummary",
                 "coverage"
             ]
         },

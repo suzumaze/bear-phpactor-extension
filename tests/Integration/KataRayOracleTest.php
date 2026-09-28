@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 use Suzumaze\BearPhpactor\Semantic\Aop\AopApplicationsQuery;
 use Suzumaze\BearPhpactor\Semantic\App\AppContextListQuery;
+use Suzumaze\BearPhpactor\Semantic\Attribute\AttributeCatalogQuery;
 use Suzumaze\BearPhpactor\Semantic\Di\Composition\ClassSourceIndex;
 use Suzumaze\BearPhpactor\Semantic\Di\Composition\ModuleInterpreter;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
@@ -93,6 +94,17 @@ final class KataRayOracleTest extends TestCase
         self::assertContains('html-test-hal-api-app', $contextNames);
         self::assertFalse($contexts['coverage']['overrideModulesApplied']);
 
+        $catalog = (new AttributeCatalogQuery())->listInWorkspace(
+            $kataWorkspace,
+            'test-hal-api-app',
+            attribute: 'Ray\\Csrf\\Attribute\\CsrfToken',
+        )->value;
+        self::assertNotNull($catalog);
+        self::assertSame(1, $catalog['total']);
+        self::assertSame(1, $catalog['scannedFiles']);
+        self::assertFalse($catalog['scanTruncated']);
+        self::assertSame('targeted_composer_definition', $catalog['coverage']['scanMode']);
+
         $csrf = (new AopApplicationsQuery())->listInWorkspace(
             $kataWorkspace,
             'test-hal-api-app',
@@ -100,8 +112,40 @@ final class KataRayOracleTest extends TestCase
         )->value;
         self::assertNotNull($csrf);
         self::assertCount(4, $csrf['items']);
-        self::assertGreaterThan(0, $csrf['unknownTotal']);
+        self::assertSame(124, $csrf['unknownTotal']);
+        self::assertSame(124, $csrf['unresolvedPointcutTotal']);
+        self::assertSame(100, count($csrf['unknowns']));
+        self::assertSame(1, $csrf['unknownSummary']['compositionOccurrences']);
+        self::assertSame(1, $csrf['unknownSummary']['resourceOccurrences']);
+        self::assertSame(122, $csrf['unknownSummary']['applicationOccurrences']);
+        self::assertSame(2, $csrf['unknownSummary']['unresolvedPointcutRegistrations']);
+        self::assertSame(61, $csrf['unknownSummary']['resourceMethodsEvaluated']);
+        self::assertSame(4, $csrf['unknownSummary']['filterMatchedMethods']);
+        self::assertSame(8, $csrf['unknownSummary']['filterMatchedApplicationOccurrences']);
+        self::assertSame(3, $csrf['unknownSummary']['groups']['total']);
+        self::assertFalse($csrf['unknownSummary']['groups']['truncated']);
+        $assistedMatcherGroup = array_values(array_filter(
+            $csrf['unknownSummary']['groups']['items'],
+            static fn (array $group): bool => $group['path'] === 'vendor/ray/di/src/di/AssistedInjectModule.php',
+        ))[0];
+        self::assertSame(122, $assistedMatcherGroup['occurrences']);
+        self::assertSame(61, $assistedMatcherGroup['affectedMethodCount']);
+        self::assertSame(2, $assistedMatcherGroup['composedRegistrations']);
+        self::assertSame(
+            $csrf['unknownTotal'],
+            $csrf['unknownSummary']['compositionOccurrences']
+                + $csrf['unknownSummary']['resourceOccurrences']
+                + $csrf['unknownSummary']['applicationOccurrences'],
+        );
+        self::assertSame(
+            $csrf['unresolvedPointcutTotal'],
+            $csrf['unknownSummary']['unresolvedPointcutRegistrations']
+                + $csrf['unknownSummary']['applicationOccurrences'],
+        );
         self::assertSame('provisional', $csrf['items'][0]['status']);
+        foreach ($csrf['items'] as $item) {
+            self::assertSame(2, $item['unresolvedPointcutTotal']);
+        }
         $csrfModule = new \Ray\Csrf\CsrfModule();
         foreach ($csrf['items'] as $item) {
             $rayBind = new \Ray\Aop\Bind();

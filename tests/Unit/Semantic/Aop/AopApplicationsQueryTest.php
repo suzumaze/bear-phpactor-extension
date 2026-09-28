@@ -56,11 +56,13 @@ final class AopApplicationsQueryTest extends TestCase
         $result = wait($this->handler()->listAopApplications('advice-app', limit: 1));
         self::assertCount(1, $result['data']['items']);
         self::assertTrue($result['data']['truncated']);
-        self::assertNotSame($result['data']['items'], wait($this->handler()->listAopApplications(
+        $nextPage = wait($this->handler()->listAopApplications(
             'advice-app',
             limit: 1,
             offset: 1,
-        ))['data']['items']);
+        ));
+        self::assertNotSame($result['data']['items'], $nextPage['data']['items']);
+        self::assertSame($result['data']['unknownSummary'], $nextPage['data']['unknownSummary']);
     }
 
     public function testUnknownHierarchyDoesNotBecomeNegative(): void
@@ -68,6 +70,27 @@ final class AopApplicationsQueryTest extends TestCase
         $matcher = new SourceMatcher(new ClassSourceIndex($this->root()));
         self::assertNull($matcher->isA('Missing\\Attribute', 'Acme\\Shop\\Annotation\\First'));
         self::assertFalse($matcher->isA('Acme\\Shop\\Annotation\\Second', 'Acme\\Shop\\Annotation\\First'));
+    }
+
+    public function testInternalHierarchyIsCompleteWithoutLoadingApplicationClasses(): void
+    {
+        $matcher = new SourceMatcher(new ClassSourceIndex($this->root()));
+        $autoloadAttempted = false;
+        $loader = static function (string $class) use (&$autoloadAttempted): void {
+            if ($class === 'Acme\\Shop\\Annotation\\First') {
+                $autoloadAttempted = true;
+            }
+        };
+        spl_autoload_register($loader);
+        try {
+            self::assertTrue($matcher->isA('ArrayObject', 'Traversable'));
+            self::assertFalse($matcher->isA('JsonSerializable', 'Acme\\Shop\\Annotation\\First'));
+            self::assertNull($matcher->isA('Missing\\Attribute', 'Acme\\Shop\\Annotation\\First'));
+        } finally {
+            spl_autoload_unregister($loader);
+        }
+
+        self::assertFalse($autoloadAttempted);
     }
 
     public function testAnnotationReplacementHappensBeforeClassConditionMatching(): void
@@ -95,6 +118,18 @@ final class AopApplicationsQueryTest extends TestCase
         ));
         self::assertSame(1, $result['data']['total']);
         self::assertSame('onGet', $result['data']['items'][0]['method']);
+        $summary = $result['data']['unknownSummary'];
+        self::assertSame(
+            $result['data']['unknownTotal'],
+            $summary['compositionOccurrences'] + $summary['resourceOccurrences'] + $summary['applicationOccurrences'],
+        );
+        self::assertSame(
+            $result['data']['unresolvedPointcutTotal'],
+            $summary['unresolvedPointcutRegistrations'] + $summary['applicationOccurrences'],
+        );
+        self::assertSame(1, $summary['filterMatchedMethods']);
+        self::assertSame($result['data']['total'], $summary['filterMatchedMethods']);
+        self::assertArrayHasKey('truncated', $summary['groups']);
     }
 
     public function testExactMethodFilterIncludesPublicHelperOutsideDefaultScope(): void

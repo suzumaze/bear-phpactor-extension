@@ -60,9 +60,29 @@ final readonly class AopApplicationsQuery
         $unresolved = [];
         $applicationUnknowns = [];
         $unresolvedApplicationTotal = 0;
+        $filteredApplicationUnknownTotal = 0;
+        $resourceMethodsEvaluated = 0;
+        $filterMatchedMethods = 0;
+        /** @var array<string, array<string, mixed>> $unknownGroups */
+        $unknownGroups = [];
         $scanned = 0;
-        $unresolvedPointcutTotal = count(array_filter($container->pointcuts, static fn (ComposedPointcut $p): bool =>
-            $p->classMatcher === null || $p->methodMatcher === null || !$p->interceptorsKnown));
+        $unresolvedPointcutRegistrations = 0;
+        $pointcutRegistrationsByOrigin = [];
+        foreach ($container->pointcuts as $pointcut) {
+            $originKey = $this->originKey(
+                $pointcut->origin->module,
+                $pointcut->origin->path,
+                $pointcut->origin->line,
+            );
+            $pointcutRegistrationsByOrigin[$originKey] = ($pointcutRegistrationsByOrigin[$originKey] ?? 0) + 1;
+            if (
+                $pointcut->classMatcher === null
+                || $pointcut->methodMatcher === null
+                || !$pointcut->interceptorsKnown
+            ) {
+                ++$unresolvedPointcutRegistrations;
+            }
+        }
         foreach ($inventory->value->resources as $resource) {
             if ($uri !== null && $resource->uri->uri() !== $uri) {
                 continue;
@@ -84,7 +104,13 @@ final readonly class AopApplicationsQuery
             }
             $methods = $matcher->methods($source);
             if (!$methods['complete']) {
-                $unresolved[] = ['uri' => $resource->uri->uri(), 'reason' => 'inherited_or_trait_methods_unresolved'];
+                $unresolved[] = [
+                    'uri' => $resource->uri->uri(),
+                    'reason' => 'inherited_or_trait_methods_unresolved',
+                    'path' => $source->path,
+                    'line' => 1 + substr_count(substr($source->contents, 0, $source->node->getStartPosition()), "\n"),
+                    'resource' => $source->name,
+                ];
             }
             foreach ($methods['methods'] as [$declaring, $method]) {
                 if (
@@ -94,9 +120,26 @@ final readonly class AopApplicationsQuery
                 ) {
                     continue;
                 }
+                ++$resourceMethodsEvaluated;
                 $application = $this->application($container->pointcuts, $matcher, $source, $method);
+                $applicationUnknownsForMethod = count($application['unresolvedPointcuts']);
                 foreach ($application['unresolvedPointcuts'] as $unresolvedPointcut) {
                     ++$unresolvedApplicationTotal;
+                    $origin = $unresolvedPointcut['origin'] ?? [];
+                    $originKey = $this->originKey(
+                        $origin['module'] ?? null,
+                        $origin['path'] ?? null,
+                        $origin['line'] ?? null,
+                    );
+                    $this->recordUnknownGroup(
+                        $unknownGroups,
+                        'application',
+                        $unresolvedPointcut,
+                        isset($pointcutRegistrationsByOrigin[$originKey])
+                            ? $pointcutRegistrationsByOrigin[$originKey]
+                            : null,
+                        $resource->fqn . '::' . $method->getName(),
+                    );
                     if (count($applicationUnknowns) < 100) {
                         $applicationUnknowns[] = [
                             ...$unresolvedPointcut,
@@ -121,6 +164,8 @@ final readonly class AopApplicationsQuery
                 ) {
                     continue;
                 }
+                ++$filterMatchedMethods;
+                $filteredApplicationUnknownTotal += $applicationUnknownsForMethod;
                 $modifiers = array_map(
                     static fn ($token): string => strtolower($token->getText($declaring->contents)),
                     ParserNodes::elements($method->modifiers)
@@ -141,7 +186,7 @@ final readonly class AopApplicationsQuery
                     'line' => 1 + substr_count(substr($declaring->contents, 0, $method->getStartPosition()), "\n"),
                     'attributes' => SourceMatcher::attributes($method),
                     'weavingBlockers' => $blockers,
-                    'status' => $interpreter->unknowns === [] && $unresolvedPointcutTotal === 0
+                    'status' => $interpreter->unknowns === [] && $unresolvedPointcutRegistrations === 0
                         && $application['unresolvedPointcuts'] === []
                         && $methods['complete'] ? 'source_matched' : 'provisional',
                     'chain' => array_slice($application['chain'], 0, 100),
@@ -153,6 +198,48 @@ final readonly class AopApplicationsQuery
             }
         }
         $page = ProjectReportPage::slice($items, $offset, $limit, ProjectReportPage::serializedBytes(...));
+        foreach ($interpreter->unknowns as $unknown) {
+            $this->recordUnknownGroup($unknownGroups, 'composition', $unknown);
+        }
+        foreach ($unresolved as $unknown) {
+            $this->recordUnknownGroup($unknownGroups, 'resource', $unknown);
+        }
+        ksort($unknownGroups);
+        $groups = array_map(
+            static fn (array $group): array => array_diff_key($group, ['_methods' => true]),
+            array_values($unknownGroups),
+        );
+        usort($groups, static function (array $left, array $right): int {
+            $byOccurrences = $right['occurrences'] <=> $left['occurrences'];
+            if ($byOccurrences !== 0) {
+                return $byOccurrences;
+            }
+
+            return strcmp(
+                json_encode([
+                    $left['scope'], $left['reason'], $left['module'], $left['path'], $left['line'], $left['resource'],
+                ], JSON_THROW_ON_ERROR),
+                json_encode([
+                    $right['scope'], $right['reason'], $right['module'], $right['path'], $right['line'],
+                    $right['resource'],
+                ], JSON_THROW_ON_ERROR),
+            );
+        });
+        $unknownSummary = [
+            'compositionOccurrences' => count($interpreter->unknowns),
+            'resourceOccurrences' => count($unresolved),
+            'applicationOccurrences' => $unresolvedApplicationTotal,
+            'unresolvedPointcutRegistrations' => $unresolvedPointcutRegistrations,
+            'resourceMethodsEvaluated' => $resourceMethodsEvaluated,
+            'filterMatchedMethods' => $filterMatchedMethods,
+            'filterMatchedApplicationOccurrences' => $filteredApplicationUnknownTotal,
+            'groupsScope' => 'composition_resource_application',
+            'groups' => [
+                'items' => array_slice($groups, 0, 100),
+                'total' => count($groups),
+                'truncated' => count($groups) > 100,
+            ],
+        ];
 
         return SemanticResult::ok([
             'applicationContext' => $applicationContext,
@@ -162,7 +249,8 @@ final readonly class AopApplicationsQuery
             'truncated' => $offset + count($page) < count($items),
             'unknowns' => array_slice([...$interpreter->unknowns, ...$unresolved, ...$applicationUnknowns], 0, 100),
             'unknownTotal' => count($interpreter->unknowns) + count($unresolved) + $unresolvedApplicationTotal,
-            'unresolvedPointcutTotal' => $unresolvedPointcutTotal + $unresolvedApplicationTotal,
+            'unresolvedPointcutTotal' => $unresolvedPointcutRegistrations + $unresolvedApplicationTotal,
+            'unknownSummary' => $unknownSummary,
             'coverage' => [
                 'basis' => 'source_matching_model',
                 'orderingModel' => 'ray_aop_php_attribute_onion',
@@ -254,5 +342,49 @@ final readonly class AopApplicationsQuery
             ...($pointcut->classMatcher?->attributeReferences() ?? []),
             ...($pointcut->methodMatcher?->attributeReferences() ?? []),
         ]));
+    }
+
+    private function originKey(?string $module, ?string $path, ?int $line): string
+    {
+        return json_encode([$module, $path, $line], JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * @param array<string, array<string, mixed>> $groups
+     * @param array<string, mixed> $unknown
+     */
+    private function recordUnknownGroup(
+        array &$groups,
+        string $scope,
+        array $unknown,
+        ?int $registrations = null,
+        ?string $affectedMethod = null,
+    ): void {
+        $origin = is_array($unknown['origin'] ?? null) ? $unknown['origin'] : $unknown;
+        $path = is_string($origin['path'] ?? null) ? $origin['path'] : null;
+        $line = is_int($origin['line'] ?? null) ? $origin['line'] : null;
+        $module = $scope === 'resource' ? null : (is_string($origin['module'] ?? null) ? $origin['module'] : null);
+        $resource = $scope === 'resource' && is_string($unknown['resource'] ?? null) ? $unknown['resource'] : null;
+        $reason = is_string($unknown['reason'] ?? null) ? $unknown['reason'] : 'unknown';
+        $key = json_encode([$scope, $reason, $module, $path, $line, $resource], JSON_THROW_ON_ERROR);
+        if (!isset($groups[$key])) {
+            $groups[$key] = [
+                'scope' => $scope,
+                'reason' => $reason,
+                'module' => $module,
+                'resource' => $resource,
+                'path' => $path,
+                'line' => $line,
+                'occurrences' => 0,
+                'affectedMethodCount' => $scope === 'application' ? 0 : null,
+                'composedRegistrations' => $registrations,
+                '_methods' => [],
+            ];
+        }
+        ++$groups[$key]['occurrences'];
+        if ($affectedMethod !== null) {
+            $groups[$key]['_methods'][$affectedMethod] = true;
+            $groups[$key]['affectedMethodCount'] = count($groups[$key]['_methods']);
+        }
     }
 }

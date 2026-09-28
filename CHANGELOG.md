@@ -8,6 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Resolve exact attribute catalog queries through a bounded Composer definition lookup before
+  falling back to a full bounded scan, preserving read-boundary and incomplete-scan information.
+- Resolve the complete ancestry of already-loaded internal PHP types without autoloading
+  application classes. Attributes implementing an internal interface such as JsonSerializable
+  no longer make unrelated AOP attribute comparisons unnecessarily unresolved.
 - Read context from the second argument of BEAR.Package Injector and Compiler Bootstrap calls.
   Correct the Bootstrap class and replace invalid entry-point fixtures with actual API signatures;
   application names must not become context candidates.
@@ -16,6 +21,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Explain AOP unknown occurrence counts separately from affected methods and registrations,
+  including counts before and after result filters and bounded groups by declaration source.
 - Add an optional isolated BEAR.Kata integration test comparing static AOP chains and DI
   selections with the installed Ray.Aop/Ray.Di implementations, plus a verification record.
 - Add `bear/attribute/catalog` for available PHP attribute definitions, source docblocks,

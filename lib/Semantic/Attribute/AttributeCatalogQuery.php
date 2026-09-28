@@ -59,7 +59,33 @@ final readonly class AttributeCatalogQuery
             }
             $pointcuts = (new BearPackageComposition($classes, $interpreter))($name, $applicationContext)->pointcuts;
         }
-        $scan = $classes->attributeSources();
+        $scanMode = 'bounded_composer_scan';
+        $scan = null;
+        $targetedLookup = null;
+        if ($attribute !== null) {
+            $targetedLookup = $classes->findComposerMapped($attribute);
+            $mapped = $targetedLookup['source'];
+            if (
+                !$targetedLookup['truncated']
+                && $mapped !== null
+                && $mapped->isClass()
+                && $this->attributeDeclaration($mapped) !== null
+            ) {
+                $scanMode = 'targeted_composer_definition';
+                $scan = [
+                    'classes' => [$mapped],
+                    'scannedFiles' => $targetedLookup['scannedFiles'],
+                    'skippedFiles' => $targetedLookup['skippedFiles'],
+                    'truncated' => false,
+                ];
+            }
+        }
+        $scan ??= $classes->attributeSources();
+        if ($scanMode === 'bounded_composer_scan' && $targetedLookup !== null) {
+            $scan['scannedFiles'] += $targetedLookup['scannedFiles'];
+            $scan['skippedFiles'] += $targetedLookup['skippedFiles'];
+            $scan['truncated'] = $scan['truncated'] || $targetedLookup['truncated'];
+        }
         $items = [];
         foreach ($scan['classes'] as $source) {
             if (
@@ -166,7 +192,8 @@ final readonly class AttributeCatalogQuery
             'unknownTotal' => count($interpreter->unknowns),
             'coverage' => [
                 'basis' => 'saved_source',
-                'discovery' => 'composer_psr4_psr0_classmap_roots',
+                'discovery' => 'composer_exact_definition_with_bounded_scan_fallback',
+                'scanMode' => $scanMode,
                 'contextEvaluated' => $applicationContext !== null,
                 'aopReferencesProveApplication' => false,
                 'frameworkConsumersResolved' => false,

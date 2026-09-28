@@ -47,11 +47,26 @@ final readonly class SourceMatcher
         if ($source === null) {
             $internal = $this->classes->internal($class);
 
-            if ($internal === null || $this->classes->internal($parent) === null) {
+            if ($internal === null) {
                 return null;
             }
 
-            return $internal->isSubclassOf($parent);
+            $internalNames = [
+                $internal->getName(),
+                ...$internal->getInterfaceNames(),
+            ];
+            for ($current = $internal->getParentClass(); $current !== false; $current = $current->getParentClass()) {
+                $internalNames[] = $current->getName();
+            }
+
+            foreach ($internalNames as $internalName) {
+                if (strcasecmp($internalName, ltrim($parent, '\\')) === 0) {
+                    return true;
+                }
+            }
+
+            // The already-loaded internal hierarchy is complete; inspecting names does not autoload the target.
+            return false;
         }
         $seen[] = strtolower($class);
         $unknown = false;

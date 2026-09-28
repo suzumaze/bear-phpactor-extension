@@ -350,6 +350,19 @@ Catalog constructor defaults are omitted. Read the [DI/AOP inspection boundaries
 before interpreting source matches as behavior. These requests advertise `attributeCatalog`
 and `aopApplications` capabilities and use limits of 1–100 (default 50), with nonnegative offsets.
 
+For AOP results, `unknownSummary` explains the legacy occurrence totals:
+
+- `unknownTotal = compositionOccurrences + resourceOccurrences + applicationOccurrences`.
+- `unresolvedPointcutTotal = unresolvedPointcutRegistrations + applicationOccurrences`.
+- `resourceMethodsEvaluated` counts methods evaluated before interceptor/attribute filters;
+  `filterMatchedMethods` and `filterMatchedApplicationOccurrences` describe matching rows
+  before result pagination. URI and method filters already restrict the evaluation scope.
+- `groups.items` groups occurrences by scope, reason and declaration location, independently
+  of the 100-entry raw unknown list. Inspect `groups.total` and `groups.truncated`.
+  An application group's `affectedMethodCount` counts distinct Resource methods;
+  `composedRegistrations` counts all composed pointcuts at that declaration location, before
+  annotation-key replacement. These numbers are not counts of distinct application defects.
+
 `bear/app/contexts` lists source-declared context candidates and their entry-point locations.
 It never selects a context or asserts runtime usage. Inspect `scanTruncated`, `skippedFiles`,
 `unresolvedTotal` and per-item `sourcesTruncated` before treating the list as complete.

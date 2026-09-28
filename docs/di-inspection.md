@@ -79,6 +79,13 @@ attribute-source bytes. Inspect `scanTruncated` and `skippedFiles`; pagination a
 the discovered subset and cannot recover sources omitted by a scan limit. PHP autoload files
 are not executed and declarations outside the project read boundary are not followed.
 
+An exact attribute query first tries a bounded Composer-mapped definition lookup. When it
+positively identifies the attribute, `coverage.scanMode` is `targeted_composer_definition`;
+it need not scan unrelated vendor files. Otherwise it falls back to `bounded_composer_scan`
+and preserves incomplete-lookup flags. File counts cover lookup and fallback attempts (a
+cached declaration needs no additional file read), not the size of the installed project.
+This optimization does not make the unfiltered catalog complete.
+
 `bear/aop/applications` (`bear_aop_applications` in MCP) requires `applicationContext` and
 accepts Resource URI, method, interceptor and attribute filters. It follows a source-selected Resource
 class binding, including a replacement, and reports matching public `on*` request handlers
@@ -102,6 +109,20 @@ Neither state establishes that weaving succeeds or that a request actually runs 
 An interceptor/attribute filter selects known matches, so an empty filtered list is not evidence
 of absence when unknowns remain. Read both `unknownTotal` and `unresolvedPointcutTotal`.
 Method pages, per-method chains and unknown lists have independent bounds and totals.
+
+The legacy totals count occurrences, not distinct defects. Application unknowns are collected
+over evaluated methods **before** interceptor/attribute result filters. `unknownTotal` combines
+composition, Resource inspection and method-application occurrences. `unresolvedPointcutTotal`
+combines unresolved composed registrations with method-application occurrences (including
+ordering uncertainty); it is not a count of distinct pointcut declarations.
+
+`unknownSummary` separates composition, Resource and application occurrences, reports evaluated
+and filter-matched method counts, and groups occurrences by reason and declaration location.
+Its filter-matched counts cover all matching methods before pagination. Groups distinguish
+registration count from affected method count: a declaration registered twice and evaluated on
+61 methods can produce 122 occurrences. Such a group identifies a shared source location, not
+proof of a single underlying defect. Summary counts are computed before the raw unknown-list
+limit and remain available when that list is truncated.
 
 Both queries live in the semantic engine and are exposed through LSP and MCP; no MCP-specific
 matcher logic is introduced. Editor hover/CodeLens and IDEA integration are separate work.

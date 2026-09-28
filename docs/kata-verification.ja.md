@@ -59,7 +59,7 @@ BEAR_KATA_VERIFY_ROOT=/private/tmp/bear-kata-check \
 
 この照合は1 test / 22 assertionsで通過した。環境変数を指定しない通常のテスト実行ではskipする。
 
-## Kataでの観測結果
+## 初回検証時の観測結果
 
 | 検証 | 結果 |
 | --- | --- |
@@ -78,6 +78,74 @@ BEAR_KATA_VERIFY_ROOT=/private/tmp/bear-kata-check \
 この3種の静的問い合わせをまとめた実測は4.13秒、ピークメモリ94 MiBだった。
 環境とキャッシュの状態に依存する参考値であり、性能の合格基準ではない。
 
+### 222件の内訳
+
+この値は、属性/interceptorフィルタを適用する前の61個のpublic `on*` メソッドを
+評価した合計で、返却されたCSRFの4行だけを数えたものではなかった。
+
+| `unknownTotal` の内訳 | 件数 | 意味 |
+| --- | ---: | --- |
+| AssistedInjectの条件 | 122 | 同じ宣言元から合成された2つの登録を61メソッドで判定できなかった |
+| その他のpointcutの適用判定 | 88 | Link属性の継承関係の判定が不必要に未解決になった |
+| 属性の継承関係による順序判定 | 10 | 上記と同じ継承判定の問題 |
+| Module合成 | 1 | `src/Module/AppModule.php:106` の束縛先が環境依存の条件式 |
+| メソッドの収集 | 1 | MediaStreamのtrait/継承メソッドを完全には収集できなかった |
+
+CSRFで絞った4メソッドのメソッド単位の未解決は各2件、計8件で、AssistedInjectの
+2登録によるものだった。登録元は `vendor/ray/di/src/di/AssistedInjectModule.php:16`。
+
+`unresolvedPointcutTotal` の222は別の合計である。合成された未解決pointcut登録2件と、
+メソッド単位の未解決220件を加えた値であり、`unknownTotal` と同数なのは偶然だった。
+
+88件と10件の根本原因は `BEAR\Resource\Annotation\Link` がPHP標準の
+`JsonSerializable` を実装していることだった。従来の内部型の判定は、比較先が
+ソース上の属性だとその既知の継承関係を否定できず、不明としていた。
+これはアプリのAOP設定の不具合ではなく、解析側の判定不足である。
+
+### 内訳調査後の修正結果
+
+内部型の既知の親・interface名を調べるように修正した結果、不要だった88件と10件が
+解消した。対象属性をautoloadしたりアプリのコードを実行したりせずに判定する。
+
+| 修正後の `unknownSummary` | 観測値 |
+| --- | --- |
+| `compositionOccurrences` | 1（AppModuleの環境依存の束縛） |
+| `resourceOccurrences` | 1（MediaStreamのtrait/継承メソッド収集） |
+| `applicationOccurrences` | 122（AssistedInjectの条件） |
+| `unresolvedPointcutRegistrations` | 2 |
+| `resourceMethodsEvaluated` | 61 |
+| `filterMatchedMethods` | 4 |
+| `filterMatchedApplicationOccurrences` | 8 |
+| `groups.total` | 3（打ち切りなし） |
+
+既存の `unknownTotal` と `unresolvedPointcutTotal` は、従来の計数方法を維持して
+どちらも124となる。AssistedInjectのグループは、`composedRegistrations: 2`、
+`affectedMethodCount: 61`、`occurrences: 122`。
+raw unknown一覧は100件のままだが、新しい集計は打ち切り前の全対象から計算する。
+グループはscope・reason・宣言元でまとめたもので、同じ場所なら根本原因も必ず同じと
+断定するものではない。
+
+残る122件は `Ray\Di\Matcher\AssistedInjectMatcher` の独自PHP条件を未対応として
+保持したもの。このバージョンの `matchesMethod()` は各パラメータに
+`InjectInterface` 互換の属性または `Assisted` 属性があるかを調べる。
+「122個のResourceに属性の付け忘れがある」という意味ではない。これを解決するには、
+パラメータ属性を読むこのマッチャーの静的モデルと、そのバージョン境界を追加する必要がある。
+
+### 属性カタログの完全一致検索
+
+属性名を指定した場合は、Composerで場所を特定できる定義を先に探すようにした。
+Kataの `Ray\Csrf\Attribute\CsrfToken` は1ファイルの読み取りで取得でき、
+`coverage.scanMode: targeted_composer_definition`、`scanTruncated: false` となった。
+従来はこの指定でも5,000ファイルの走査上限に達していた。
+
+直接探索にも1ファイル1 MiB、総読み取り4 MiBと候補件数の上限を設けた。
+定義を特定できないときは従来の上限付き走査へ戻り、不完全だったことを保持する。
+複数のclassmapファイルを読んだ場合はその読み取り数を返す。
+未指定の全属性一覧については、従来の走査上限が引き続き適用される。
+
+集計と完全一致検索を含むKata統合検証は1 test / 47 assertions、MCP経由の検証は
+1 test / 34 assertionsで成功した。
+
 ## 結果の読み方
 
 KataのCSRF配線テストは `html-test-hal-api-app` にさらにテスト専用Moduleを渡す。
@@ -91,12 +159,13 @@ KataのCSRF配線テストは `html-test-hal-api-app` にさらにテスト専�
 
 ## 最終チェックと残作業
 
-2026-09-28時点で、extensionは663 tests / 5,476 assertions / 1 skip、MCPは
-61 tests / 530 assertions / 3 skipsで通過した。両リポジトリのPHPCSとPHPStanも通過。
+2026-09-28の修正後、extensionは667 tests / 5,503 assertions / 1 skip、MCPは
+61 tests / 535 assertions / 3 skipsで通過した。両リポジトリのPHPCSとPHPStanも通過。
+extensionのPHPStanは既存のComposer設定と同じ256 MiBの上限で実行した。
 extensionのskipは任意のKata照合テストで、環境変数を付けた別実行では成功している。
 MCPの実行には `BEAR_MCP_TEST_EXTENSION_ROOT` で今回のextension checkoutを指定した。
 
-次の改善候補は、属性カタログの走査上限への対処、AOP未解決条件の理由ごとの整理、
+次の改善候補は、AssistedInjectのパラメータ属性判定、全属性一覧の走査上限への対処、
 Module関係と宣言一覧をつなぐ照会。無効な属性の診断は、その属性のAOP上の役割と
 対象Moduleの構成が確定する範囲から追加する。未解決や走査打ち切りを根拠に
 「効いていない」と断定しない。リリースとインストール済みMCPへの反映は別作業。

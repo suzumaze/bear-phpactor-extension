@@ -74,6 +74,87 @@ final class ClassSourceIndex
     }
 
     /**
+     * Find a declaration at a Composer PSR-4/PSR-0 path or a classmap file without scanning
+     * classmap directories. Callers can use a bounded inventory scan when this lookup misses.
+     */
+    /**
+     * @return array{source: ?ClassSource, scannedFiles: int, skippedFiles: int, readBytes: int, truncated: bool}
+     */
+    public function findComposerMapped(
+        string $fqcn,
+        int $maxFiles = 5000,
+        int $maxBytes = 4 * 1024 * 1024,
+        int $maxFileBytes = 1024 * 1024,
+    ): array {
+        $fqcn = ltrim($fqcn, '\\');
+        $key = strtolower($fqcn);
+        if (($this->classes[$key] ?? null) !== null) {
+            return ['source' => $this->classes[$key], 'scannedFiles' => 0, 'skippedFiles' => 0,
+                'readBytes' => 0, 'truncated' => false];
+        }
+        $scannedFiles = 0;
+        $skippedFiles = 0;
+        $readBytes = 0;
+        $visited = 0;
+        $seen = [];
+        $truncated = false;
+        foreach ($this->mappedCandidateFiles($fqcn) as $file) {
+            if (++$visited > $maxFiles) {
+                $truncated = true;
+                break;
+            }
+            $real = realpath($file);
+            if ($real === false || !$this->isInsideRoot($real) || isset($seen[$real])) {
+                ++$skippedFiles;
+                continue;
+            }
+            $seen[$real] = true;
+            if (!isset($this->parsedFiles[$real])) {
+                $size = @filesize($real);
+                $remainingBytes = $maxBytes - $readBytes;
+                if ($size === false || $size > $maxFileBytes || $size > $remainingBytes) {
+                    ++$skippedFiles;
+                    $truncated = true;
+                    continue;
+                }
+                $readLimit = min($maxFileBytes, $remainingBytes);
+                $contents = @file_get_contents($real, false, null, 0, $readLimit + 1);
+                if ($contents === false) {
+                    ++$skippedFiles;
+                    $truncated = true;
+                    continue;
+                }
+                ++$scannedFiles;
+                $readBytes += strlen($contents);
+                if (strlen($contents) > $readLimit) {
+                    ++$skippedFiles;
+                    $truncated = true;
+                    break;
+                }
+                $this->parsedFiles[$real] = true;
+                $this->parseContents($real, $contents);
+            }
+            if (($this->classes[$key] ?? null) !== null) {
+                return [
+                    'source' => $this->classes[$key],
+                    'scannedFiles' => $scannedFiles,
+                    'skippedFiles' => $skippedFiles,
+                    'readBytes' => $readBytes,
+                    'truncated' => $truncated,
+                ];
+            }
+        }
+
+        return [
+            'source' => null,
+            'scannedFiles' => $scannedFiles,
+            'skippedFiles' => $skippedFiles,
+            'readBytes' => $readBytes,
+            'truncated' => $truncated,
+        ];
+    }
+
+    /**
      * Bounded discovery through Composer maps. Only files containing PHP attributes are parsed.
      * @return array{classes: list<ClassSource>, scannedFiles: int, skippedFiles: int, truncated: bool}
      */
@@ -248,20 +329,60 @@ final class ClassSourceIndex
         }
     }
 
+    /** @return iterable<string> */
+    private function mappedCandidateFiles(string $fqcn): iterable
+    {
+        $seen = [];
+        foreach ($this->psr4 as $prefix => $dirs) {
+            if (!str_starts_with($fqcn, $prefix)) {
+                continue;
+            }
+            $relative = str_replace('\\', '/', substr($fqcn, strlen($prefix))) . '.php';
+            foreach ($dirs as $dir) {
+                $file = $dir . '/' . $relative;
+                if (is_file($file) && !isset($seen[$file])) {
+                    $seen[$file] = true;
+                    yield $file;
+                }
+            }
+        }
+        foreach ($this->psr0 as $prefix => $dirs) {
+            if ($prefix !== '' && !str_starts_with($fqcn, $prefix)) {
+                continue;
+            }
+            $relative = str_replace(['\\', '_'], '/', $fqcn) . '.php';
+            foreach ($dirs as $dir) {
+                $file = $dir . '/' . $relative;
+                if (is_file($file) && !isset($seen[$file])) {
+                    $seen[$file] = true;
+                    yield $file;
+                }
+            }
+        }
+        foreach ($this->classmapPaths as $path) {
+            if (is_file($path) && !isset($seen[$path])) {
+                $seen[$path] = true;
+                yield $path;
+            }
+        }
+    }
+
     private function parseFile(string $file): void
     {
-        if (isset($this->parsedFiles[$file])) {
-            return;
-        }
-        $this->parsedFiles[$file] = true;
         $real = realpath($file);
-        if ($real === false || !$this->isInsideRoot($real)) {
+        if ($real === false || !$this->isInsideRoot($real) || isset($this->parsedFiles[$real])) {
             return;
         }
-        $contents = @file_get_contents($file);
+        $contents = @file_get_contents($real);
         if ($contents === false) {
             return;
         }
+        $this->parsedFiles[$real] = true;
+        $this->parseContents($real, $contents);
+    }
+
+    private function parseContents(string $file, string $contents): void
+    {
         try {
             $ast = $this->parser->parseSourceFile($contents, $file);
         } catch (Throwable) {
