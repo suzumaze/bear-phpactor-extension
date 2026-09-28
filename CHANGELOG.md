@@ -6,8 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Read context from the second argument of BEAR.Package Injector and Compiler Bootstrap calls.
+  Correct the Bootstrap class and replace invalid entry-point fixtures with actual API signatures;
+  application names must not become context candidates.
+  Discover positional calls through static single-return Injector wrappers, while keeping
+  additional override Modules outside context-only composition.
+
 ### Added
 
+- Add an optional isolated BEAR.Kata integration test comparing static AOP chains and DI
+  selections with the installed Ray.Aop/Ray.Di implementations, plus a verification record.
 - Add `bear/attribute/catalog` for available PHP attribute definitions, source docblocks,
   target flags, parameter signatures, and optional context-specific AOP condition references.
   Default argument values are omitted and unsupported consumers remain unknown.

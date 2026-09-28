@@ -7,11 +7,19 @@ release goal. Module relationships remain useful as supporting evidence.
 ## Completed foundation
 
 - `bear/app/contexts` discovers literal context candidates in saved
-  `BEAR\Package\Bootstrap::__invoke()` and `BEAR\Package\Injector::getInstance()` calls.
+  `BEAR\Package\Compiler\Bootstrap::__invoke()`, `BEAR\Package\Injector::getInstance()` and
+  `BEAR\Package\Injector::getOverrideInstance()` calls.
+  The context is their second positional argument, or the named `context` argument;
+  the application name is not a context candidate.
   It resolves imported class names, reads literal branches of ternaries and coalescing
   expressions, and reports unresolved arguments. It does not choose a context or prove
   which deployment uses one. Scanning covers public, bin, tests, src and project PSR-4
   directories within the workspace; file-count, traversal and source-size limits are reported.
+  Static wrappers are recognized only when their entire body is one return forwarding a
+  context parameter directly to a supported Injector call. Wrapper callers must pass that
+  parameter positionally. General control flow, assignments and application Bootstrap bodies
+  are not evaluated. Discovering a context in `getOverrideInstance()` does not apply its extra
+  override Module to a context-only lookup; `coverage.overrideModulesApplied` remains false.
 - `bear/di/bindingLookup` requires `applicationContext` and explains binding selections
   from saved application and installed vendor source. Type and qualifier filters are exact;
   `type: ""` means scalar bindings and `name: ""` means unqualified bindings.
@@ -97,6 +105,9 @@ Method pages, per-method chains and unknown lists have independent bounds and to
 
 Both queries live in the semantic engine and are exposed through LSP and MCP; no MCP-specific
 matcher logic is introduced. Editor hover/CodeLens and IDEA integration are separate work.
+
+See the [BEAR.Kata verification record](kata-verification.ja.md) for the pinned real-project
+checks and the distinction between context-only source queries and test-specific overrides.
 
 ## Next reviewable steps
 

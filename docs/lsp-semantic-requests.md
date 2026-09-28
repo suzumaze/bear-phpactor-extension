@@ -353,6 +353,11 @@ and `aopApplications` capabilities and use limits of 1–100 (default 50), with 
 `bear/app/contexts` lists source-declared context candidates and their entry-point locations.
 It never selects a context or asserts runtime usage. Inspect `scanTruncated`, `skippedFiles`,
 `unresolvedTotal` and per-item `sourcesTruncated` before treating the list as complete.
+It recognizes BEAR.Package Injector calls and Compiler Bootstrap invocation, with context
+in the second positional argument or named `context` argument. Limited static, single-return
+Injector wrappers are also recognized for positional callers; inspect `coverage.wrapperResolution`.
+`getOverrideInstance()` contributes context candidates only. Its extra Module is not applied
+to a context-only lookup (`coverage.overrideModulesApplied: false`).
 
 `bear/di/bindingLookup` requires `applicationContext`; it returns selected binding candidates
 and local retained/discarded decisions, with declaration paths/lines and module import paths.
