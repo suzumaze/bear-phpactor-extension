@@ -210,11 +210,13 @@ qualifier・scope宣言を一覧化する。`bear/aop/pointcuts`は同じmodule 
 静的な`install()`/`override()`経路から参加するworkspace moduleへ絞る。これは保存済みsourceの
 部分的なcontext projectionであり、vendor側だけにあるcontext moduleやdynamicなModule生成を推測しない。
 `override()`の優先順位、最終的に勝つbinding、pointcutの適用結果、runtime weavingも主張しない。
-dynamic binding、multibinding、assisted injection、未対応のbind chainやmatcherは
+dynamic binding、multibinding、未対応のbind chainやmatcherは
 推測で欠落させず、理由付きの`unresolved`に残す。workspace内のComposer PSR-4 PHP sourceだけを読み、
 moduleのload、DI containerの構築、applicationの実行は行わない。
-`bear/di/moduleGraph`は同じcontext projectionの根拠を、segment候補、workspace module、継承、
-静的な`install()`/`override()` edgeとして返す。外部targetとdynamic edgeは消さず、coverageで
+`bear/di/moduleGraph`はcontext省略時に全workspace Moduleのbounded source mapを返し、
+各nodeに直接記述されたbind/interceptor数とsource位置を付ける。context指定時は従来の
+segment候補・workspace module・継承・静的な`install()`/`override()` edgeのprojectionを維持する。
+exact Module名から`bear/di/moduleDeclarations`へ進める。外部targetとdynamic edgeは消さず、coverageで
 vendor非展開、control flow・優先順位の未評価、runtime container未構築を明示する。
 
 `bear/project/diagnostics`は保存済みsourceだけを有界に走査し、`$resource`または

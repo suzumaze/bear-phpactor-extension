@@ -81,10 +81,12 @@ context convention, inheritance, and static module-install edges. This remains a
 saved-source projection, not a claim about the winning DI binding, evaluated pointcut,
 or woven runtime behavior. Dynamic or unsupported forms remain visible as reasoned
 `unresolved` items.
-`bear/di/moduleGraph` exposes the context segments, workspace modules, inheritance, and
-static `install()`/`override()` edges behind that scope. External and dynamic edges remain
-explicit; vendor expansion, control-flow evaluation, precedence, and container construction
-stay outside the claim.
+`bear/di/moduleGraph` exposes a bounded workspace Module source map when no context is given,
+including direct declaration counts and source locations. With a context it keeps the context
+segments and workspace inheritance/`install()`/`override()` edges. External and dynamic edges
+remain explicit; vendor expansion, control-flow evaluation, precedence, and container
+construction stay outside the claim. A node's exact class name links to
+`bear/di/moduleDeclarations` for declaration details.
 `bear/di/bindings` reads saved source without executing Modules, providers, or constructors.
 
 Use `bear/app/contexts` to discover declared entry-point contexts without selecting a default.

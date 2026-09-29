@@ -43,8 +43,10 @@ release goal. Module relationships remain useful as supporting evidence.
   have no invented source line; they are distinct from source declarations.
 
 The MCP adapter exposes `bear_app_context_list`, `bear_di_binding_lookup`, and
-`bear_di_module_tree_read`. The latter projects the existing workspace module relationship
-inventory; it does not expand vendor modules or determine precedence. The lookup does expand
+`bear_di_module_tree_read`. Without a context, the latter returns a bounded workspace Module
+source map with direct bind/interceptor counts and source locations. With a context, it keeps the
+context relationship view; either view does not expand vendor modules or determine precedence.
+Use `bear_di_module_declarations` to open one exact Module. The lookup does expand
 installed vendor Modules under the supported interpretation rules. These different coverage
 boundaries must remain visible. The adapter discovers engine support and returns `unsupported`
 on an older engine; it does not silently substitute a declaration inventory.
