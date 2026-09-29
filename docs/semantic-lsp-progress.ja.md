@@ -197,18 +197,27 @@ capabilityは追加でき、clientは未知のobject fieldを無視する。公�
 公開済みの`semanticApiVersion`は互換性のため`1`のまま非推奨memberとして残す。新しいclientは
 version交渉やcapability判断に使用しない。
 
-`tests/Contract/semantic-query-contract.json`とcontract testが、全23 methodの登録名、handler引数の
+`tests/Contract/semantic-query-contract.json`とcontract testが、公開methodの登録名、handler引数の
 名前・型・default、成功envelopeとtop-level data key、failure envelope、error key、全statusを
 実際のhandler responseに対して検証する。snapshotはversion交渉ではなく回帰検出に使う。
 
-`bear/di/bindings`は、Ray.Di `AbstractModule`を直接継承するclass内の
-`$this->bind(X)->to(Y)`という静的宣言を一覧化する。`bear/aop/pointcuts`は同じmodule sourceから
+`bear/di/bindings`は、保存済みsourceの継承経路がRay.Di `AbstractModule`または
+BEAR.Package `AbstractAppModule`へ到達するworkspace class内の
+静的な`to`、`toProvider`、`toInstance`、`toConstructor`、`toNull`、アンターゲット束縛と
+束縛アトリビュート・スコープ宣言を一覧化する。`bear/aop/pointcuts`は同じmodule sourceから
 `bindInterceptor`と`bindPriorityInterceptor`の静的宣言を拾い、Ray.Aop matcherを構文木として
-保持する。どちらも保存済みsourceの宣言inventoryであり、application contextやmodule install treeを
-合成せず、`override()`の優先順位、最終的に勝つbinding、pointcutの適用結果、runtime weavingを
-主張しない。dynamic binding、qualifier、provider、multibinding、assisted injection、未対応matcherは
+保持する。`applicationContext`を指定した場合は、BEAR.Packageのcontext命名規約、workspace内の継承、
+静的な`install()`/`override()`経路から参加するworkspace moduleへ絞る。これは保存済みsourceの
+部分的なcontext projectionであり、vendor側だけにあるcontext moduleやdynamicなModule生成を推測しない。
+`override()`の優先順位、最終的に勝つbinding、pointcutの適用結果、runtime weavingも主張しない。
+dynamic binding、multibinding、未対応のbind chainやmatcherは
 推測で欠落させず、理由付きの`unresolved`に残す。workspace内のComposer PSR-4 PHP sourceだけを読み、
 moduleのload、DI containerの構築、applicationの実行は行わない。
+`bear/di/moduleGraph`はcontext省略時に全workspace Moduleのbounded source mapを返し、
+各nodeに直接記述されたbind/interceptor数とsource位置を付ける。context指定時は従来の
+segment候補・workspace module・継承・静的な`install()`/`override()` edgeのprojectionを維持する。
+exact Module名から`bear/di/moduleDeclarations`へ進める。外部targetとdynamic edgeは消さず、coverageで
+vendor非展開、control flow・優先順位の未評価、runtime container未構築を明示する。
 
 `bear/project/diagnostics`は保存済みsourceだけを有界に走査し、`$resource`または
 `$this->resource`への直接的で静的なResource呼び出し、Route、

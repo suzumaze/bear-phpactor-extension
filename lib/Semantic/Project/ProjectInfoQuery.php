@@ -134,6 +134,13 @@ final class ProjectInfoQuery
             'templateResolution',
             'diBindingInventory',
             'aopPointcutInventory',
+            'contextScopedDiAopInventory',
+            'diModuleGraph',
+            'diContainerComposition',
+            'appContextDiscovery',
+            'diBindingLookup',
+            'aopApplications',
+            'attributeCatalog',
         ];
     }
 

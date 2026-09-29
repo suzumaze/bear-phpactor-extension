@@ -55,7 +55,7 @@ through `language_server.diagnostic_providers` when selecting providers explicit
 
 Standard position-based LSP methods remain the primary interface. For clients that
 already have a BEAR identifier but no open document position, the Language Server also
-provides 23 read-only `bear/*` requests for project, Resource, Route, SQL, Template,
+provides read-only `bear/*` requests for project, Resource, Route, SQL, Template,
 ALPS, Schema, DI, and AOP facts. Resource attribute facts and their workspace inventory are
 available without executing application PHP. `bear/project/diagnostics` aggregates
 evidence-backed problems in explicit saved-source references while keeping per-item
@@ -72,11 +72,42 @@ available requests, and its capabilities. The additive contract is documented in
 `relationsOut` and reports direct static `$resource`/`$this->resource` calls separately
 as `referencesOut`; coverage fields make both boundaries explicit.
 
-`bear/di/bindings` inventories direct static `$this->bind(X)->to(Y)` declarations,
+`bear/di/bindings` inventories static `to`, `toProvider`, `toInstance`,
+`toConstructor`, `toNull`, and untargeted declarations, including qualifiers and scope,
 and `bear/aop/pointcuts` inventories static `bindInterceptor` declarations and their
-matcher syntax trees. They report saved-source declarations, not the active application
-context, winning DI binding, evaluated pointcut, or woven runtime behavior. Dynamic or
-unsupported forms remain visible as reasoned `unresolved` items.
+matcher syntax trees. Pass an optional literal `applicationContext` such as
+`dev-html-app` to restrict either inventory to workspace modules reached by the saved
+context convention, inheritance, and static module-install edges. This remains a
+saved-source projection, not a claim about the winning DI binding, evaluated pointcut,
+or woven runtime behavior. Dynamic or unsupported forms remain visible as reasoned
+`unresolved` items.
+`bear/di/moduleGraph` exposes a bounded workspace Module source map when no context is given,
+including direct declaration counts and source locations. With a context it keeps the context
+segments and workspace inheritance/`install()`/`override()` edges. External and dynamic edges
+remain explicit; vendor expansion, control-flow evaluation, precedence, and container
+construction stay outside the claim. A node's exact class name links to
+`bear/di/moduleDeclarations` for declaration details.
+`bear/di/bindings` reads saved source without executing Modules, providers, or constructors.
+
+Use `bear/app/contexts` to discover declared entry-point contexts without selecting a default.
+Use `bear/di/bindingLookup` with an explicit context to inspect binding selections, declaration
+locations and discarded alternatives; filter conflicts or Resource bindings before pagination.
+Unknown composition conditions make every selection provisional. See [DI inspection](docs/di-inspection.md).
+
+For a source-first DI investigation, start with `bear/di/moduleGraph` without a context, then
+open a relevant Module with `bear/di/moduleDeclarations`. Each direct binding and pointcut has
+its own source path and line for editor navigation. If the question depends on a context,
+choose an entry-point candidate explicitly and pass it to the graph and declaration request:
+the returned route shows how that Module was reached in saved workspace source. Ask
+`bear/di/bindingLookup` for a particular type when its composition history matters. These
+queries answer a question without requiring a whole-module diagram or runtime container.
+
+`bear/di/container` goes further for one context: it interprets application and installed
+vendor modules as data, applies Ray.Di's composition rules, and returns the resulting
+bindings with their owning modules. Runtime-only values and the branches that depend on them
+are listed as unknowns rather than guessed. An optional explicit `environment` profile decides
+known environment branches; environment files are never read. Whole object graph generation
+is archived separately and is not part of this inspection API.
 
 An IDE is not required. The included client starts a real Phpactor stdio process:
 

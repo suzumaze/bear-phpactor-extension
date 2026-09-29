@@ -13,6 +13,11 @@ Status: Draft (LSP phase implemented; MCP phase deferred)
 > Phpactor stdioへ接続する薄いadapterとし、本書中の同一processでcoreを直接呼ぶ案や
 > 未完了を前提とした実装順序は、当初案を残した非規範的な記録として扱う。
 
+> **DI/AOP方針の更新（2026-09-27、未リリース）:** 大規模Object Graphの再現は公開目標から外し、
+> コンテキストの発見、束縛の採用・破棄の根拠、属性カタログ、AOPのソース上の適合を中心に実装する。
+> 本書内のObject Graph案は当初案として残す。現在の仕様・制約・実験ブランチの退避先は
+> [`di-inspection.md`](di-inspection.md)を参照する。
+
 ## 1. 目的
 
 BEAR.Sunday 固有の関係を、特定 IDE に依存しない読み取り専用の semantic facts として提供する。
@@ -503,16 +508,20 @@ branchごとのshape表現はM5の独立課題とする。
 ### M4: DI and AOP facts
 
 最小のsource declaration inventoryとして、`bear/di/bindings`と`bear/aop/pointcuts`を実装済み。
-直接`AbstractModule`を継承するclass内の静的`bind()->to()`宣言と、静的
+保存済みsourceの継承経路が`AbstractModule`または`AbstractAppModule`へ到達するclass内の
+静的`bind()->to()`宣言と、静的
 `bindInterceptor`/`bindPriorityInterceptor`宣言を保存済みsourceから取得する。matcherは対応する
-Ray.Aop構文をtreeとして保持し、dynamic/未対応の形は理由付き`unresolved`に残す。これはruntimeの
-有効なcontext、最終binding、pointcut適用結果またはweavingを表さない。
+Ray.Aop構文をtreeとして保持し、dynamic/未対応の形は理由付き`unresolved`に残す。
+任意の`applicationContext`を指定すると、BEAR.Packageのcontext命名規約、workspace内の継承、
+静的な`install()`/`override()`経路に参加するworkspace moduleへ絞る。ただし、これはruntime containerの
+完全な合成ではなく、vendor-only module、dynamic module、最終binding、pointcut適用結果またはweavingを
+表さない。
 
 JetBrains版の現在の実装を仕様・失敗事例のprior artとして、次の合成・lookup機能は独立milestoneで設計する。
 
 - `bear_app_context_list`
 - `bear_di_binding_lookup`
-- `bear_di_module_tree_read`
+- `bear_di_module_tree_read`（基礎となる`bear/di/moduleGraph`のworkspace graphは実装済み）
 - `bear_di_object_graph`
 - `bear_aop_pointcut_lookup`
 - `bear_resource_attribute_index`

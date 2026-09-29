@@ -22,8 +22,8 @@ final class AopPointcutQueryTest extends TestCase
 
         self::assertSame(SemanticStatus::Ok, $result->status);
         self::assertInstanceOf(AopPointcutInventory::class, $result->value);
-        self::assertSame(3, $result->value->total);
-        self::assertSame(1, $result->value->scannedModules);
+        self::assertSame(4, $result->value->total);
+        self::assertSame(3, $result->value->scannedModules);
         self::assertSame(1, $result->value->unresolved);
         self::assertSame('any', $result->value->items[0]->classMatcher['kind']);
         self::assertSame('logical_or', $result->value->items[0]->methodMatcher['kind']);
@@ -61,9 +61,45 @@ final class AopPointcutQueryTest extends TestCase
         );
     }
 
-    private function fixture(): string
+    public function testScopesPointcutsToApplicationContextModules(): void
     {
-        $fixture = realpath(dirname(__DIR__, 3) . '/Fixture/DiAop');
+        $workspace = WorkspaceContext::fromRoot($this->fixture());
+        self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
+        $query = new AopPointcutQuery();
+
+        $app = $query->listInWorkspace($workspace->value, applicationContext: 'app');
+        self::assertInstanceOf(AopPointcutInventory::class, $app->value);
+        self::assertSame(3, $app->value->total);
+        self::assertSame(2, $app->value->scannedModules);
+
+        $test = $query->listInWorkspace($workspace->value, applicationContext: 'test-app');
+        self::assertInstanceOf(AopPointcutInventory::class, $test->value);
+        self::assertSame(4, $test->value->total);
+        self::assertSame(3, $test->value->scannedModules);
+        self::assertSame(
+            SemanticStatus::InvalidInput,
+            $query->listInWorkspace($workspace->value, applicationContext: '')->status,
+        );
+    }
+
+    public function testTreatsInterpolatedMatcherAndInterceptorNamesAsUnreadable(): void
+    {
+        $workspace = WorkspaceContext::fromRoot($this->fixture('DiAopInterpolation'));
+        self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
+
+        $result = (new AopPointcutQuery())->listInWorkspace($workspace->value);
+
+        self::assertInstanceOf(AopPointcutInventory::class, $result->value);
+        self::assertSame(
+            [['method_matcher_unreadable'], ['interceptors_unreadable']],
+            array_column($result->value->items, 'reasons'),
+        );
+        self::assertSame([], $result->value->items[1]->interceptors);
+    }
+
+    private function fixture(string $name = 'DiAop'): string
+    {
+        $fixture = realpath(dirname(__DIR__, 3) . '/Fixture/' . $name);
         self::assertNotFalse($fixture);
 
         return $fixture;

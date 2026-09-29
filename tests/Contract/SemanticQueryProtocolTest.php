@@ -49,6 +49,28 @@ final class SemanticQueryProtocolTest extends TestCase
                 'successEnvelopeKeys' => array_keys($response),
                 'successDataKeys' => array_keys($response['data']),
             ];
+            if ($requestMethod === 'bear/di/bindings') {
+                $methods[$requestMethod]['successItemKeys'] = array_keys($response['data']['items'][0]);
+            }
+            if ($requestMethod === 'bear/di/moduleGraph') {
+                $sourceMap = wait($handler->{$handlerMethod}());
+                self::assertSame('ok', $sourceMap['status']);
+                self::assertSame('workspace_source_map', $sourceMap['data']['view']);
+                self::assertSame(
+                    $expected['methods'][$requestMethod]['sourceMapSuccessDataKeys'],
+                    array_keys($sourceMap['data']),
+                );
+                self::assertSame(
+                    $expected['methods'][$requestMethod]['sourceMapModuleKeys'],
+                    array_keys($sourceMap['data']['modules'][0]),
+                );
+                self::assertSame(
+                    'bear/di/moduleDeclarations',
+                    $sourceMap['data']['modules'][0]['declarationsRequest'],
+                );
+                $methods[$requestMethod]['sourceMapSuccessDataKeys'] = array_keys($sourceMap['data']);
+                $methods[$requestMethod]['sourceMapModuleKeys'] = array_keys($sourceMap['data']['modules'][0]);
+            }
         }
 
         self::assertSame(array_keys($methodMap), array_keys($methods));
@@ -156,8 +178,18 @@ final class SemanticQueryProtocolTest extends TestCase
                 'JsonSchema/basic',
                 ['app://self/bodyTypeDemo', 'response', 'src/Resource/App/BodyTypeDemo.php'],
             ],
-            'bear/di/bindings' => ['DiAop', [null, null, 1, 0]],
-            'bear/aop/pointcuts' => ['DiAop', [null, null, 1, 0]],
+            'bear/di/bindings' => ['DiAop', [null, null, 1, 0, 'app']],
+            'bear/di/moduleGraph' => ['DiAop', ['test-app', null]],
+            'bear/di/moduleDeclarations' => [
+                'DiAop',
+                ['Acme\\DiAop\\Module\\FeatureModule', 'test-app', null, 1, 0],
+            ],
+            'bear/di/container' => ['DiComposition', ['prod-app', null, 1, 0]],
+            'bear/app/contexts' => ['DiComposition', [null, 1, 0]],
+            'bear/di/bindingLookup' => ['DiComposition', ['prod-app']],
+            'bear/aop/pointcuts' => ['DiAop', [null, null, 1, 0, 'app']],
+            'bear/aop/applications' => ['DiComposition', ['advice-app']],
+            'bear/attribute/catalog' => ['DiComposition', []],
         ];
     }
 

@@ -90,6 +90,7 @@ final class SemanticLspQueryToolTest extends TestCase
     public static function newSemanticMethodProvider(): iterable
     {
         yield 'DI bindings' => ['bear/di/bindings'];
+        yield 'DI module graph' => ['bear/di/moduleGraph'];
         yield 'AOP pointcuts' => ['bear/aop/pointcuts'];
     }
 }

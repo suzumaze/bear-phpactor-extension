@@ -260,21 +260,182 @@ a stable published member and is `false` for this complete scan. The query uses 
 return fewer items; advance `offset` by the returned item count until `truncated` is
 false. It is not a strict wire-size guarantee for a single oversized item.
 
-`bear/di/bindings` inventories direct saved-source declarations of the form
-`$this->bind(X)->to(Y)` inside classes that directly extend Ray.Di's `AbstractModule`.
-Both endpoints must be string literals or statically resolvable `::class` expressions.
-The result is deliberately a declaration inventory: it does not compose application
-contexts or module installation trees, apply `override()` precedence, expand providers,
-multibindings, assisted injection, qualifiers, or claim which binding wins at runtime.
-Recognized but unsupported bind chains remain visible in `unresolved` with a reason.
+`bear/di/bindings` inventories direct saved-source `bind()` chains inside workspace
+classes whose saved-source inheritance chain reaches Ray.Di's `AbstractModule` or
+BEAR.Package's `AbstractAppModule`. It recognizes `to`, `toProvider`, `toInstance`,
+`toConstructor`, `toNull`, and untargeted bindings, together with `annotatedWith`
+qualifiers and explicit `in` scope declarations, following Ray.Di 2.x `Bind` method
+signatures; positional and named arguments are both read. Class names and qualifiers must
+be literal strings or statically resolvable `::class` expressions. Static declarations
+remain source facts: providers, constructors, and instance expressions are never executed.
+`$this->bind()` without an argument reports `sourceType` as an empty string, matching
+Ray.Di's default interface.
+
+Each item preserves `state`, `module`, `sourceType`, `targetType`, `reason`, `path`,
+and `byteRange`, and adds:
+
+| Field | Meaning |
+| --- | --- |
+| `kind` | `class`, `provider`, `instance`, `constructor`, `null`, or `untargeted` |
+| `qualifier` | Explicit qualifier, or null when absent/unresolved |
+| `scope` | Declared `in()` scope normalized to `singleton` or `prototype`, or null when absent/unresolved |
+| `valueType` | For instance bindings, a PHP `gettype()` name (`string`, `integer`, `double`, `boolean`, `NULL`, `array`, `object`) fixed by the expression form alone: literals, `::class`, explicit casts, or `new`; otherwise null |
+
+The `kind` values are stable protocol identifiers, not user-facing Ray.Di terminology.
+In a Japanese display, label `class` as **リンク束縛** (`to()`), `provider` as
+**プロバイダー束縛** (`toProvider()`), `instance` as **インスタンス束縛**
+(`toInstance()`), `constructor` as **コンストラクター束縛** (`toConstructor()`),
+`null` as **Nullオブジェクト束縛** (`toNull()`), and `untargeted` as
+**アンターゲット束縛** (a concrete-class `bind()` without a target method).
+**束縛アトリビュート** (`annotatedWith()` / `#[Named]`) and scope (`in()`)
+are additional properties of a binding, not alternative `kind` values.
+Ray.Di's **コンテキストプロバイダー束縛** specifies a context argument to
+`toProvider()`; it is distinct from the BEAR.Sunday application context selected
+by this query's `applicationContext` parameter. Multibindings and built-in
+bindings are not claimed as complete by this direct `bind()` inventory.
+
+A `resolved` state means the declaration's supported syntax was read, not that the
+runtime dependency resolves. Instance and constructor argument expressions are not
+returned; `toInstance()` exposes only the expression's known type, when available.
+`scope` records the declared `in()` argument only; omitted scope does not establish a
+runtime scope. Accepted scope forms are the `Ray\Di\Scope::SINGLETON`/`PROTOTYPE`
+constants (resolved through `use` imports) and the exact literals `'Singleton'`/`'Prototype'`.
+The provider `context` and the `toConstructor()` `postConstruct` arguments are checked for
+static readability but are not reported as separate fields.
+
+Inspect `reason` on `unresolved` items; known parts remain available. The earliest
+problem in the chain wins:
+
+| Reason | Meaning |
+| --- | --- |
+| `binding_source_not_static` | `bind()` argument is not a literal or `::class` |
+| `binding_chain_unsupported` | The chain calls a method other than the recognized `Bind` methods |
+| `binding_multiple_targets` | More than one target method in one chain |
+| `binding_operation_repeated` | `annotatedWith()` or `in()` called twice |
+| `binding_qualifier_after_target` | `annotatedWith()` follows the target; Ray.Di has already registered the unqualified binding |
+| `binding_scope_before_target` | `in()` precedes the target; Ray.Di discards that scope when the target is set |
+| `binding_arguments_unsupported` | Spread, unknown named, surplus, or missing required arguments |
+| `binding_qualifier_not_static` | `annotatedWith()` argument is not a literal or `::class` |
+| `binding_scope_not_static` | `in()` argument is neither a literal nor a `Ray\Di\Scope` constant |
+| `binding_scope_unknown` | `in()` literal is not exactly `Singleton` or `Prototype` |
+| `binding_target_not_static` | Target class or provider is not a non-empty literal or `::class` |
+| `binding_provider_context_not_static` | `toProvider()` context is not a literal |
+| `binding_constructor_arguments_not_static` | `toConstructor()` name mapping is not a literal string or literal string array |
+| `binding_constructor_injection_points_not_static` | `toConstructor()` receives `InjectionPoints` other than literal `null` |
+| `binding_constructor_post_construct_not_static` | `toConstructor()` `postConstruct` is neither a literal nor `null` |
+| `binding_untargeted_type_missing` | `bind()` without a type and without a target |
+
+Null item members may be omitted by the stdio transport.
+
+Without `applicationContext`, the result is a project-wide declaration inventory.
+With a literal context such as `dev-html-app`, it is restricted to workspace modules
+selected by BEAR.Package's context naming convention, project-local inheritance,
+and statically named `install()`/`override()` edges. Vendor-only context segments and
+dynamic module expressions are omitted from this inventory rather than guessed; their
+boundaries are visible in `bear/di/moduleGraph`. The query does not apply override
+precedence, expand providers, multibindings, or assisted injection, or establish which
+binding wins. The query does not execute Modules or create a container.
 
 `bear/aop/pointcuts` inventories static `bindInterceptor` and
-`bindPriorityInterceptor` declarations from the same module sources. It preserves the
+`bindPriorityInterceptor` declarations from the same module sources and accepts the
+same optional `applicationContext` scope. It preserves the
 supported Ray.Aop matcher syntax as a structured tree: `any`, `annotatedWith`,
 `subclassesOf`, `startsWith`, `logicalOr`, `logicalAnd`, and `logicalNot`. Static
 interceptor arrays are reported without instantiating them. The query does not evaluate
 the matcher against project classes or claim that interception is active or woven.
 Dynamic and unsupported arguments are retained as reasoned `unresolved` entries.
+
+`bear/di/moduleGraph` accepts an optional literal `applicationContext`. With one, it returns the
+existing saved-source context graph: segments expose both application and BEAR.Package candidates;
+workspace roots are followed through project-local inheritance and statically named
+`install()`/`override()` calls. External targets and dynamic expressions remain visible as bounded
+edges instead of being guessed. Without a context, it returns `view: workspace_source_map`: all
+workspace Ray Module candidates in deterministic FQCN/path order, with `extends`/`install`/`override`
+edges, class source location, and direct source call-site counts for bindings and interceptors.
+The unscoped result is capped at 300 module nodes and 1,200 edges; `coverage.totalModules`,
+`coverage.totalEdges`, and `truncated` show when those output caps apply. Use each node's
+`declarationsRequest` and exact `module` name to open `bear/di/moduleDeclarations`. In either view,
+vendor modules are not expanded, dynamic edges remain unknown, control flow and precedence are not
+evaluated, and no runtime container is built.
+
+`bear/di/moduleDeclarations` requires an exact Module FQCN and lists that workspace Module's direct
+`bind()` and interceptor declarations with source locations. `applicationContext` is optional:
+without it, the result is a source-only view; with it, `contextMembership` overlays the static module
+graph. `not_observed_in_workspace_graph` does not prove the Module is excluded, since vendor modules
+and dynamic edges are not expanded; unresolved graph edges produce `unknown`. Binding and pointcut
+inventories each apply the same `limit` and `offset` independently, so a response may contain up to
+twice `limit` items. Each category has its own total and truncation status. Binding facts are a safe
+projection and never include source expressions or constructor argument values. Winner resolution is
+not joined; use `bear/di/bindingLookup` for source-selected binding evidence. Source structure and
+context-selected membership remain separate facts, not a runtime container view.
+
+`bear/attribute/catalog` discovers available PHP attribute definitions independently of their
+usage. Optional context evaluation adds AOP condition references, not proof of application.
+`bear/aop/applications` requires a context and reports source-matched Resource `on*` handlers (or an explicitly named public method) and
+interceptor order under the reported PHP-attribute model, following source-selected DI class
+replacements. Both requests are bounded, never execute application PHP, and preserve unknowns.
+Catalog constructor defaults are omitted. Read the [DI/AOP inspection boundaries](di-inspection.md)
+before interpreting source matches as behavior. These requests advertise `attributeCatalog`
+and `aopApplications` capabilities and use limits of 1–100 (default 50), with nonnegative offsets.
+
+For AOP results, `unknownSummary` explains the legacy occurrence totals:
+
+- `unknownTotal = compositionOccurrences + resourceOccurrences + applicationOccurrences`.
+- `unresolvedPointcutTotal = unresolvedPointcutRegistrations + applicationOccurrences`.
+- `resourceMethodsEvaluated` counts methods evaluated before interceptor/attribute filters;
+  `filterMatchedMethods` and `filterMatchedApplicationOccurrences` describe matching rows
+  before result pagination. URI and method filters already restrict the evaluation scope.
+- `groups.items` groups occurrences by scope, reason and declaration location, independently
+  of the 100-entry raw unknown list. Inspect `groups.total` and `groups.truncated`.
+  An application group's `affectedMethodCount` counts distinct Resource methods;
+  `composedRegistrations` counts all composed pointcuts at that declaration location, before
+  annotation-key replacement. These numbers are not counts of distinct application defects.
+
+`bear/app/contexts` lists source-declared context candidates and their entry-point locations.
+It never selects a context or asserts runtime usage. Inspect `scanTruncated`, `skippedFiles`,
+`unresolvedTotal` and per-item `sourcesTruncated` before treating the list as complete.
+It recognizes BEAR.Package Injector calls and Compiler Bootstrap invocation, with context
+in the second positional argument or named `context` argument. Limited static, single-return
+Injector wrappers are also recognized for positional callers; inspect `coverage.wrapperResolution`.
+`getOverrideInstance()` contributes context candidates only. Its extra Module is not applied
+to a context-only lookup (`coverage.overrideModulesApplied: false`).
+
+`bear/di/bindingLookup` requires `applicationContext`; it returns selected binding candidates
+and local retained/discarded decisions, with declaration paths/lines and module import paths.
+`type` and `name` are optional exact filters (empty strings select scalar types/unqualified names).
+`overridesOnly` selects conflicting declarations; `resourcesOnly` selects known Resource
+subclasses in the key, selected target or discarded target. Filtering precedes pagination.
+Every item is `provisional` if composition has any unknown; `source_selected` is selection under
+supported source rules, never a runtime observation. Empty results do not prove unboundness.
+`decisionTotal`/`decisionsTruncated` and `unknownTotal`/`unknownsTruncated` describe independent
+bounds. Raw instance values and source expressions are not returned. See [DI inspection](di-inspection.md)
+for coverage, context handling, archive branches and the AOP work that remains.
+
+`bear/di/container` composes the container that BEAR.Package would build for a literal
+`applicationContext`, from saved source only. Unlike the inventories above it reads the
+workspace's installed vendor modules as data: Composer autoload metadata is read from
+`composer.json` and `vendor/composer/installed.json` (never `vendor/autoload.php`), and
+module classes are interpreted, not loaded. Composition follows Ray.Di 2.23 write semantics
+(`bind()` replaces, `install()` and module chaining keep the existing binding, `override()`
+lets the overriding module win, `rename()` moves an index) and the BEAR.Package composition
+root named in `coverage.compositionRecipe`. Files outside the workspace root, including
+Composer path repositories that resolve outside it, are not read.
+
+Each item carries `index` (`type-name`, as Ray.Di keys it), `type`, `name`, `kind`
+(`dependency`, `untargeted`, `provider`, `null_object`, `object`, or a `gettype()` name for
+instances), `target`, and the owning `module`. Instance values are never evaluated: a value
+known only at runtime keeps its type when the source fixes it (for example a string cast)
+and is otherwise reported with kind `unknown`.
+`events` counts bind, replace, keep, and move writes; `modules` counts current owners.
+`unknowns` lists every place the interpreter stopped instead of guessing, with a reason,
+path, and line — typically a branch whose condition depends on an environment value.
+An optional `environment` object is an explicit environment profile: `getenv()` returns the
+listed string values and `false` for every other variable, so branches that depend on the
+environment can be decided the way one deployment would decide them. Without it,
+environment values stay unknown. Environment files such as `.env` or `env.json` are never read.
+`coverage.aopWeavingResolved` is false: AOP-woven class names depend on file modification
+times and the runtime temporary directory, so they are not reproduced. The composition is
+not the runtime container and does not prove that dependencies resolve.
 
 Both inventories filter before stable offset pagination, return at most 100 items per
 page, and use the same approximate serialized-byte budget as other project reports.
@@ -289,8 +450,15 @@ load module PHP, construct a DI container, or execute the application.
 | `bear/project/info` | `{contextPath?}` | `{semanticApiVersion, semanticProtocol, requests, workspaceName, projectPath, composerPath, psr4Roots, excludedPsr4Roots, resourceCount, capabilities, versions, compatibilityIssues}` |
 | `bear/project/diagnostics` | `{contextPath?, limit?, offset?}` | `{items, total, offset, truncated, scannedFiles, scannedResources, resourceScanTruncated, skippedChecks}` |
 | `bear/project/contractCoverage` | `{contextPath?, limit?, offset?, gapsOnly?, scheme?}` | `{items, total, matchingTotal, offset, truncated, gapsOnly, scheme, scannedResources, analyzedResources, resourceScanTruncated, summary}` |
-| `bear/di/bindings` | `{contextPath?, type?, limit?, offset?}` | `{items, total, offset, truncated, scannedModules, unresolved, filter}` |
-| `bear/aop/pointcuts` | `{contextPath?, interceptor?, limit?, offset?}` | `{items, total, offset, truncated, scannedModules, unresolved, filter}` |
+| `bear/di/bindings` | `{contextPath?, type?, limit?, offset?, applicationContext?}` | `{items, total, offset, truncated, scannedModules, unresolved, type, applicationContext}` |
+| `bear/di/moduleGraph` | `{applicationContext?, contextPath?}` | `{view?, applicationContext, segments, modules, edges, truncated, coverage}` |
+| `bear/di/moduleDeclarations` | `{module, applicationContext?, contextPath?, limit?, offset?}` | `{applicationContext, module, contextMembership, bindings, pointcuts, bindingSelection, coverage}` |
+| `bear/app/contexts` | `{contextPath?, limit?, offset?}` | `{items, total, offset, truncated, selectedContext, scannedFiles, skippedFiles, scanTruncated, unresolved, unresolvedTotal, unresolvedTruncated, coverage}` |
+| `bear/di/bindingLookup` | `{applicationContext, type?, name?, contextPath?, limit?, offset?, overridesOnly?, resourcesOnly?, environment?}` | `{applicationContext, type, name, overridesOnly, resourcesOnly, items, total, offset, truncated, unknowns, unknownTotal, unknownsTruncated, coverage}` |
+| `bear/di/container` | `{applicationContext, contextPath?, limit?, offset?, environment?}` | `{applicationContext, appName, items, total, offset, truncated, events, modules, unknowns, coverage}` |
+| `bear/aop/pointcuts` | `{contextPath?, interceptor?, limit?, offset?, applicationContext?}` | `{items, total, offset, truncated, scannedModules, unresolved, interceptor, applicationContext}` |
+| `bear/aop/applications` | `{applicationContext, uri?, interceptor?, attribute?, method?, contextPath?, limit?, offset?}` | `{applicationContext, items, total, offset, truncated, unknowns, unknownTotal, unresolvedPointcutTotal, coverage}` |
+| `bear/attribute/catalog` | `{applicationContext?, attribute?, contextPath?, limit?, offset?}` | `{applicationContext, items, total, offset, truncated, scannedFiles, skippedFiles, scanTruncated, unknowns, unknownTotal, coverage}` |
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
 | `bear/resource/list` | `{scheme?, prefix?, limit?, offset?}` | `{resources, total, offset, truncated}` |
 | `bear/resource/describe` | `{uri, contextPath?, incomingLimit?}` | `{resource, methods[{name, parameters, responseBody}], relationsOut, relationsOutCoverage, referencesOut, referencesOutCoverage, relationsIn, templates, schemas}` |

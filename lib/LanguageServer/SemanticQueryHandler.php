@@ -6,6 +6,8 @@ namespace Suzumaze\BearPhpactor\LanguageServer;
 
 use Amp\Promise;
 use Amp\Success;
+use Suzumaze\BearPhpactor\Semantic\Aop\AopApplicationsQuery;
+use Suzumaze\BearPhpactor\Semantic\Attribute\AttributeCatalogQuery;
 use Suzumaze\BearPhpactor\Semantic\Aop\AopPointcutFact;
 use Suzumaze\BearPhpactor\Semantic\Aop\AopPointcutInventory;
 use Suzumaze\BearPhpactor\Semantic\Aop\AopPointcutQuery;
@@ -19,6 +21,14 @@ use Suzumaze\BearPhpactor\Semantic\Contract\ContractComparisonQuery;
 use Suzumaze\BearPhpactor\Semantic\Di\DiBindingFact;
 use Suzumaze\BearPhpactor\Semantic\Di\DiBindingInventory;
 use Suzumaze\BearPhpactor\Semantic\Di\DiBindingQuery;
+use Suzumaze\BearPhpactor\Semantic\Di\Composition\BearPackageComposition;
+use Suzumaze\BearPhpactor\Semantic\Di\ContextModuleGraph;
+use Suzumaze\BearPhpactor\Semantic\Di\ContextModuleGraphQuery;
+use Suzumaze\BearPhpactor\Semantic\Di\DiContainerComposition;
+use Suzumaze\BearPhpactor\Semantic\Di\DiContainerQuery;
+use Suzumaze\BearPhpactor\Semantic\Di\DiBindingLookupQuery;
+use Suzumaze\BearPhpactor\Semantic\Di\DiModuleDeclarationsQuery;
+use Suzumaze\BearPhpactor\Semantic\App\AppContextListQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverage;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverageItem;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverageQuery;
@@ -104,6 +114,11 @@ final class SemanticQueryHandler implements Handler
         private ContractCoverageQuery $contractCoverageQuery = new ContractCoverageQuery(),
         private DiBindingQuery $diBindingQuery = new DiBindingQuery(),
         private AopPointcutQuery $aopPointcutQuery = new AopPointcutQuery(),
+        private ContextModuleGraphQuery $contextModuleGraphQuery = new ContextModuleGraphQuery(),
+        private DiModuleDeclarationsQuery $diModuleDeclarationsQuery = new DiModuleDeclarationsQuery(),
+        private DiContainerQuery $diContainerQuery = new DiContainerQuery(),
+        private DiBindingLookupQuery $diBindingLookupQuery = new DiBindingLookupQuery(),
+        private AppContextListQuery $appContextListQuery = new AppContextListQuery(),
     ) {
         $this->workspace = WorkspaceContext::fromRoot($workspaceRoot);
         $this->resourceFactsQuery = $resourceFactsQuery;
@@ -139,7 +154,14 @@ final class SemanticQueryHandler implements Handler
             'bear/schema/describeNamed' => 'describeNamedSchema',
             'bear/schema/describeForResource' => 'describeResourceSchema',
             'bear/di/bindings' => 'inspectDiBindings',
+            'bear/di/moduleGraph' => 'inspectDiModuleGraph',
+            'bear/di/moduleDeclarations' => 'inspectDiModuleDeclarations',
+            'bear/di/container' => 'inspectDiContainer',
+            'bear/app/contexts' => 'listAppContexts',
+            'bear/di/bindingLookup' => 'lookupDiBinding',
             'bear/aop/pointcuts' => 'inspectAopPointcuts',
+            'bear/aop/applications' => 'listAopApplications',
+            'bear/attribute/catalog' => 'listAttributeCatalog',
         ];
     }
 
@@ -541,10 +563,18 @@ final class SemanticQueryHandler implements Handler
         ?string $contextPath = null,
         int $limit = DiBindingQuery::DEFAULT_LIMIT,
         int $offset = 0,
+        ?string $applicationContext = null,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
-                $this->diBindingQuery->listInWorkspace($workspace, $type, $contextPath, $limit, $offset),
+                $this->diBindingQuery->listInWorkspace(
+                    $workspace,
+                    $type,
+                    $contextPath,
+                    $limit,
+                    $offset,
+                    $applicationContext,
+                ),
             fn (DiBindingInventory $inventory): array => [
                 'items' => array_map($this->diBindingData(...), $inventory->items),
                 'total' => $inventory->total,
@@ -553,6 +583,227 @@ final class SemanticQueryHandler implements Handler
                 'scannedModules' => $inventory->scannedModules,
                 'unresolved' => $inventory->unresolved,
                 'type' => $inventory->type,
+                'applicationContext' => $applicationContext,
+            ],
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function inspectDiModuleGraph(
+        ?string $applicationContext = null,
+        ?string $contextPath = null,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->contextModuleGraphQuery->describeInWorkspace(
+                    $workspace,
+                    $applicationContext,
+                    $contextPath,
+                ),
+            fn (ContextModuleGraph $graph): array => [
+                ...($graph->workspaceSourceMap ? ['view' => 'workspace_source_map'] : []),
+                'applicationContext' => $graph->applicationContext,
+                'segments' => array_map(static fn ($root): array => [
+                    'segment' => $root->segment,
+                    'priority' => $root->priority,
+                    'candidates' => $root->candidates,
+                    'selected' => $root->selected,
+                    'state' => $root->state,
+                ], $graph->segments),
+                'modules' => array_map(static function ($module) use ($graph): array {
+                    $data = [
+                        'module' => $module->module,
+                        'parent' => $module->parent,
+                        'path' => $module->path,
+                    ];
+                    if ($graph->workspaceSourceMap) {
+                        $data = [
+                            ...$data,
+                            ...($graph->moduleMetadata[$module->module] ?? []),
+                            'declarationsRequest' => 'bear/di/moduleDeclarations',
+                        ];
+                    }
+
+                    return $data;
+                }, $graph->modules),
+                'edges' => array_map(static fn ($edge): array => [
+                    'source' => $edge->source,
+                    'target' => $edge->target,
+                    'kind' => $edge->kind,
+                    'state' => $edge->state,
+                    'reason' => $edge->reason,
+                    'path' => $edge->path,
+                    'byteRange' => [
+                        'start' => $edge->byteStart,
+                        'end' => $edge->byteEnd,
+                    ],
+                ], $graph->edges),
+                'truncated' => $graph->truncated,
+                'coverage' => [
+                    ...($graph->workspaceSourceMap ? [
+                        'mode' => 'bounded_workspace_source_map',
+                        'totalModules' => $graph->totalModules,
+                        'totalEdges' => $graph->totalEdges,
+                        'moduleLimit' => 300,
+                        'edgeLimit' => 1200,
+                    ] : []),
+                    'source' => 'saved_workspace_source',
+                    'vendorModulesExpanded' => false,
+                    'dynamicEdgesExpanded' => false,
+                    'controlFlowEvaluated' => false,
+                    'precedenceResolved' => false,
+                    'runtimeContainerConstructed' => false,
+                ],
+            ],
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function inspectDiModuleDeclarations(
+        string $module,
+        ?string $applicationContext = null,
+        ?string $contextPath = null,
+        int $limit = DiModuleDeclarationsQuery::DEFAULT_LIMIT,
+        int $offset = 0,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->diModuleDeclarationsQuery->listInWorkspace(
+                    $workspace,
+                    $module,
+                    $applicationContext,
+                    $contextPath,
+                    $limit,
+                    $offset,
+                ),
+            static fn (array $data): array => $data,
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function listAppContexts(?string $contextPath = null, int $limit = 50, int $offset = 0): Promise
+    {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->appContextListQuery->listInWorkspace($workspace, $contextPath, $limit, $offset),
+            static fn (array $data): array => $data,
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function lookupDiBinding(
+        string $applicationContext,
+        ?string $type = null,
+        ?string $name = null,
+        ?string $contextPath = null,
+        int $limit = 50,
+        int $offset = 0,
+        bool $overridesOnly = false,
+        bool $resourcesOnly = false,
+        ?array $environment = null,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult => $this->diBindingLookupQuery->lookupInWorkspace(
+                $workspace,
+                $applicationContext,
+                $type,
+                $name,
+                $contextPath,
+                $limit,
+                $offset,
+                $overridesOnly,
+                $resourcesOnly,
+                $environment,
+            ),
+            static fn (array $data): array => $data,
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function listAopApplications(
+        string $applicationContext,
+        ?string $uri = null,
+        ?string $interceptor = null,
+        ?string $attribute = null,
+        ?string $method = null,
+        ?string $contextPath = null,
+        int $limit = 50,
+        int $offset = 0,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult => (new AopApplicationsQuery())->listInWorkspace(
+                $workspace,
+                $applicationContext,
+                $uri,
+                $interceptor,
+                $attribute,
+                $method,
+                $contextPath,
+                $limit,
+                $offset,
+            ),
+            static fn (array $data): array => $data,
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function listAttributeCatalog(
+        ?string $applicationContext = null,
+        ?string $attribute = null,
+        ?string $contextPath = null,
+        int $limit = 50,
+        int $offset = 0,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult => (new AttributeCatalogQuery())->listInWorkspace(
+                $workspace,
+                $applicationContext,
+                $attribute,
+                $contextPath,
+                $limit,
+                $offset,
+            ),
+            static fn (array $data): array => $data,
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
+    public function inspectDiContainer(
+        string $applicationContext,
+        ?string $contextPath = null,
+        int $limit = DiContainerQuery::DEFAULT_LIMIT,
+        int $offset = 0,
+        ?array $environment = null,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->diContainerQuery->composeInWorkspace(
+                    $workspace,
+                    $applicationContext,
+                    $contextPath,
+                    $limit,
+                    $offset,
+                    $environment,
+                ),
+            fn (DiContainerComposition $composition): array => [
+                'applicationContext' => $composition->applicationContext,
+                'appName' => $composition->appName,
+                'items' => $composition->items,
+                'total' => $composition->total,
+                'offset' => $composition->offset,
+                'truncated' => $composition->truncated,
+                'events' => $composition->events,
+                'modules' => $composition->modules,
+                'unknowns' => $composition->unknowns,
+                'coverage' => [
+                    'source' => 'saved_workspace_and_vendor_source',
+                    'vendorModulesExpanded' => true,
+                    'compositionRecipe' => BearPackageComposition::RECIPE_STEPS,
+                    'runtimeValuesEvaluated' => false,
+                    'environmentProfile' => $environment !== null,
+                    'aopWeavingResolved' => false,
+                    'runtimeContainerConstructed' => false,
+                ],
             ],
         ));
     }
@@ -563,10 +814,18 @@ final class SemanticQueryHandler implements Handler
         ?string $contextPath = null,
         int $limit = AopPointcutQuery::DEFAULT_LIMIT,
         int $offset = 0,
+        ?string $applicationContext = null,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
-                $this->aopPointcutQuery->listInWorkspace($workspace, $interceptor, $contextPath, $limit, $offset),
+                $this->aopPointcutQuery->listInWorkspace(
+                    $workspace,
+                    $interceptor,
+                    $contextPath,
+                    $limit,
+                    $offset,
+                    $applicationContext,
+                ),
             fn (AopPointcutInventory $inventory): array => [
                 'items' => array_map($this->aopPointcutData(...), $inventory->items),
                 'total' => $inventory->total,
@@ -575,6 +834,7 @@ final class SemanticQueryHandler implements Handler
                 'scannedModules' => $inventory->scannedModules,
                 'unresolved' => $inventory->unresolved,
                 'interceptor' => $inventory->interceptor,
+                'applicationContext' => $applicationContext,
             ],
         ));
     }
@@ -672,6 +932,10 @@ final class SemanticQueryHandler implements Handler
             'module' => $binding->module,
             'sourceType' => $binding->sourceType,
             'targetType' => $binding->targetType,
+            'kind' => $binding->kind,
+            'qualifier' => $binding->qualifier,
+            'scope' => $binding->scope,
+            'valueType' => $binding->valueType,
             'reason' => $binding->reason,
             'path' => $binding->path,
             'byteRange' => [

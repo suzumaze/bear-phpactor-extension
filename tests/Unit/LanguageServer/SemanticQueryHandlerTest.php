@@ -607,8 +607,8 @@ final class SemanticQueryHandlerTest extends TestCase
 
         $bindings = wait($handler->inspectDiBindings(limit: 1));
         self::assertSame('ok', $bindings['status']);
-        self::assertSame(3, $bindings['data']['total']);
-        self::assertSame(2, $bindings['data']['unresolved']);
+        self::assertSame(30, $bindings['data']['total']);
+        self::assertSame(16, $bindings['data']['unresolved']);
         self::assertTrue($bindings['data']['truncated']);
         self::assertSame('resolved', $bindings['data']['items'][0]['state']);
         self::assertSame('src/Module/AppModule.php', $bindings['data']['items'][0]['path']);
@@ -651,7 +651,14 @@ final class SemanticQueryHandlerTest extends TestCase
             'bear/schema/describeNamed' => 'describeNamedSchema',
             'bear/schema/describeForResource' => 'describeResourceSchema',
             'bear/di/bindings' => 'inspectDiBindings',
+            'bear/di/moduleGraph' => 'inspectDiModuleGraph',
+            'bear/di/moduleDeclarations' => 'inspectDiModuleDeclarations',
+            'bear/di/container' => 'inspectDiContainer',
+            'bear/app/contexts' => 'listAppContexts',
+            'bear/di/bindingLookup' => 'lookupDiBinding',
             'bear/aop/pointcuts' => 'inspectAopPointcuts',
+            'bear/aop/applications' => 'listAopApplications',
+            'bear/attribute/catalog' => 'listAttributeCatalog',
         ], (new SemanticQueryHandler(self::fixtureDir()))->methods());
     }
 

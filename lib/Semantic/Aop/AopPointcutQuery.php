@@ -12,6 +12,7 @@ use Microsoft\PhpParser\Node\Expression\MemberAccessExpression;
 use Microsoft\PhpParser\Node\Expression\Variable;
 use Microsoft\PhpParser\Node\StringLiteral;
 use Microsoft\PhpParser\Token;
+use Suzumaze\BearPhpactor\Semantic\Di\ContextModuleSelector;
 use Suzumaze\BearPhpactor\Semantic\Di\RayModuleCall;
 use Suzumaze\BearPhpactor\Semantic\Di\RayModuleScanner;
 use Suzumaze\BearPhpactor\Semantic\Di\RayModuleSource;
@@ -30,6 +31,7 @@ final readonly class AopPointcutQuery
 
     public function __construct(
         private RayModuleScanner $moduleScanner = new RayModuleScanner(),
+        private ContextModuleSelector $contextModuleSelector = new ContextModuleSelector(),
     ) {
     }
 
@@ -40,8 +42,17 @@ final readonly class AopPointcutQuery
         ?string $contextPath = null,
         int $limit = self::DEFAULT_LIMIT,
         int $offset = 0,
+        ?string $applicationContext = null,
+        ?string $module = null,
     ): SemanticResult {
-        if ($limit < 1 || $limit > self::MAX_LIMIT || $offset < 0 || $interceptor === '') {
+        if (
+            $limit < 1
+            || $limit > self::MAX_LIMIT
+            || $offset < 0
+            || $interceptor === ''
+            || $applicationContext === ''
+            || $module === ''
+        ) {
             return SemanticResult::invalidInput();
         }
         $project = $workspace->project($contextPath);
@@ -49,19 +60,27 @@ final readonly class AopPointcutQuery
             return SemanticResult::failure($project->status);
         }
         $interceptor = $interceptor === null ? null : ltrim($interceptor, '\\');
+        $module = $module === null ? null : ltrim($module, '\\');
         $items = [];
         $modules = 0;
-        foreach ($this->moduleScanner->scan($workspace, $project->value) as $module) {
+        $moduleSources = iterator_to_array($this->moduleScanner->scan($workspace, $project->value), false);
+        if ($applicationContext !== null) {
+            $moduleSources = $this->contextModuleSelector->select($moduleSources, $applicationContext);
+        }
+        foreach ($moduleSources as $moduleSource) {
             ++$modules;
-            foreach ($module->declaration->getDescendantNodes() as $node) {
+            if ($module !== null && strcasecmp($moduleSource->module, $module) !== 0) {
+                continue;
+            }
+            foreach ($moduleSource->declaration->getDescendantNodes() as $node) {
                 if (!$node instanceof CallExpression) {
                     continue;
                 }
-                $priority = RayModuleCall::isThisMethod($node, 'bindPriorityInterceptor', $module->contents);
-                if (!$priority && !RayModuleCall::isThisMethod($node, 'bindInterceptor', $module->contents)) {
+                $priority = RayModuleCall::isThisMethod($node, 'bindPriorityInterceptor', $moduleSource->contents);
+                if (!$priority && !RayModuleCall::isThisMethod($node, 'bindInterceptor', $moduleSource->contents)) {
                     continue;
                 }
-                $fact = $this->pointcut($module, $node, $priority);
+                $fact = $this->pointcut($moduleSource, $node, $priority);
                 if ($interceptor !== null && !in_array($interceptor, $fact->interceptors, true)) {
                     continue;
                 }

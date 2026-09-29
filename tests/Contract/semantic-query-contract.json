@@ -280,10 +280,169 @@
                 {"name": "type", "type": "string|null", "required": false, "default": null},
                 {"name": "contextPath", "type": "string|null", "required": false, "default": null},
                 {"name": "limit", "type": "int", "required": false, "default": 50},
+                {"name": "offset", "type": "int", "required": false, "default": 0},
+                {"name": "applicationContext", "type": "string|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["items", "total", "offset", "truncated", "scannedModules", "unresolved", "type", "applicationContext"],
+            "successItemKeys": ["state", "module", "sourceType", "targetType", "kind", "qualifier", "scope", "valueType", "reason", "path", "byteRange"]
+        },
+        "bear/di/moduleGraph": {
+            "handler": "inspectDiModuleGraph",
+            "parameters": [
+                {"name": "applicationContext", "type": "string|null", "required": false, "default": null},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["applicationContext", "segments", "modules", "edges", "truncated", "coverage"],
+            "sourceMapSuccessDataKeys": ["view", "applicationContext", "segments", "modules", "edges", "truncated", "coverage"],
+            "sourceMapModuleKeys": ["module", "parent", "path", "line", "bindingDeclarations", "interceptorDeclarations", "declarationsRequest"]
+        },
+        "bear/di/moduleDeclarations": {
+            "handler": "inspectDiModuleDeclarations",
+            "parameters": [
+                {"name": "module", "type": "string", "required": true},
+                {"name": "applicationContext", "type": "string|null", "required": false, "default": null},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null},
+                {"name": "limit", "type": "int", "required": false, "default": 50},
                 {"name": "offset", "type": "int", "required": false, "default": 0}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["items", "total", "offset", "truncated", "scannedModules", "unresolved", "type"]
+            "successDataKeys": ["applicationContext", "module", "contextMembership", "bindings", "pointcuts", "bindingSelection", "coverage"]
+        },
+        "bear/di/container": {
+            "handler": "inspectDiContainer",
+            "parameters": [
+                {"name": "applicationContext", "type": "string", "required": true},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null},
+                {"name": "limit", "type": "int", "required": false, "default": 50},
+                {"name": "offset", "type": "int", "required": false, "default": 0},
+                {"name": "environment", "type": "array|null", "required": false, "default": null}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["applicationContext", "appName", "items", "total", "offset", "truncated", "events", "modules", "unknowns", "coverage"]
+        },
+        "bear/app/contexts": {
+            "handler": "listAppContexts",
+            "parameters": [
+                {
+                    "name": "contextPath",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "limit",
+                    "type": "int",
+                    "required": false,
+                    "default": 50
+                },
+                {
+                    "name": "offset",
+                    "type": "int",
+                    "required": false,
+                    "default": 0
+                }
+            ],
+            "successEnvelopeKeys": [
+                "status",
+                "data",
+                "candidates",
+                "provenance"
+            ],
+            "successDataKeys": [
+                "items",
+                "total",
+                "offset",
+                "truncated",
+                "selectedContext",
+                "scannedFiles",
+                "skippedFiles",
+                "scanTruncated",
+                "unresolved",
+                "unresolvedTotal",
+                "unresolvedTruncated",
+                "coverage"
+            ]
+        },
+        "bear/di/bindingLookup": {
+            "handler": "lookupDiBinding",
+            "parameters": [
+                {
+                    "name": "applicationContext",
+                    "type": "string",
+                    "required": true
+                },
+                {
+                    "name": "type",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "name",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "contextPath",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "limit",
+                    "type": "int",
+                    "required": false,
+                    "default": 50
+                },
+                {
+                    "name": "offset",
+                    "type": "int",
+                    "required": false,
+                    "default": 0
+                },
+                {
+                    "name": "overridesOnly",
+                    "type": "bool",
+                    "required": false,
+                    "default": false
+                },
+                {
+                    "name": "resourcesOnly",
+                    "type": "bool",
+                    "required": false,
+                    "default": false
+                },
+                {
+                    "name": "environment",
+                    "type": "array|null",
+                    "required": false,
+                    "default": null
+                }
+            ],
+            "successEnvelopeKeys": [
+                "status",
+                "data",
+                "candidates",
+                "provenance"
+            ],
+            "successDataKeys": [
+                "applicationContext",
+                "type",
+                "name",
+                "overridesOnly",
+                "resourcesOnly",
+                "items",
+                "total",
+                "offset",
+                "truncated",
+                "unknowns",
+                "unknownTotal",
+                "unknownsTruncated",
+                "coverage"
+            ]
         },
         "bear/aop/pointcuts": {
             "handler": "inspectAopPointcuts",
@@ -291,10 +450,135 @@
                 {"name": "interceptor", "type": "string|null", "required": false, "default": null},
                 {"name": "contextPath", "type": "string|null", "required": false, "default": null},
                 {"name": "limit", "type": "int", "required": false, "default": 50},
-                {"name": "offset", "type": "int", "required": false, "default": 0}
+                {"name": "offset", "type": "int", "required": false, "default": 0},
+                {"name": "applicationContext", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["items", "total", "offset", "truncated", "scannedModules", "unresolved", "interceptor"]
+            "successDataKeys": ["items", "total", "offset", "truncated", "scannedModules", "unresolved", "interceptor", "applicationContext"]
+        },
+        "bear/aop/applications": {
+            "handler": "listAopApplications",
+            "parameters": [
+                {
+                    "name": "applicationContext",
+                    "type": "string",
+                    "required": true
+                },
+                {
+                    "name": "uri",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "interceptor",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "attribute",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "method",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "contextPath",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "limit",
+                    "type": "int",
+                    "required": false,
+                    "default": 50
+                },
+                {
+                    "name": "offset",
+                    "type": "int",
+                    "required": false,
+                    "default": 0
+                }
+            ],
+            "successEnvelopeKeys": [
+                "status",
+                "data",
+                "candidates",
+                "provenance"
+            ],
+            "successDataKeys": [
+                "applicationContext",
+                "items",
+                "total",
+                "offset",
+                "truncated",
+                "unknowns",
+                "unknownTotal",
+                "unresolvedPointcutTotal",
+                "unknownSummary",
+                "coverage"
+            ]
+        },
+        "bear/attribute/catalog": {
+            "handler": "listAttributeCatalog",
+            "parameters": [
+                {
+                    "name": "applicationContext",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "attribute",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "contextPath",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "limit",
+                    "type": "int",
+                    "required": false,
+                    "default": 50
+                },
+                {
+                    "name": "offset",
+                    "type": "int",
+                    "required": false,
+                    "default": 0
+                }
+            ],
+            "successEnvelopeKeys": [
+                "status",
+                "data",
+                "candidates",
+                "provenance"
+            ],
+            "successDataKeys": [
+                "applicationContext",
+                "items",
+                "total",
+                "offset",
+                "truncated",
+                "scannedFiles",
+                "skippedFiles",
+                "scanTruncated",
+                "unknowns",
+                "unknownTotal",
+                "coverage"
+            ]
         }
     }
 }

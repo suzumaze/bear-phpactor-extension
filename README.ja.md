@@ -69,11 +69,36 @@ project全体で集約し、個別itemの失敗を外側のquery statusから分
 直接記述された静的な`$resource`/`$this->resource`呼び出しを`referencesOut`として分けて返します。
 双方の解析範囲はcoverage fieldで機械可読に明示されます。
 
-`bear/di/bindings`は直接記述された静的な`$this->bind(X)->to(Y)`宣言を一覧化し、
+`bear/di/bindings`は静的な`to`、`toProvider`、`toInstance`、`toConstructor`、
+`toNull`、アンターゲット束縛と束縛アトリビュート・スコープ宣言を一覧化し、
 `bear/aop/pointcuts`は静的な`bindInterceptor`宣言とmatcher構文木を一覧化します。
-返すのは保存済みsourceの宣言であり、有効なapplication context、最終的に勝つDI binding、
-評価済みpointcut、runtimeでweaveされた振る舞いではありません。動的または未対応の形式は、
-推測で埋めず理由付きの`unresolved`として残します。
+任意の`applicationContext`（例: `dev-html-app`）を渡すと、保存済みsourceから判定できる
+context規約、継承、静的なModule install経路に参加するworkspace内Moduleへ絞れます。
+これは実行時コンテナの完全な再現ではなく、最終的に勝つDI binding、評価済みpointcut、
+runtimeでweaveされた振る舞いを断定しません。動的または未対応の形式は、推測で埋めず
+理由付きの`unresolved`として残します。
+`bear/di/moduleGraph`は、context未指定ならworkspace内Moduleのソース地図と直接宣言数を返します。
+context指定時は、絞り込みの根拠となるsegment、workspace module、継承、
+静的な`install()`/`override()` edgeを返します。外部またはdynamicなedgeは明示したままにし、
+vendor展開、control flow評価、優先順位、container構築までは断定しません。
+`bear/di/bindings`はModule、provider、constructorを実行せず保存済みsourceを読み、解決不能な箇所を明示します。
+
+`bear/app/contexts`は起動コードに書かれたcontext候補と出典を返し、自動選択しません。
+`bear/di/bindingLookup`は明示したcontextで束縛候補・宣言位置・勝敗の根拠を返します。
+衝突した束縛やResourceだけに絞れます。未解決条件が残る場合は暫定候補として表示します。
+[DI inspection](docs/di-inspection.md)に今回の範囲とAOP側の残作業を記載しています。
+
+DI設定を調べるときは、まずcontextなしの`bear/di/moduleGraph`でModuleの出典を探し、
+該当Moduleを`bear/di/moduleDeclarations`で開けます。各束縛・AOP宣言にはソースの
+pathとlineがあり、エディタでその行に移動できます。contextが必要な問いでは、
+起動コードから見つかった候補を明示して両照会に渡すと、保存済みworkspaceソース上の
+Module組み込み経路が分かります。特定の型の合成履歴は`bear/di/bindingLookup`で調べます。
+Module全体の図や実行時コンテナを前提にしない、質問から出典へ進む手順です。
+
+`bear/di/container`は1つのcontextについてさらに踏み込み、アプリとインストール済みvendorのModuleをデータとして解釈し、
+Ray.Diの合成規則を適用した結果のbindingと所有Moduleを返します。実行時にしか決まらない値と、それに依存する分岐は
+推測せず不明箇所として列挙します。全体Object Graphの生成は別ブランチに退避し、この照会APIには含めません。
+任意の`environment`で環境変数を明示すると、環境に依存する分岐をその前提で決めます。環境変数ファイルは読みません。
 
 IDEは不要です。同梱clientは実際のPhpactor stdio processを起動します。
 

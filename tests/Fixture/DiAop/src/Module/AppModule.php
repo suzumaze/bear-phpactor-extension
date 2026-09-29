@@ -10,12 +10,13 @@ use Acme\DiAop\Interceptor\TraceInterceptor;
 use Acme\DiAop\Service\Clock;
 use Acme\DiAop\Service\ClockInterface;
 use Acme\DiAop\Service\DynamicService;
-use Ray\Di\AbstractModule as Module;
+use BEAR\Package\AbstractAppModule;
 
-final class AppModule extends Module
+class AppModule extends AbstractAppModule
 {
     protected function configure(): void
     {
+        $this->install(new FeatureModule());
         $this->bind(ClockInterface::class)->to(Clock::class);
         $this->bind($dynamicInterface)->to(DynamicService::class);
         $this->bind(ClockInterface::class)->annotatedWith('primary')->to(Clock::class);

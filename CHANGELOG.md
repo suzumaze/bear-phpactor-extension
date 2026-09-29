@@ -6,13 +6,79 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-29
+
+### Fixed
+
+- Resolve exact attribute catalog queries through a bounded Composer definition lookup before
+  falling back to a full bounded scan, preserving read-boundary and incomplete-scan information.
+- Resolve the complete ancestry of already-loaded internal PHP types without autoloading
+  application classes. Attributes implementing an internal interface such as JsonSerializable
+  no longer make unrelated AOP attribute comparisons unnecessarily unresolved.
+- Read context from the second argument of BEAR.Package Injector and Compiler Bootstrap calls.
+  Correct the Bootstrap class and replace invalid entry-point fixtures with actual API signatures;
+  application names must not become context candidates.
+  Discover positional calls through static single-return Injector wrappers, while keeping
+  additional override Modules outside context-only composition.
+
 ### Added
+
+- Statically match parameter attributes for the reviewed Ray.Di AssistedInjectMatcher
+  implementation, gated by its normalized source fingerprint. Preserve unknowns for changed
+  custom implementations, unreadable attribute ancestry and unsupported matcher uses.
+- Explain AOP unknown occurrence counts separately from affected methods and registrations,
+  including counts before and after result filters and bounded groups by declaration source.
+- Add an optional isolated BEAR.Kata integration test comparing static AOP chains and DI
+  selections with the installed Ray.Aop/Ray.Di implementations, plus a verification record.
+- Add `bear/attribute/catalog` for available PHP attribute definitions, source docblocks,
+  target flags, parameter signatures, and optional context-specific AOP condition references.
+  Default argument values are omitted and unsupported consumers remain unknown.
+- Add `bear/aop/applications` for source-matched Resource interceptor chains under an explicit
+  context, with DI class replacements, declaration evidence, ordering-model metadata and
+  unresolved conditions. This does not observe runtime execution or validate weaving.
+
+- Discover saved entry-point context candidates with `bear/app/contexts`, including source
+  locations and incomplete-scan metadata, without automatically choosing a context.
+- Explain source-derived binding selections with `bear/di/bindingLookup`: exact type/qualifier
+  filters, Resource/conflict filters, declaration sites, module import paths and local
+  retained/discarded decisions. Unresolved composition makes selections provisional;
+  instance values are never returned.
+
+- Add `bear/di/container`, composing the Ray.Di container of one BEAR.Package context from
+  saved application and vendor source without executing it. Bindings, owners, and
+  bind/replace/keep/move counts follow Ray.Di 2.23 composition rules; runtime-only values
+  and the branches depending on them are reported as unknowns with their location.
+  The request accepts an explicit `environment` profile to decide environment branches.
+
+- DI declaration facts now preserve qualifiers, providers, instances, constructor
+  bindings, null and untargeted bindings, and explicit scope without executing Modules,
+  following Ray.Di 2.x `Bind` signatures including named arguments. Instance bindings
+  report a statically inferred `valueType`; unreadable or order-sensitive chains remain
+  visible with specific reasons, and transport includes the new facts.
 
 - Resource descriptions now separate declarative Link/Embed `relationsOut` from
   direct static Resource client `referencesOut`, with machine-readable coverage
   for both surfaces.
 
+### Changed
+
+- `bear/di/bindings` and `bear/aop/pointcuts` now discover saved-source module
+  inheritance and accept an optional `applicationContext` scope without constructing
+  the runtime DI container.
+- Add `bear/di/moduleGraph`, exposing the context segments, workspace inheritance,
+  static module edges, unresolved boundaries, and explicit non-runtime coverage behind
+  context-scoped DI/AOP inventories.
+
 ### Fixed
+
+- Keep DI classmap and directory discovery inside the workspace, including symlinked files.
+- Preserve unknown DI branches through short-circuit and null-coalescing expressions,
+  report unresolved helper-produced module installs and overrides, and leave optional
+  extension availability unknown. Decode PHP string literals without losing namespace
+  separators, and preserve nowdoc contents.
+
+- DI and AOP inventories no longer report interpolated strings or heredocs, such as
+  `annotatedWith("db_$env")`, as static names; they remain unresolved with a reason.
 
 - Project and editor diagnostics now report missing Resource targets only for
   direct static calls through `$resource` or `$this->resource`. URI prefixes,
@@ -192,7 +258,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Invalid, missing, ambiguous, malformed, and outside-workspace inputs return structured
   failure results instead of executing application PHP or exposing exception traces.
 
-[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.9...v0.2.0
 [0.1.9]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.7...v0.1.8
