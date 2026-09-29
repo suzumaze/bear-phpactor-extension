@@ -70,7 +70,7 @@ project全体で集約し、個別itemの失敗を外側のquery statusから分
 双方の解析範囲はcoverage fieldで機械可読に明示されます。
 
 `bear/di/bindings`は静的な`to`、`toProvider`、`toInstance`、`toConstructor`、
-`toNull`、untargeted bindingとqualifier・scope宣言を一覧化し、
+`toNull`、アンターゲット束縛と束縛アトリビュート・スコープ宣言を一覧化し、
 `bear/aop/pointcuts`は静的な`bindInterceptor`宣言とmatcher構文木を一覧化します。
 任意の`applicationContext`（例: `dev-html-app`）を渡すと、保存済みsourceから判定できる
 context規約、継承、静的なModule install経路に参加するworkspace内Moduleへ絞れます。

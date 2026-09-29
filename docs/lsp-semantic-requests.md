@@ -281,6 +281,19 @@ and `byteRange`, and adds:
 | `scope` | Declared `in()` scope normalized to `singleton` or `prototype`, or null when absent/unresolved |
 | `valueType` | For instance bindings, a PHP `gettype()` name (`string`, `integer`, `double`, `boolean`, `NULL`, `array`, `object`) fixed by the expression form alone: literals, `::class`, explicit casts, or `new`; otherwise null |
 
+The `kind` values are stable protocol identifiers, not user-facing Ray.Di terminology.
+In a Japanese display, label `class` as **リンク束縛** (`to()`), `provider` as
+**プロバイダー束縛** (`toProvider()`), `instance` as **インスタンス束縛**
+(`toInstance()`), `constructor` as **コンストラクター束縛** (`toConstructor()`),
+`null` as **Nullオブジェクト束縛** (`toNull()`), and `untargeted` as
+**アンターゲット束縛** (a concrete-class `bind()` without a target method).
+**束縛アトリビュート** (`annotatedWith()` / `#[Named]`) and scope (`in()`)
+are additional properties of a binding, not alternative `kind` values.
+Ray.Di's **コンテキストプロバイダー束縛** specifies a context argument to
+`toProvider()`; it is distinct from the BEAR.Sunday application context selected
+by this query's `applicationContext` parameter. Multibindings and built-in
+bindings are not claimed as complete by this direct `bind()` inventory.
+
 A `resolved` state means the declaration's supported syntax was read, not that the
 runtime dependency resolves. Instance and constructor argument expressions are not
 returned; `toInstance()` exposes only the expression's known type, when available.

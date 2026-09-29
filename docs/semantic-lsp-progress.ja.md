@@ -203,8 +203,8 @@ version交渉やcapability判断に使用しない。
 
 `bear/di/bindings`は、保存済みsourceの継承経路がRay.Di `AbstractModule`または
 BEAR.Package `AbstractAppModule`へ到達するworkspace class内の
-静的な`to`、`toProvider`、`toInstance`、`toConstructor`、`toNull`、untargeted bindingと
-qualifier・scope宣言を一覧化する。`bear/aop/pointcuts`は同じmodule sourceから
+静的な`to`、`toProvider`、`toInstance`、`toConstructor`、`toNull`、アンターゲット束縛と
+束縛アトリビュート・スコープ宣言を一覧化する。`bear/aop/pointcuts`は同じmodule sourceから
 `bindInterceptor`と`bindPriorityInterceptor`の静的宣言を拾い、Ray.Aop matcherを構文木として
 保持する。`applicationContext`を指定した場合は、BEAR.Packageのcontext命名規約、workspace内の継承、
 静的な`install()`/`override()`経路から参加するworkspace moduleへ絞る。これは保存済みsourceの
