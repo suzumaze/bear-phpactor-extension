@@ -70,6 +70,8 @@ final class ModuleInterpreter
 
     private int $depth = 0;
 
+    private ?ObjectValue $currentModule = null;
+
     private ?bool $rebindsMultiBindings = null;
 
     /**
@@ -263,9 +265,13 @@ final class ModuleInterpreter
 
             return new UnknownValue();
         }
+        $previousModule = $this->currentModule;
+        if ($object !== null && $this->isModule($object)) {
+            $this->currentModule = $object;
+        }
+        $frame = new Frame($declaring, $object);
         ++$this->depth;
         try {
-            $frame = new Frame($declaring, $object);
             $this->bindParameters($method, $arguments, $frame);
             $body = $method->compoundStatementOrSemicolon;
             if (!$body instanceof CompoundStatementNode) {
@@ -274,16 +280,20 @@ final class ModuleInterpreter
             try {
                 $this->executeStatements($body->statements, $frame);
             } catch (ReturnSignal $return) {
-                return $frame->yields ?? $return->value;
+                return $frame->controlFlowUnknown
+                    ? new UnknownValue(reported: true)
+                    : ($frame->yields ?? $return->value);
             } catch (ThrowSignal) {
                 $this->unknown('throw_reached', $method, $declaring, $object);
 
                 return new UnknownValue();
             }
 
-            return $frame->yields;
+            return $frame->controlFlowUnknown ? new UnknownValue(reported: true) : $frame->yields;
         } finally {
+            $this->finishRetainedBinds($frame);
             --$this->depth;
+            $this->currentModule = $previousModule;
         }
     }
 
@@ -385,7 +395,7 @@ final class ModuleInterpreter
                 $this->evaluate($expression, $frame);
             }
         } finally {
-            $this->finishBinds();
+            $this->finishBinds($frame);
             $this->pendingBinds = $outer;
         }
     }
@@ -394,21 +404,38 @@ final class ModuleInterpreter
      * Ray\Di\Bind registers an untargeted binding when the Bind object is destroyed,
      * which for a chained statement is the end of that statement.
      */
-    private function finishBinds(): void
+    private function finishBinds(Frame $frame): void
     {
         $pending = $this->pendingBinds;
         $this->pendingBinds = [];
         foreach ($pending as $bind) {
-            if ($bind->untarget) {
-                $bind->untarget = false;
-                $bind->container->add(
-                    $bind->interface . '-' . $bind->name,
-                    ['kind' => 'dependency', 'target' => $bind->interface],
-                    $bind->source,
-                    $bind->origin,
-                );
+            if (!in_array($bind, $frame->locals, true)) {
+                $this->finishBind($bind);
             }
         }
+    }
+
+    private function finishRetainedBinds(Frame $frame): void
+    {
+        foreach ($frame->locals as $value) {
+            if ($value instanceof BindValue) {
+                $this->finishBind($value);
+            }
+        }
+    }
+
+    private function finishBind(BindValue $bind): void
+    {
+        if (!$bind->untarget) {
+            return;
+        }
+        $bind->untarget = false;
+        $bind->container->add(
+            $bind->interface . '-' . $bind->name,
+            ['kind' => 'dependency', 'target' => $bind->interface],
+            $bind->source,
+            $bind->origin,
+        );
     }
 
     private function ifStatement(IfStatementNode $statement, Frame $frame): void
@@ -425,6 +452,7 @@ final class ModuleInterpreter
                     continue;
                 }
                 $this->unknown('branch_condition_unknown', $statement, $frame->declaring, $frame->object);
+                $frame->controlFlowUnknown = true;
 
                 return;
             }
@@ -708,6 +736,8 @@ final class ModuleInterpreter
             return $this->functionCall($callable, $this->arguments($node, $frame), $node, $frame);
         }
 
+        $this->unknown('callable_unsupported', $node, $frame->declaring, $frame->object);
+
         return new UnknownValue();
     }
 
@@ -743,7 +773,7 @@ final class ModuleInterpreter
         }
         $isStatic = $found[1]->isStatic();
         $result = $this->invoke($found[0], $found[1], $isStatic ? null : $frame->object, $arguments);
-        if ($result instanceof UnknownValue) {
+        if ($result instanceof UnknownValue && !$result->reported) {
             $returns = $this->declaredReturnClass($found[0], $found[1], $class);
             if ($returns !== null) {
                 return new ObjectValue($returns);
@@ -874,6 +904,13 @@ final class ModuleInterpreter
         }
         if (in_array($function, ['array_filter', 'array_map'], true)) {
             // Callbacks are not evaluated; the result is still an array.
+            foreach ($arguments as $argument) {
+                if ($argument instanceof ObjectValue && $argument->class === 'Closure') {
+                    $this->unknown('callback_unsupported', $node, $frame->declaring, $frame->object);
+                    break;
+                }
+            }
+
             return new UnknownValue('array');
         }
         if ($function === 'preg_match') {
@@ -1423,7 +1460,8 @@ final class ModuleInterpreter
 
                     return new UnknownValue('object');
                 }
-                $bind->name = ltrim($first, '\\') === $first ? $first : ltrim($first, '\\');
+                // Ray.Di uses string qualifiers verbatim, including a leading backslash.
+                $bind->name = $first;
 
                 return $bind;
             case 'in':
@@ -1536,15 +1574,18 @@ final class ModuleInterpreter
 
     private function unknown(string $reason, Node $node, ClassSource $declaring, ?ObjectValue $module): void
     {
-        if (!$this->isSubclassOf($declaring->name, self::ABSTRACT_MODULE)) {
-            // Unknowns inside helper classes surface as unknown values where modules use them.
+        // Workspace helpers and traits can change Module bindings. Installed vendor helper
+        // internals are much broader; their unknown return values are reported where a Module
+        // consumes them rather than exposing unrelated assertions and parser internals.
+        if (($module === null || !$this->isModule($module)) && str_starts_with($declaring->path, 'vendor/')) {
             return;
         }
+        $owner = $this->currentModule ?? $module;
         $this->unknowns[] = [
             'reason' => $reason,
             'path' => $declaring->path,
             'line' => $this->lineOf($declaring->contents, $node->getStartPosition()),
-            'module' => $module->class ?? $declaring->name,
+            'module' => $owner === null ? $declaring->name : $owner->class,
         ];
     }
 

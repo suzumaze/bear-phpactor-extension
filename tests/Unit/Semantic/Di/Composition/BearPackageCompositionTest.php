@@ -31,6 +31,7 @@ final class BearPackageCompositionTest extends CompositionTestCase
                 => "provider {$pkg}Provide\\Cache\\CacheDirProvider @{$prod}",
             "{$ro}App\\Admin\\Report-" => "dependency {$ro}App\\Admin\\Report @{$roModule}",
             "{$ro}App\\Advice-" => "dependency {$ro}App\\Advice @{$roModule}",
+            "{$ro}App\\Inheritance-" => "dependency {$ro}App\\Inheritance @{$roModule}",
             "{$ro}App\\Replacement-" => "dependency {$ro}App\\Replacement @{$roModule}",
             "{$ro}App\\User-" => "dependency {$ro}App\\User @{$roModule}",
             "{$ro}Page\\Index-" => "dependency {$ro}Page\\Index @{$roModule}",
@@ -81,6 +82,7 @@ final class BearPackageCompositionTest extends CompositionTestCase
             'keep BEAR\\Sunday\\Extension\\Application\\AppInterface-',
             // ResourceObjectModule: psr4list order (shallow first), then NullPage.
             'bind Acme\\Shop\\Resource\\App\\Advice-',
+            'bind Acme\\Shop\\Resource\\App\\Inheritance-',
             'bind Acme\\Shop\\Resource\\App\\Replacement-',
             'bind Acme\\Shop\\Resource\\App\\User-',
             'bind Acme\\Shop\\Resource\\Page\\Index-',

@@ -8,6 +8,8 @@ use Ray\Di\AbstractModule;
 
 final class ReviewModule extends AbstractModule
 {
+    use ReviewTrait;
+
     protected function configure(): void
     {
     }
@@ -53,5 +55,43 @@ final class ReviewModule extends AbstractModule
     public function overrideHelper(): void
     {
         $this->override(ModuleFactory::choose());
+    }
+
+    public function helperChoice(): void
+    {
+        $this->bind('Service')->to(ReviewHelper::pick());
+    }
+
+    public function closureChoice(): void
+    {
+        $bind = function (): void {
+            $this->bind('Service')->to('Hidden');
+        };
+        $bind();
+    }
+
+    public function arrowChoice(): void
+    {
+        $bind = fn () => $this->bind('Service')->to('Hidden');
+        $bind();
+    }
+
+    public function callbackChoice(): void
+    {
+        array_map(function (): void {
+            $this->bind('Service')->to('Hidden');
+        }, [1]);
+    }
+
+    public function delayedQualifier(): void
+    {
+        $bind = $this->bind('Service');
+        $bind->annotatedWith('qualified');
+        $bind->to('Enabled');
+    }
+
+    public function literalQualifier(): void
+    {
+        $this->bind('Service')->annotatedWith('\\Fx\\Q')->to('Enabled');
     }
 }

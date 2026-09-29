@@ -89,7 +89,7 @@ final readonly class SourceMatcher
         }
         switch ($matcher->kind) {
             case 'any':
-                return true;
+                return $method === null || self::matchesAnyMethod($method);
             case 'startswith':
                 return str_starts_with($method?->getName() ?? $class->name, (string) $matcher->value);
             case 'subclassesof':
@@ -154,6 +154,21 @@ final readonly class SourceMatcher
         }
 
         return null;
+    }
+
+    private static function matchesAnyMethod(MethodDeclaration $method): bool
+    {
+        static $arrayObjectMethods = null;
+        $name = $method->getName();
+        if (str_starts_with($name, '__')) {
+            return false;
+        }
+        $arrayObjectMethods ??= array_map(
+            static fn (\ReflectionMethod $item): string => $item->getName(),
+            (new \ReflectionClass(\ArrayObject::class))->getMethods(),
+        );
+
+        return !in_array($name, $arrayObjectMethods, true);
     }
 
     /**

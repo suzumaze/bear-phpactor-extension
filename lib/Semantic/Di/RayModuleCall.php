@@ -13,6 +13,7 @@ use Microsoft\PhpParser\Node\Expression\Variable;
 use Microsoft\PhpParser\Node\QualifiedName;
 use Microsoft\PhpParser\Node\StringLiteral;
 use Microsoft\PhpParser\Token;
+use Suzumaze\BearPhpactor\Semantic\Di\Composition\PhpStringLiteral;
 
 /**
  * Small source-only helpers shared by Ray.Di and Ray.Aop fact extractors.
@@ -70,7 +71,7 @@ final class RayModuleCall
                 }
             }
 
-            return $expression->getStringContentsText();
+            return PhpStringLiteral::decode($expression);
         }
         if (!$expression instanceof ScopedPropertyAccessExpression) {
             return null;

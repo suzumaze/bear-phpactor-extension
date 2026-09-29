@@ -298,7 +298,7 @@ final readonly class AopApplicationsQuery
                 }
                 if (
                     $pointcut->methodMatcher?->kind === 'annotatedwith'
-                    && $matcher->isA($attribute, (string) $pointcut->methodMatcher->value) === true
+                    && $attribute === $pointcut->methodMatcher->value
                 ) {
                     $ordered[] = $pointcut;
                     unset($remaining[$key]);

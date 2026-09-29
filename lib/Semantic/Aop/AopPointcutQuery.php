@@ -13,6 +13,7 @@ use Microsoft\PhpParser\Node\Expression\Variable;
 use Microsoft\PhpParser\Node\StringLiteral;
 use Microsoft\PhpParser\Token;
 use Suzumaze\BearPhpactor\Semantic\Di\ContextModuleSelector;
+use Suzumaze\BearPhpactor\Semantic\Di\Composition\PhpStringLiteral;
 use Suzumaze\BearPhpactor\Semantic\Di\RayModuleCall;
 use Suzumaze\BearPhpactor\Semantic\Di\RayModuleScanner;
 use Suzumaze\BearPhpactor\Semantic\Di\RayModuleSource;
@@ -250,7 +251,7 @@ final readonly class AopPointcutQuery
             return null;
         }
 
-        return ['kind' => 'starts_with', 'value' => $arguments[0]->expression->getStringContentsText()];
+        return ['kind' => 'starts_with', 'value' => PhpStringLiteral::decode($arguments[0]->expression)];
     }
 
     /** @param list<ArgumentExpression> $arguments @return array<string,mixed>|null */
