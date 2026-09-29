@@ -290,11 +290,13 @@
         "bear/di/moduleGraph": {
             "handler": "inspectDiModuleGraph",
             "parameters": [
-                {"name": "applicationContext", "type": "string", "required": true},
+                {"name": "applicationContext", "type": "string|null", "required": false, "default": null},
                 {"name": "contextPath", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["applicationContext", "segments", "modules", "edges", "truncated", "coverage"]
+            "successDataKeys": ["applicationContext", "segments", "modules", "edges", "truncated", "coverage"],
+            "sourceMapSuccessDataKeys": ["view", "applicationContext", "segments", "modules", "edges", "truncated", "coverage"],
+            "sourceMapModuleKeys": ["module", "parent", "path", "line", "bindingDeclarations", "interceptorDeclarations", "declarationsRequest"]
         },
         "bear/di/moduleDeclarations": {
             "handler": "inspectDiModuleDeclarations",

@@ -332,12 +332,18 @@ interceptor arrays are reported without instantiating them. The query does not e
 the matcher against project classes or claim that interception is active or woven.
 Dynamic and unsupported arguments are retained as reasoned `unresolved` entries.
 
-`bear/di/moduleGraph` requires a literal `applicationContext` and returns the saved-source
-graph used by context-scoped inventories. Context segments expose both application and
-BEAR.Package candidates; workspace roots are followed through project-local inheritance and
-statically named `install()`/`override()` calls. External targets and dynamic expressions remain
-visible as bounded edges instead of being guessed. Coverage explicitly states that vendor modules
-are not expanded, control flow and precedence are not evaluated, and no runtime container is built.
+`bear/di/moduleGraph` accepts an optional literal `applicationContext`. With one, it returns the
+existing saved-source context graph: segments expose both application and BEAR.Package candidates;
+workspace roots are followed through project-local inheritance and statically named
+`install()`/`override()` calls. External targets and dynamic expressions remain visible as bounded
+edges instead of being guessed. Without a context, it returns `view: workspace_source_map`: all
+workspace Ray Module candidates in deterministic FQCN/path order, with `extends`/`install`/`override`
+edges, class source location, and direct source call-site counts for bindings and interceptors.
+The unscoped result is capped at 300 module nodes and 1,200 edges; `coverage.totalModules`,
+`coverage.totalEdges`, and `truncated` show when those output caps apply. Use each node's
+`declarationsRequest` and exact `module` name to open `bear/di/moduleDeclarations`. In either view,
+vendor modules are not expanded, dynamic edges remain unknown, control flow and precedence are not
+evaluated, and no runtime container is built.
 
 `bear/di/moduleDeclarations` requires an exact Module FQCN and lists that workspace Module's direct
 `bind()` and interceptor declarations with source locations. `applicationContext` is optional:
@@ -432,7 +438,7 @@ load module PHP, construct a DI container, or execute the application.
 | `bear/project/diagnostics` | `{contextPath?, limit?, offset?}` | `{items, total, offset, truncated, scannedFiles, scannedResources, resourceScanTruncated, skippedChecks}` |
 | `bear/project/contractCoverage` | `{contextPath?, limit?, offset?, gapsOnly?, scheme?}` | `{items, total, matchingTotal, offset, truncated, gapsOnly, scheme, scannedResources, analyzedResources, resourceScanTruncated, summary}` |
 | `bear/di/bindings` | `{contextPath?, type?, limit?, offset?, applicationContext?}` | `{items, total, offset, truncated, scannedModules, unresolved, type, applicationContext}` |
-| `bear/di/moduleGraph` | `{applicationContext, contextPath?}` | `{applicationContext, segments, modules, edges, truncated, coverage}` |
+| `bear/di/moduleGraph` | `{applicationContext?, contextPath?}` | `{view?, applicationContext, segments, modules, edges, truncated, coverage}` |
 | `bear/di/moduleDeclarations` | `{module, applicationContext?, contextPath?, limit?, offset?}` | `{applicationContext, module, contextMembership, bindings, pointcuts, bindingSelection, coverage}` |
 | `bear/app/contexts` | `{contextPath?, limit?, offset?}` | `{items, total, offset, truncated, selectedContext, scannedFiles, skippedFiles, scanTruncated, unresolved, unresolvedTotal, unresolvedTruncated, coverage}` |
 | `bear/di/bindingLookup` | `{applicationContext, type?, name?, contextPath?, limit?, offset?, overridesOnly?, resourcesOnly?, environment?}` | `{applicationContext, type, name, overridesOnly, resourcesOnly, items, total, offset, truncated, unknowns, unknownTotal, unknownsTruncated, coverage}` |

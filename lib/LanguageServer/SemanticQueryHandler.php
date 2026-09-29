@@ -590,7 +590,7 @@ final class SemanticQueryHandler implements Handler
 
     /** @return Promise<array<string,mixed>> */
     public function inspectDiModuleGraph(
-        string $applicationContext,
+        ?string $applicationContext = null,
         ?string $contextPath = null,
     ): Promise {
         return new Success($this->query(
@@ -601,6 +601,7 @@ final class SemanticQueryHandler implements Handler
                     $contextPath,
                 ),
             fn (ContextModuleGraph $graph): array => [
+                ...($graph->workspaceSourceMap ? ['view' => 'workspace_source_map'] : []),
                 'applicationContext' => $graph->applicationContext,
                 'segments' => array_map(static fn ($root): array => [
                     'segment' => $root->segment,
@@ -609,11 +610,22 @@ final class SemanticQueryHandler implements Handler
                     'selected' => $root->selected,
                     'state' => $root->state,
                 ], $graph->segments),
-                'modules' => array_map(static fn ($module): array => [
-                    'module' => $module->module,
-                    'parent' => $module->parent,
-                    'path' => $module->path,
-                ], $graph->modules),
+                'modules' => array_map(static function ($module) use ($graph): array {
+                    $data = [
+                        'module' => $module->module,
+                        'parent' => $module->parent,
+                        'path' => $module->path,
+                    ];
+                    if ($graph->workspaceSourceMap) {
+                        $data = [
+                            ...$data,
+                            ...($graph->moduleMetadata[$module->module] ?? []),
+                            'declarationsRequest' => 'bear/di/moduleDeclarations',
+                        ];
+                    }
+
+                    return $data;
+                }, $graph->modules),
                 'edges' => array_map(static fn ($edge): array => [
                     'source' => $edge->source,
                     'target' => $edge->target,
@@ -628,6 +640,13 @@ final class SemanticQueryHandler implements Handler
                 ], $graph->edges),
                 'truncated' => $graph->truncated,
                 'coverage' => [
+                    ...($graph->workspaceSourceMap ? [
+                        'mode' => 'bounded_workspace_source_map',
+                        'totalModules' => $graph->totalModules,
+                        'totalEdges' => $graph->totalEdges,
+                        'moduleLimit' => 300,
+                        'edgeLimit' => 1200,
+                    ] : []),
                     'source' => 'saved_workspace_source',
                     'vendorModulesExpanded' => false,
                     'dynamicEdgesExpanded' => false,

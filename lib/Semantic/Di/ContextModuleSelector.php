@@ -105,6 +105,32 @@ final class ContextModuleSelector
         return new ContextModuleSelection(array_values($selected), $roots, $edges, $truncated);
     }
 
+    /** @param list<RayModuleSource> $modules
+     *  @return iterable<ContextModuleEdge>
+     */
+    public function workspaceEdges(array $modules): iterable
+    {
+        $byClass = [];
+        foreach ($modules as $module) {
+            $byClass[$module->module] = $module;
+        }
+        foreach ($modules as $module) {
+            yield new ContextModuleEdge(
+                $module->module,
+                $module->parent,
+                'extends',
+                isset($byClass[$module->parent]) ? 'workspace' : 'external',
+                null,
+                $module->path,
+                $module->declaration->getStartPosition(),
+                $module->declaration->getEndPosition(),
+            );
+            foreach ($this->moduleEdges($module, $byClass) as $edge) {
+                yield $edge;
+            }
+        }
+    }
+
     /**
      * @param array<string, RayModuleSource> $byClass
      * @return list<ContextModuleEdge>

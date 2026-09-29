@@ -52,6 +52,25 @@ final class SemanticQueryProtocolTest extends TestCase
             if ($requestMethod === 'bear/di/bindings') {
                 $methods[$requestMethod]['successItemKeys'] = array_keys($response['data']['items'][0]);
             }
+            if ($requestMethod === 'bear/di/moduleGraph') {
+                $sourceMap = wait($handler->{$handlerMethod}());
+                self::assertSame('ok', $sourceMap['status']);
+                self::assertSame('workspace_source_map', $sourceMap['data']['view']);
+                self::assertSame(
+                    $expected['methods'][$requestMethod]['sourceMapSuccessDataKeys'],
+                    array_keys($sourceMap['data']),
+                );
+                self::assertSame(
+                    $expected['methods'][$requestMethod]['sourceMapModuleKeys'],
+                    array_keys($sourceMap['data']['modules'][0]),
+                );
+                self::assertSame(
+                    'bear/di/moduleDeclarations',
+                    $sourceMap['data']['modules'][0]['declarationsRequest'],
+                );
+                $methods[$requestMethod]['sourceMapSuccessDataKeys'] = array_keys($sourceMap['data']);
+                $methods[$requestMethod]['sourceMapModuleKeys'] = array_keys($sourceMap['data']['modules'][0]);
+            }
         }
 
         self::assertSame(array_keys($methodMap), array_keys($methods));
