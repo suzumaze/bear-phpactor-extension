@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Suzumaze\BearPhpactor\Semantic\Di\Composition;
 
 use Suzumaze\BearPhpactor\Semantic\Aop\MatcherValue;
+use Suzumaze\BearPhpactor\Semantic\Aop\AssistedInjectMatcherRecipe;
 use Suzumaze\BearPhpactor\Semantic\Aop\ComposedPointcut;
 use Microsoft\PhpParser\Node;
 use Microsoft\PhpParser\Node\ArrayElement;
@@ -1334,9 +1335,18 @@ final class ModuleInterpreter
             case 'bindinterceptor':
             case 'bindpriorityinterceptor':
                 $interceptors = $argument(2, 'interceptors');
+                $methodMatcher = $argument(1, 'methodMatcher');
+                if ($methodMatcher instanceof ObjectValue) {
+                    $matcherSource = $this->classes->find($methodMatcher->class);
+                    if ($matcherSource !== null && AssistedInjectMatcherRecipe::matches($matcherSource)) {
+                        $methodMatcher = MatcherValue::assistedInject();
+                    } else {
+                        $methodMatcher = null;
+                    }
+                }
                 $this->containerOf($module)->pointcuts[] = new ComposedPointcut(
                     $argument(0, 'classMatcher'),
-                    $argument(1, 'methodMatcher'),
+                    $methodMatcher,
                     $interceptors,
                     strtolower($method) === 'bindpriorityinterceptor',
                     $this->origin($module, $caller),

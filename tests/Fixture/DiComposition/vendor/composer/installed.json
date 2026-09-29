@@ -1,6 +1,6 @@
 {
     "packages": [
-        {"name": "ray/di", "install-path": "../ray/di", "autoload": {"psr-4": {"Ray\\Di\\": "src/"}}},
+        {"name": "ray/di", "install-path": "../ray/di", "autoload": {"psr-4": {"Ray\\Di\\": ["src/", "src/di/"]}}},
         {"name": "ray/aop", "install-path": "../ray/aop", "autoload": {"psr-4": {"Ray\\Aop\\": "src/"}}},
         {"name": "bear/app-meta", "install-path": "../bear/app-meta", "autoload": {"psr-4": {"BEAR\\AppMeta\\": "src/"}}},
         {"name": "bear/resource", "install-path": "../bear/resource", "autoload": {"psr-4": {"BEAR\\Resource\\": "src/"}}},

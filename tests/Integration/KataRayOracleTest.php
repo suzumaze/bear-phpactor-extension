@@ -9,6 +9,8 @@ use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 use Suzumaze\BearPhpactor\Semantic\Aop\AopApplicationsQuery;
 use Suzumaze\BearPhpactor\Semantic\App\AppContextListQuery;
+use Suzumaze\BearPhpactor\Semantic\Aop\MatcherValue;
+use Suzumaze\BearPhpactor\Semantic\Aop\SourceMatcher;
 use Suzumaze\BearPhpactor\Semantic\Attribute\AttributeCatalogQuery;
 use Suzumaze\BearPhpactor\Semantic\Di\Composition\ClassSourceIndex;
 use Suzumaze\BearPhpactor\Semantic\Di\Composition\ModuleInterpreter;
@@ -38,6 +40,40 @@ final class KataRayOracleTest extends TestCase
                 require_once $file;
             }
         });
+
+        $fixtureClasses = new ClassSourceIndex($fixtureRoot, $fixtureRoot);
+        $probe = $fixtureClasses->find('Acme\\Shop\\Probe\\AssistedProbe');
+        self::assertNotNull($probe);
+        $sourceMatcher = new SourceMatcher($fixtureClasses);
+        $rayAssisted = new \Ray\Di\Matcher\AssistedInjectMatcher();
+        foreach (['assisted' => true, 'injected' => true, 'negative' => false] as $method => $expected) {
+            $sourceMethod = $probe->method($method);
+            self::assertNotNull($sourceMethod);
+            self::assertSame(
+                $expected,
+                $sourceMatcher->matches(MatcherValue::assistedInject(), $probe, $sourceMethod),
+            );
+            self::assertSame(
+                $expected,
+                $rayAssisted->matchesMethod(
+                    new \ReflectionMethod(\Acme\Shop\Probe\AssistedProbe::class, $method),
+                    [],
+                ),
+            );
+        }
+        foreach (['inherited' => true, 'overridden' => false] as $method => $expected) {
+            $reflection = new \ReflectionMethod(\Acme\Shop\Probe\AssistedChild::class, $method);
+            $declaring = $fixtureClasses->find($reflection->getDeclaringClass()->getName());
+            self::assertNotNull($declaring);
+            $sourceMethod = $declaring->method($method);
+            self::assertNotNull($sourceMethod);
+            self::assertSame($expected, $sourceMatcher->matches(
+                MatcherValue::assistedInject(),
+                $declaring,
+                $sourceMethod,
+            ));
+            self::assertSame($expected, $rayAssisted->matchesMethod($reflection, []));
+        }
 
         $fixtureWorkspace = WorkspaceContext::fromRoot($fixtureRoot)->value;
         self::assertNotNull($fixtureWorkspace);
@@ -112,25 +148,18 @@ final class KataRayOracleTest extends TestCase
         )->value;
         self::assertNotNull($csrf);
         self::assertCount(4, $csrf['items']);
-        self::assertSame(124, $csrf['unknownTotal']);
-        self::assertSame(124, $csrf['unresolvedPointcutTotal']);
-        self::assertSame(100, count($csrf['unknowns']));
+        self::assertSame(2, $csrf['unknownTotal']);
+        self::assertSame(0, $csrf['unresolvedPointcutTotal']);
+        self::assertSame(2, count($csrf['unknowns']));
         self::assertSame(1, $csrf['unknownSummary']['compositionOccurrences']);
         self::assertSame(1, $csrf['unknownSummary']['resourceOccurrences']);
-        self::assertSame(122, $csrf['unknownSummary']['applicationOccurrences']);
-        self::assertSame(2, $csrf['unknownSummary']['unresolvedPointcutRegistrations']);
+        self::assertSame(0, $csrf['unknownSummary']['applicationOccurrences']);
+        self::assertSame(0, $csrf['unknownSummary']['unresolvedPointcutRegistrations']);
         self::assertSame(61, $csrf['unknownSummary']['resourceMethodsEvaluated']);
         self::assertSame(4, $csrf['unknownSummary']['filterMatchedMethods']);
-        self::assertSame(8, $csrf['unknownSummary']['filterMatchedApplicationOccurrences']);
-        self::assertSame(3, $csrf['unknownSummary']['groups']['total']);
+        self::assertSame(0, $csrf['unknownSummary']['filterMatchedApplicationOccurrences']);
+        self::assertSame(2, $csrf['unknownSummary']['groups']['total']);
         self::assertFalse($csrf['unknownSummary']['groups']['truncated']);
-        $assistedMatcherGroup = array_values(array_filter(
-            $csrf['unknownSummary']['groups']['items'],
-            static fn (array $group): bool => $group['path'] === 'vendor/ray/di/src/di/AssistedInjectModule.php',
-        ))[0];
-        self::assertSame(122, $assistedMatcherGroup['occurrences']);
-        self::assertSame(61, $assistedMatcherGroup['affectedMethodCount']);
-        self::assertSame(2, $assistedMatcherGroup['composedRegistrations']);
         self::assertSame(
             $csrf['unknownTotal'],
             $csrf['unknownSummary']['compositionOccurrences']
@@ -144,7 +173,7 @@ final class KataRayOracleTest extends TestCase
         );
         self::assertSame('provisional', $csrf['items'][0]['status']);
         foreach ($csrf['items'] as $item) {
-            self::assertSame(2, $item['unresolvedPointcutTotal']);
+            self::assertSame(0, $item['unresolvedPointcutTotal']);
         }
         $csrfModule = new \Ray\Csrf\CsrfModule();
         foreach ($csrf['items'] as $item) {

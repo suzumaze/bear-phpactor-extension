@@ -14,6 +14,11 @@ final readonly class MatcherValue
     {
     }
 
+    public static function assistedInject(): self
+    {
+        return new self('assistedinject', AssistedInjectMatcherRecipe::CLASS_NAME);
+    }
+
     /** @param array<int|string, mixed> $arguments */
     public function call(string $method, array $arguments): self|UnknownValue
     {
@@ -56,7 +61,11 @@ final readonly class MatcherValue
     /** @return list<string> */
     public function attributeReferences(): array
     {
-        $names = $this->kind === 'annotatedwith' && $this->value !== null ? [$this->value] : [];
+        $names = match ($this->kind) {
+            'annotatedwith' => $this->value !== null ? [$this->value] : [],
+            'assistedinject' => ['Ray\\Di\\Di\\Assisted', 'Ray\\Di\\Di\\InjectInterface'],
+            default => [],
+        };
         foreach ($this->operands as $operand) {
             array_push($names, ...$operand->attributeReferences());
         }
@@ -67,6 +76,15 @@ final readonly class MatcherValue
     public function references(string $attribute): bool
     {
         if ($this->kind === 'annotatedwith' && strcasecmp((string) $this->value, ltrim($attribute, '\\')) === 0) {
+            return true;
+        }
+        if (
+            $this->kind === 'assistedinject'
+            && in_array(strtolower(ltrim($attribute, '\\')), [
+                strtolower('Ray\\Di\\Di\\Assisted'),
+                strtolower('Ray\\Di\\Di\\InjectInterface'),
+            ], true)
+        ) {
             return true;
         }
         foreach ($this->operands as $operand) {

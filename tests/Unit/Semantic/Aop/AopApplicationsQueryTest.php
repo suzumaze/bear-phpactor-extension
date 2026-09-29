@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Suzumaze\BearPhpactor\Tests\Unit\Semantic\Aop;
 
 use PHPUnit\Framework\TestCase;
+use Suzumaze\BearPhpactor\Semantic\Aop\AssistedInjectMatcherRecipe;
+use Suzumaze\BearPhpactor\Semantic\Aop\MatcherValue;
 use Suzumaze\BearPhpactor\LanguageServer\SemanticQueryHandler;
 use Suzumaze\BearPhpactor\Semantic\Aop\SourceMatcher;
 use Suzumaze\BearPhpactor\Semantic\Di\Composition\ClassSourceIndex;
+use Suzumaze\BearPhpactor\Semantic\Di\Composition\ClassSource;
 
 use function Amp\Promise\wait;
 
@@ -91,6 +94,78 @@ final class AopApplicationsQueryTest extends TestCase
         }
 
         self::assertFalse($autoloadAttempted);
+    }
+
+    public function testAssistedInjectMatcherUsesParameterAttributesAndThreeValuedHierarchy(): void
+    {
+        $classes = new ClassSourceIndex($this->root(), $this->root());
+        $matcherSource = $classes->find(AssistedInjectMatcherRecipe::CLASS_NAME);
+        self::assertNotNull($matcherSource);
+        self::assertTrue(AssistedInjectMatcherRecipe::matches($matcherSource));
+        $source = $classes->find('Acme\\Shop\\Probe\\AssistedProbe');
+        self::assertNotNull($source);
+        $matcher = new SourceMatcher($classes);
+
+        self::assertTrue($matcher->matches(MatcherValue::assistedInject(), $source, $source->method('assisted')));
+        self::assertTrue($matcher->matches(MatcherValue::assistedInject(), $source, $source->method('injected')));
+        self::assertFalse($matcher->matches(MatcherValue::assistedInject(), $source, $source->method('negative')));
+        self::assertNull($matcher->matches(MatcherValue::assistedInject(), $source, $source->method('unknown')));
+        self::assertNull($matcher->matches(MatcherValue::assistedInject(), $source));
+    }
+
+    public function testAssistedInjectMatcherUsesInheritedDeclarationAndDoesNotMixOverrideAttributes(): void
+    {
+        $classes = new ClassSourceIndex($this->root(), $this->root());
+        $matcher = new SourceMatcher($classes);
+        $child = $classes->find('Acme\\Shop\\Probe\\AssistedChild');
+        self::assertNotNull($child);
+        $methods = $matcher->methods($child)['methods'];
+        self::assertSame('Acme\\Shop\\Probe\\AssistedParent', $methods['inherited'][0]->name);
+        self::assertTrue($matcher->matches(
+            MatcherValue::assistedInject(),
+            $methods['inherited'][0],
+            $methods['inherited'][1],
+        ));
+        self::assertSame('Acme\\Shop\\Probe\\AssistedChild', $methods['overridden'][0]->name);
+        self::assertFalse($matcher->matches(
+            MatcherValue::assistedInject(),
+            $methods['overridden'][0],
+            $methods['overridden'][1],
+        ));
+    }
+
+    public function testAssistedInjectFingerprintIgnoresFormattingButRejectsCodeChanges(): void
+    {
+        $classes = new ClassSourceIndex($this->root(), $this->root());
+        $source = $classes->find(AssistedInjectMatcherRecipe::CLASS_NAME);
+        self::assertNotNull($source);
+        $formatted = new ClassSource(
+            $source->name,
+            $source->node,
+            str_replace('namespace Ray\\Di\\Matcher;', "namespace  Ray\\Di\\Matcher ;\n// ignored", $source->contents),
+            $source->path,
+            $source->parent,
+            $source->interfaces,
+        );
+        self::assertTrue(AssistedInjectMatcherRecipe::matches($formatted));
+        $changed = new ClassSource(
+            $source->name,
+            $source->node,
+            str_replace('isset($attributes[0])', 'isset($attributes[1])', $source->contents),
+            $source->path,
+            $source->parent,
+            $source->interfaces,
+        );
+        self::assertFalse(AssistedInjectMatcherRecipe::matches($changed));
+        $wrongClass = new ClassSource(
+            'Acme\\Shop\\AssistedInjectMatcher',
+            $source->node,
+            $source->contents,
+            $source->path,
+            $source->parent,
+            $source->interfaces,
+        );
+        self::assertFalse(AssistedInjectMatcherRecipe::matches($wrongClass));
     }
 
     public function testAnnotationReplacementHappensBeforeClassConditionMatching(): void

@@ -103,6 +103,20 @@ then remaining annotated pointcuts in method-attribute order, then the remainder
 order. Interceptor duplicates are preserved. This model is not a claim of compatibility with
 arbitrary installed versions or the legacy docblock-annotation mode.
 
+The `assistedinject` method-matcher recipe models the reviewed
+`Ray\Di\Matcher\AssistedInjectMatcher` implementation: parameter attributes match by exact
+`Ray\Di\Di\Assisted` name or by `Ray\Di\Di\InjectInterface` compatibility. It is recognized
+only at the interceptor-binding boundary and only when the saved implementation's normalized
+PHP tokens match the reviewed source fingerprint (comments and whitespace are ignored).
+Class-name or package-version agreement alone is insufficient. A changed implementation,
+unreadable attribute ancestry, or class-matcher use remains unresolved. Application PHP and
+custom matcher methods are never executed by the query.
+
+Inherited methods use their declaration's parameter attributes; overridden methods use their
+own. The response's method `attributes` list remains a list of method-level attributes, while
+the chain's matcher conditions can reference parameter attributes. Catalog and filter references
+to Assisted or InjectInterface describe the condition, not proof that both were present.
+
 `source_matched` means a match under that source model. `provisional`, unresolved pointcuts,
 composition unknowns, and known final-class/method weaving blockers must be preserved in clients.
 Neither state establishes that weaving succeeds or that a request actually runs the chain.

@@ -125,11 +125,32 @@ raw unknown一覧は100件のままだが、新しい集計は打ち切り前の
 グループはscope・reason・宣言元でまとめたもので、同じ場所なら根本原因も必ず同じと
 断定するものではない。
 
-残る122件は `Ray\Di\Matcher\AssistedInjectMatcher` の独自PHP条件を未対応として
+この段階で残る122件は `Ray\Di\Matcher\AssistedInjectMatcher` の独自PHP条件を未対応として
 保持したもの。このバージョンの `matchesMethod()` は各パラメータに
 `InjectInterface` 互換の属性または `Assisted` 属性があるかを調べる。
 「122個のResourceに属性の付け忘れがある」という意味ではない。これを解決するには、
 パラメータ属性を読むこのマッチャーの静的モデルと、そのバージョン境界を追加する必要がある。
+
+### AssistedInject対応後の観測
+
+Ray.Di 2.20.0の確認済み実装に対する静的モデルを追加した。クラス名だけでは認識せず、
+コメント・空白を除いたPHP token列のfingerprintが一致する場合だけ有効にする。
+tokenはPHPバージョンによって変わり得る数値IDではなく名前を使う。
+独自の実装変更や読み取れない属性の継承関係は未解決のまま保持する。
+
+同じKataの問い合わせで、`unknownTotal` は124から2、`unresolvedPointcutTotal` は
+124から0になった。`applicationOccurrences` と `unresolvedPointcutRegistrations` は
+ともに0。評価した61メソッド、CSRFで絞った4メソッドは変わらず、
+`filterMatchedApplicationOccurrences` も8から0になった。
+
+残る2件はAppModuleの環境依存の束縛先と、MediaStreamのtrait/継承メソッド収集である。
+Module合成の不確実性は残るため、返却行の `provisional` は維持する。
+この結果をアプリ全体の束縛や実行時の織り込みが証明されたものとは扱わない。
+
+実際の `Ray\Di\Matcher\AssistedInjectMatcher::matchesMethod()` とも、Assisted属性、
+InjectInterface実装属性、属性なし、継承したメソッド、属性を付けずに上書きしたメソッドの
+判定を比較した。未読の属性階層は静的側でnull、class matcher用途もnullを維持する。
+この追加を含むKata照合は1 test / 62 assertionsで成功した。
 
 ### 属性カタログの完全一致検索
 
@@ -159,13 +180,15 @@ KataのCSRF配線テストは `html-test-hal-api-app` にさらにテスト専�
 
 ## 最終チェックと残作業
 
-2026-09-28の修正後、extensionは667 tests / 5,503 assertions / 1 skip、MCPは
-61 tests / 535 assertions / 3 skipsで通過した。両リポジトリのPHPCSとPHPStanも通過。
-extensionのPHPStanは既存のComposer設定と同じ256 MiBの上限で実行した。
+2026-09-29のAssistedInject対応後、extensionは670 tests / 5,520 assertions / 1 skipで
+通過した。PHPCSと、既存のComposer設定と同じ256 MiB上限のPHPStanも通過。
+変更後のMCP統合テストは1 test / 34 assertionsで通過した。MCP全体の直前の結果は
+61 tests / 535 assertions / 3 skipsで、今回MCP側のコード変更はない。
 extensionのskipは任意のKata照合テストで、環境変数を付けた別実行では成功している。
 MCPの実行には `BEAR_MCP_TEST_EXTENSION_ROOT` で今回のextension checkoutを指定した。
 
-次の改善候補は、AssistedInjectのパラメータ属性判定、全属性一覧の走査上限への対処、
-Module関係と宣言一覧をつなぐ照会。無効な属性の診断は、その属性のAOP上の役割と
+次の改善候補は、Module関係と宣言一覧をつなぐ照会、全属性一覧の走査上限への対処、
+traitのメソッド収集。環境依存の束縛は、値を推測せず条件と候補を説明する方向で扱う。
+無効な属性の診断は、その属性のAOP上の役割と
 対象Moduleの構成が確定する範囲から追加する。未解決や走査打ち切りを根拠に
 「効いていない」と断定しない。リリースとインストール済みMCPへの反映は別作業。

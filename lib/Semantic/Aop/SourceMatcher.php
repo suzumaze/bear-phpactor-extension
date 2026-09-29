@@ -7,6 +7,7 @@ namespace Suzumaze\BearPhpactor\Semantic\Aop;
 use Microsoft\PhpParser\Node;
 use Microsoft\PhpParser\Node\Attribute;
 use Microsoft\PhpParser\Node\MethodDeclaration;
+use Microsoft\PhpParser\Node\Parameter;
 use Suzumaze\BearPhpactor\Semantic\Di\Composition\ClassSource;
 use Suzumaze\BearPhpactor\Semantic\Di\Composition\ClassSourceIndex;
 use Suzumaze\BearPhpactor\Semantic\Di\Composition\ParserNodes;
@@ -108,6 +109,28 @@ final readonly class SourceMatcher
                         return true;
                     }
                     $unknown = $unknown || $match === null;
+                }
+
+                return $unknown ? null : false;
+            case 'assistedinject':
+                if ($method === null) {
+                    return null;
+                }
+                $unknown = false;
+                foreach (ParserNodes::elements($method->parameters) as $parameter) {
+                    if (!$parameter instanceof Parameter) {
+                        continue;
+                    }
+                    foreach (self::attributes($parameter) as $attribute) {
+                        if (strcasecmp(ltrim($attribute, '\\'), 'Ray\\Di\\Di\\Assisted') === 0) {
+                            return true;
+                        }
+                        $match = $this->isA($attribute, 'Ray\\Di\\Di\\InjectInterface');
+                        if ($match === true) {
+                            return true;
+                        }
+                        $unknown = $unknown || $match === null;
+                    }
                 }
 
                 return $unknown ? null : false;

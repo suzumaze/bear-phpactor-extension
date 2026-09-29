@@ -21,6 +21,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Statically match parameter attributes for the reviewed Ray.Di AssistedInjectMatcher
+  implementation, gated by its normalized source fingerprint. Preserve unknowns for changed
+  custom implementations, unreadable attribute ancestry and unsupported matcher uses.
 - Explain AOP unknown occurrence counts separately from affected methods and registrations,
   including counts before and after result filters and bounded groups by declaration source.
 - Add an optional isolated BEAR.Kata integration test comparing static AOP chains and DI
