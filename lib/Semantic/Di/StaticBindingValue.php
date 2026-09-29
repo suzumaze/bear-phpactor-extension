@@ -17,6 +17,7 @@ use Microsoft\PhpParser\Node\QualifiedName;
 use Microsoft\PhpParser\Node\ReservedWord;
 use Microsoft\PhpParser\Node\StringLiteral;
 use Microsoft\PhpParser\Token;
+use Suzumaze\BearPhpactor\Semantic\Di\Composition\PhpStringLiteral;
 
 /**
  * Source-only readers for Ray.Di bind-chain argument values; nothing is evaluated.
@@ -52,7 +53,7 @@ final class StaticBindingValue
     public static function scope(?Node $expression, string $source): ?string
     {
         if ($expression instanceof StringLiteral) {
-            return $expression->getStringContentsText();
+            return PhpStringLiteral::decode($expression);
         }
         if (
             !$expression instanceof ScopedPropertyAccessExpression

@@ -11,6 +11,7 @@ use Microsoft\PhpParser\Parser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Suzumaze\BearPhpactor\Semantic\Di\StaticBindingValue;
+use Suzumaze\BearPhpactor\Semantic\Di\RayModuleCall;
 
 final class StaticBindingValueTest extends TestCase
 {
@@ -75,6 +76,15 @@ final class StaticBindingValueTest extends TestCase
         [$node, $source] = $this->argument($expression);
 
         self::assertSame($expected, StaticBindingValue::scope($node, $source));
+    }
+
+    public function testSourceLiteralEscapesAreDecodedLikePhpValues(): void
+    {
+        [$node, $source] = $this->argument("'Fx\\\\Svc\\\\IX'");
+        self::assertSame('Fx\\Svc\\IX', RayModuleCall::staticName($node, $source));
+
+        [$scope, $scopeSource] = $this->argument("'Single\\'ton'");
+        self::assertSame("Single'ton", StaticBindingValue::scope($scope, $scopeSource));
     }
 
     /** @return array{Node|null,string} */

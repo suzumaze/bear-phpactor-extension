@@ -15,6 +15,9 @@ final class Frame
     /** The statement being executed, for locating unknowns reported by callees. */
     public ?\Microsoft\PhpParser\Node $statement = null;
 
+    /** A branch whose runtime choice could change this method's return value was skipped. */
+    public bool $controlFlowUnknown = false;
+
     /** @var list<mixed>|null values yielded by a generator method */
     public ?array $yields = null;
 

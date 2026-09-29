@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-29
+
+### Fixed
+
+- Keep unknown branches in reachable workspace helpers and Module traits visible, and stop
+  treating a later fallback return as certain after an unknown branch. Mark invoked closures
+  and callbacks as unresolved instead of silently omitting their possible bindings.
+- Match Ray.Aop's exact-attribute ordering rule when an attribute extends another attribute,
+  and exclude magic and ArrayObject method names from `any()` method matches.
+- Preserve delayed `Bind` qualifiers, literal leading backslashes in qualifier strings, and
+  PHP string escapes across direct DI/AOP declaration inventories.
+
 ## [0.3.0] - 2026-09-29
 
 ### Fixed
@@ -258,7 +270,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Invalid, missing, ambiguous, malformed, and outside-workspace inputs return structured
   failure results instead of executing application PHP or exposing exception traces.
 
-[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.9...v0.2.0
 [0.1.9]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.1.8...v0.1.9

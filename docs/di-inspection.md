@@ -42,6 +42,12 @@ release goal. Module relationships remain useful as supporting evidence.
 - Some framework assembly steps remain version-specific recipes. Recipe origins and edges
   have no invented source line; they are distinct from source declarations.
 
+The composition model follows the reviewed Ray.Di 2.23 implementation and does not inspect
+the installed Ray.Di version before applying every rule. In Ray.Di 2.20, for example,
+`bindInterceptor()` can bind only the first class in a multi-interceptor list, while the 2.23
+implementation binds all of them. A source-matched chain does not establish that an older
+injector can be constructed. Check the installed Ray.Di source when that distinction matters.
+
 The MCP adapter exposes `bear_app_context_list`, `bear_di_binding_lookup`, and
 `bear_di_module_tree_read`. Without a context, the latter returns a bounded workspace Module
 source map with direct bind/interceptor counts and source locations. With a context, it keeps the

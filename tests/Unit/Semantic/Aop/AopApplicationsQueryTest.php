@@ -43,6 +43,28 @@ final class AopApplicationsQueryTest extends TestCase
         self::assertGreaterThan(0, $filtered['data']['unresolvedPointcutTotal']);
     }
 
+    public function testInheritedAttributeMatchesButDoesNotMoveAheadOfExactAttribute(): void
+    {
+        $result = wait($this->handler()->listAopApplications('advice-app', 'app://self/inheritance'));
+        self::assertSame('ok', $result['status']);
+        self::assertSame(1, $result['data']['total']);
+        self::assertSame(array_map(static fn ($name) => 'Acme\\Shop\\Interceptor\\' . $name, [
+            'Priority', 'Second', 'First', 'Tail', 'Tail',
+        ]), array_column($result['data']['items'][0]['chain'], 'interceptor'));
+    }
+
+    public function testAnyMethodMatcherExcludesMagicAndArrayObjectMethodNames(): void
+    {
+        $classes = new ClassSourceIndex($this->root());
+        $class = $classes->find('Acme\\Shop\\Resource\\App\\Inheritance');
+        self::assertNotNull($class);
+        $matcher = new SourceMatcher($classes);
+
+        self::assertTrue($matcher->matches(new MatcherValue('any'), $class, $class->method('onGet')));
+        self::assertFalse($matcher->matches(new MatcherValue('any'), $class, $class->method('__probe')));
+        self::assertFalse($matcher->matches(new MatcherValue('any'), $class, $class->method('append')));
+    }
+
     public function testResourceReplacementUsesSelectedClass(): void
     {
         $result = wait($this->handler()->listAopApplications('replacement-advice-app', 'app://self/advice'));

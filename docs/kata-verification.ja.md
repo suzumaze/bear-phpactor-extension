@@ -57,7 +57,8 @@ BEAR_KATA_VERIFY_ROOT=/private/tmp/bear-kata-check \
   vendor/bin/phpunit tests/Integration/KataRayOracleTest.php
 ```
 
-この照合は1 test / 22 assertionsで通過した。環境変数を指定しない通常のテスト実行ではskipする。
+初期版は1 test / 22 assertionsで通過した。現行版は後述の追加を含めて62 assertions。
+環境変数を指定しない通常のテスト実行ではskipする。
 
 ## 初回検証時の観測結果
 
