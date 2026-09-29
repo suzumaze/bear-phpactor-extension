@@ -6,6 +6,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Accept `bindingsOffset` and `pointcutsOffset` in `bear/di/moduleDeclarations` so each list can
+  be paged by its own returned count; either list may stop early at the page byte budget.
+
+### Fixed
+
+- Stop treating a helper's fallback `return` as certain after an unsupported statement such as
+  `switch`, `while` or `try`, or after a `foreach` over an unknown collection, matching the
+  existing handling of unknown `if` branches.
+- Report `array_map()` and `array_filter()` callbacks given as `[$object, 'method']` arrays or
+  user function names; only a missing callback or a built-in PHP function is treated as inert.
+- Record an unknown branch inside an installed vendor helper at the Module call that consumes it,
+  instead of marking the value reported while vendor internals are not listed.
+- Mark a direct binding declaration `unresolved` with `binding_chain_retained` when its `Bind`
+  is stored in a variable or property, since later statements may change its qualifier or target.
+
+### Documentation
+
+- State that composition targets the latest reviewed Ray.Di release (2.23.1) without reading the
+  installed version, and describe the known Ray.Di 2.20 differences precisely.
+
 ## [0.3.1] - 2026-09-29
 
 ### Fixed

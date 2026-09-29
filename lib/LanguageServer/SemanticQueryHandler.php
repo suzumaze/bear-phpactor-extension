@@ -665,6 +665,8 @@ final class SemanticQueryHandler implements Handler
         ?string $contextPath = null,
         int $limit = DiModuleDeclarationsQuery::DEFAULT_LIMIT,
         int $offset = 0,
+        ?int $bindingsOffset = null,
+        ?int $pointcutsOffset = null,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
@@ -675,6 +677,8 @@ final class SemanticQueryHandler implements Handler
                     $contextPath,
                     $limit,
                     $offset,
+                    $bindingsOffset,
+                    $pointcutsOffset,
                 ),
             static fn (array $data): array => $data,
         ));

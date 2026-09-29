@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Suzumaze\BearPhpactor\Semantic\Di;
 
 use Microsoft\PhpParser\Node;
+use Microsoft\PhpParser\Node\Expression\AssignmentExpression;
 use Microsoft\PhpParser\Node\Expression\CallExpression;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectReportPage;
 use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
@@ -189,6 +190,11 @@ final readonly class DiBindingQuery
         }
         if ($fact['kind'] === 'untargeted' && $sourceType === '') {
             $reason ??= 'binding_untargeted_type_missing';
+        }
+        // A Bind stored in a variable or property can receive annotatedWith(), to() or in()
+        // in later statements, which this chain reader does not follow.
+        if (RayModuleCall::terminalCall($bind)->parent instanceof AssignmentExpression) {
+            $reason ??= 'binding_chain_retained';
         }
 
         return new DiBindingFact(
