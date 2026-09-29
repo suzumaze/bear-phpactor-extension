@@ -27,6 +27,7 @@ use Suzumaze\BearPhpactor\Semantic\Di\ContextModuleGraphQuery;
 use Suzumaze\BearPhpactor\Semantic\Di\DiContainerComposition;
 use Suzumaze\BearPhpactor\Semantic\Di\DiContainerQuery;
 use Suzumaze\BearPhpactor\Semantic\Di\DiBindingLookupQuery;
+use Suzumaze\BearPhpactor\Semantic\Di\DiModuleDeclarationsQuery;
 use Suzumaze\BearPhpactor\Semantic\App\AppContextListQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverage;
 use Suzumaze\BearPhpactor\Semantic\Project\ContractCoverageItem;
@@ -114,6 +115,7 @@ final class SemanticQueryHandler implements Handler
         private DiBindingQuery $diBindingQuery = new DiBindingQuery(),
         private AopPointcutQuery $aopPointcutQuery = new AopPointcutQuery(),
         private ContextModuleGraphQuery $contextModuleGraphQuery = new ContextModuleGraphQuery(),
+        private DiModuleDeclarationsQuery $diModuleDeclarationsQuery = new DiModuleDeclarationsQuery(),
         private DiContainerQuery $diContainerQuery = new DiContainerQuery(),
         private DiBindingLookupQuery $diBindingLookupQuery = new DiBindingLookupQuery(),
         private AppContextListQuery $appContextListQuery = new AppContextListQuery(),
@@ -153,6 +155,7 @@ final class SemanticQueryHandler implements Handler
             'bear/schema/describeForResource' => 'describeResourceSchema',
             'bear/di/bindings' => 'inspectDiBindings',
             'bear/di/moduleGraph' => 'inspectDiModuleGraph',
+            'bear/di/moduleDeclarations' => 'inspectDiModuleDeclarations',
             'bear/di/container' => 'inspectDiContainer',
             'bear/app/contexts' => 'listAppContexts',
             'bear/di/bindingLookup' => 'lookupDiBinding',
@@ -637,6 +640,28 @@ final class SemanticQueryHandler implements Handler
     }
 
     /** @return Promise<array<string,mixed>> */
+    public function inspectDiModuleDeclarations(
+        string $module,
+        ?string $applicationContext = null,
+        ?string $contextPath = null,
+        int $limit = DiModuleDeclarationsQuery::DEFAULT_LIMIT,
+        int $offset = 0,
+    ): Promise {
+        return new Success($this->query(
+            fn (WorkspaceContext $workspace): SemanticResult =>
+                $this->diModuleDeclarationsQuery->listInWorkspace(
+                    $workspace,
+                    $module,
+                    $applicationContext,
+                    $contextPath,
+                    $limit,
+                    $offset,
+                ),
+            static fn (array $data): array => $data,
+        ));
+    }
+
+    /** @return Promise<array<string,mixed>> */
     public function listAppContexts(?string $contextPath = null, int $limit = 50, int $offset = 0): Promise
     {
         return new Success($this->query(
@@ -891,8 +916,6 @@ final class SemanticQueryHandler implements Handler
             'kind' => $binding->kind,
             'qualifier' => $binding->qualifier,
             'scope' => $binding->scope,
-            'targetExpression' => $binding->targetExpression,
-            'constructorArguments' => $binding->constructorArguments,
             'valueType' => $binding->valueType,
             'reason' => $binding->reason,
             'path' => $binding->path,

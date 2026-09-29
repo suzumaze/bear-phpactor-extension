@@ -40,8 +40,6 @@ final readonly class DiBindingQuery
 
     private const NO_TARGET = [
         'targetType' => null,
-        'targetExpression' => null,
-        'constructorArguments' => null,
         'valueType' => null,
     ];
 
@@ -65,6 +63,7 @@ final readonly class DiBindingQuery
         int $limit = self::DEFAULT_LIMIT,
         int $offset = 0,
         ?string $applicationContext = null,
+        ?string $module = null,
     ): SemanticResult {
         if (
             $limit < 1
@@ -72,6 +71,7 @@ final readonly class DiBindingQuery
             || $offset < 0
             || $type === ''
             || $applicationContext === ''
+            || $module === ''
         ) {
             return SemanticResult::invalidInput();
         }
@@ -80,22 +80,26 @@ final readonly class DiBindingQuery
             return SemanticResult::failure($project->status);
         }
         $type = $type === null ? null : ltrim($type, '\\');
+        $module = $module === null ? null : ltrim($module, '\\');
         $items = [];
         $modules = 0;
         $moduleSources = iterator_to_array($this->moduleScanner->scan($workspace, $project->value), false);
         if ($applicationContext !== null) {
             $moduleSources = $this->contextModuleSelector->select($moduleSources, $applicationContext);
         }
-        foreach ($moduleSources as $module) {
+        foreach ($moduleSources as $moduleSource) {
             ++$modules;
-            foreach ($module->declaration->getDescendantNodes() as $node) {
+            if ($module !== null && strcasecmp($moduleSource->module, $module) !== 0) {
+                continue;
+            }
+            foreach ($moduleSource->declaration->getDescendantNodes() as $node) {
                 if (
                     !$node instanceof CallExpression
-                    || !RayModuleCall::isThisMethod($node, 'bind', $module->contents)
+                    || !RayModuleCall::isThisMethod($node, 'bind', $moduleSource->contents)
                 ) {
                     continue;
                 }
-                $fact = $this->binding($module, $node);
+                $fact = $this->binding($moduleSource, $node);
                 if ($type !== null && $fact->sourceType !== $type) {
                     continue;
                 }
@@ -199,8 +203,6 @@ final readonly class DiBindingQuery
             $fact['kind'],
             $fact['qualifier'],
             $fact['scope'],
-            $fact['targetExpression'],
-            $fact['constructorArguments'],
             $fact['valueType'],
         );
     }
@@ -215,7 +217,6 @@ final readonly class DiBindingQuery
             'annotatedWith' => $this->qualifier($arguments['name'] ?? null, $source),
             'in' => $this->scope($arguments['scope'] ?? null, $source),
             'toInstance' => [[
-                'targetExpression' => ($arguments['instance'] ?? null)?->getText(),
                 'valueType' => StaticBindingValue::valueType($arguments['instance'] ?? null, $source),
             ], null],
             'toNull' => [[], null],
@@ -254,7 +255,7 @@ final readonly class DiBindingQuery
     {
         $class = $arguments[$operation === 'toProvider' ? 'provider' : 'class'] ?? null;
         $targetType = RayModuleCall::staticName($class, $source);
-        $fact = ['targetType' => $targetType === '' ? null : $targetType, 'targetExpression' => $class?->getText()];
+        $fact = ['targetType' => $targetType === '' ? null : $targetType];
         $reason = $targetType === null || $targetType === '' ? 'binding_target_not_static' : null;
         if ($operation === 'toProvider') {
             $context = $arguments['context'] ?? null;
@@ -265,7 +266,6 @@ final readonly class DiBindingQuery
         if ($operation !== 'toConstructor') {
             return [$fact, $reason];
         }
-        $fact['constructorArguments'] = ($arguments['name'] ?? null)?->getText();
         $injectionPoints = $arguments['injectionPoints'] ?? null;
         $postConstruct = $arguments['postConstruct'] ?? null;
         $reason ??= match (true) {

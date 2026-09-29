@@ -43,6 +43,7 @@ final readonly class AopPointcutQuery
         int $limit = self::DEFAULT_LIMIT,
         int $offset = 0,
         ?string $applicationContext = null,
+        ?string $module = null,
     ): SemanticResult {
         if (
             $limit < 1
@@ -50,6 +51,7 @@ final readonly class AopPointcutQuery
             || $offset < 0
             || $interceptor === ''
             || $applicationContext === ''
+            || $module === ''
         ) {
             return SemanticResult::invalidInput();
         }
@@ -58,23 +60,27 @@ final readonly class AopPointcutQuery
             return SemanticResult::failure($project->status);
         }
         $interceptor = $interceptor === null ? null : ltrim($interceptor, '\\');
+        $module = $module === null ? null : ltrim($module, '\\');
         $items = [];
         $modules = 0;
         $moduleSources = iterator_to_array($this->moduleScanner->scan($workspace, $project->value), false);
         if ($applicationContext !== null) {
             $moduleSources = $this->contextModuleSelector->select($moduleSources, $applicationContext);
         }
-        foreach ($moduleSources as $module) {
+        foreach ($moduleSources as $moduleSource) {
             ++$modules;
-            foreach ($module->declaration->getDescendantNodes() as $node) {
+            if ($module !== null && strcasecmp($moduleSource->module, $module) !== 0) {
+                continue;
+            }
+            foreach ($moduleSource->declaration->getDescendantNodes() as $node) {
                 if (!$node instanceof CallExpression) {
                     continue;
                 }
-                $priority = RayModuleCall::isThisMethod($node, 'bindPriorityInterceptor', $module->contents);
-                if (!$priority && !RayModuleCall::isThisMethod($node, 'bindInterceptor', $module->contents)) {
+                $priority = RayModuleCall::isThisMethod($node, 'bindPriorityInterceptor', $moduleSource->contents);
+                if (!$priority && !RayModuleCall::isThisMethod($node, 'bindInterceptor', $moduleSource->contents)) {
                     continue;
                 }
-                $fact = $this->pointcut($module, $node, $priority);
+                $fact = $this->pointcut($moduleSource, $node, $priority);
                 if ($interceptor !== null && !in_array($interceptor, $fact->interceptors, true)) {
                     continue;
                 }

@@ -24,8 +24,6 @@ final readonly class DiBindingFact
         public string $kind = 'class',
         public ?string $qualifier = null,
         public ?string $scope = null,
-        public ?string $targetExpression = null,
-        public ?string $constructorArguments = null,
         public ?string $valueType = null,
     ) {
     }

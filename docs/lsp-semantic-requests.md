@@ -279,13 +279,11 @@ and `byteRange`, and adds:
 | `kind` | `class`, `provider`, `instance`, `constructor`, `null`, or `untargeted` |
 | `qualifier` | Explicit qualifier, or null when absent/unresolved |
 | `scope` | Declared `in()` scope normalized to `singleton` or `prototype`, or null when absent/unresolved |
-| `targetExpression` | Saved text of the target argument (class, provider, or instance); never an evaluated value |
-| `constructorArguments` | Saved text of the `toConstructor()` parameter-to-binding-name mapping; never evaluated |
 | `valueType` | For instance bindings, a PHP `gettype()` name (`string`, `integer`, `double`, `boolean`, `NULL`, `array`, `object`) fixed by the expression form alone: literals, `::class`, explicit casts, or `new`; otherwise null |
 
 A `resolved` state means the declaration's supported syntax was read, not that the
-runtime dependency resolves. An instance binding whose expression is not a literal is
-still `resolved`: its declaration was read and its saved text is in `targetExpression`.
+runtime dependency resolves. Instance and constructor argument expressions are not
+returned; `toInstance()` exposes only the expression's known type, when available.
 `scope` records the declared `in()` argument only; omitted scope does not establish a
 runtime scope. Accepted scope forms are the `Ray\Di\Scope::SINGLETON`/`PROTOTYPE`
 constants (resolved through `use` imports) and the exact literals `'Singleton'`/`'Prototype'`.
@@ -340,6 +338,17 @@ BEAR.Package candidates; workspace roots are followed through project-local inhe
 statically named `install()`/`override()` calls. External targets and dynamic expressions remain
 visible as bounded edges instead of being guessed. Coverage explicitly states that vendor modules
 are not expanded, control flow and precedence are not evaluated, and no runtime container is built.
+
+`bear/di/moduleDeclarations` requires an exact Module FQCN and lists that workspace Module's direct
+`bind()` and interceptor declarations with source locations. `applicationContext` is optional:
+without it, the result is a source-only view; with it, `contextMembership` overlays the static module
+graph. `not_observed_in_workspace_graph` does not prove the Module is excluded, since vendor modules
+and dynamic edges are not expanded; unresolved graph edges produce `unknown`. Binding and pointcut
+inventories each apply the same `limit` and `offset` independently, so a response may contain up to
+twice `limit` items. Each category has its own total and truncation status. Binding facts are a safe
+projection and never include source expressions or constructor argument values. Winner resolution is
+not joined; use `bear/di/bindingLookup` for source-selected binding evidence. Source structure and
+context-selected membership remain separate facts, not a runtime container view.
 
 `bear/attribute/catalog` discovers available PHP attribute definitions independently of their
 usage. Optional context evaluation adds AOP condition references, not proof of application.
@@ -424,6 +433,7 @@ load module PHP, construct a DI container, or execute the application.
 | `bear/project/contractCoverage` | `{contextPath?, limit?, offset?, gapsOnly?, scheme?}` | `{items, total, matchingTotal, offset, truncated, gapsOnly, scheme, scannedResources, analyzedResources, resourceScanTruncated, summary}` |
 | `bear/di/bindings` | `{contextPath?, type?, limit?, offset?, applicationContext?}` | `{items, total, offset, truncated, scannedModules, unresolved, type, applicationContext}` |
 | `bear/di/moduleGraph` | `{applicationContext, contextPath?}` | `{applicationContext, segments, modules, edges, truncated, coverage}` |
+| `bear/di/moduleDeclarations` | `{module, applicationContext?, contextPath?, limit?, offset?}` | `{applicationContext, module, contextMembership, bindings, pointcuts, bindingSelection, coverage}` |
 | `bear/app/contexts` | `{contextPath?, limit?, offset?}` | `{items, total, offset, truncated, selectedContext, scannedFiles, skippedFiles, scanTruncated, unresolved, unresolvedTotal, unresolvedTruncated, coverage}` |
 | `bear/di/bindingLookup` | `{applicationContext, type?, name?, contextPath?, limit?, offset?, overridesOnly?, resourcesOnly?, environment?}` | `{applicationContext, type, name, overridesOnly, resourcesOnly, items, total, offset, truncated, unknowns, unknownTotal, unknownsTruncated, coverage}` |
 | `bear/di/container` | `{applicationContext, contextPath?, limit?, offset?, environment?}` | `{applicationContext, appName, items, total, offset, truncated, events, modules, unknowns, coverage}` |

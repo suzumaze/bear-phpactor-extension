@@ -285,7 +285,7 @@
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["items", "total", "offset", "truncated", "scannedModules", "unresolved", "type", "applicationContext"],
-            "successItemKeys": ["state", "module", "sourceType", "targetType", "kind", "qualifier", "scope", "targetExpression", "constructorArguments", "valueType", "reason", "path", "byteRange"]
+            "successItemKeys": ["state", "module", "sourceType", "targetType", "kind", "qualifier", "scope", "valueType", "reason", "path", "byteRange"]
         },
         "bear/di/moduleGraph": {
             "handler": "inspectDiModuleGraph",
@@ -295,6 +295,18 @@
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["applicationContext", "segments", "modules", "edges", "truncated", "coverage"]
+        },
+        "bear/di/moduleDeclarations": {
+            "handler": "inspectDiModuleDeclarations",
+            "parameters": [
+                {"name": "module", "type": "string", "required": true},
+                {"name": "applicationContext", "type": "string|null", "required": false, "default": null},
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null},
+                {"name": "limit", "type": "int", "required": false, "default": 50},
+                {"name": "offset", "type": "int", "required": false, "default": 0}
+            ],
+            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
+            "successDataKeys": ["applicationContext", "module", "contextMembership", "bindings", "pointcuts", "bindingSelection", "coverage"]
         },
         "bear/di/container": {
             "handler": "inspectDiContainer",

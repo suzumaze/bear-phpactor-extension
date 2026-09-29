@@ -91,25 +91,22 @@ final class DiBindingQueryTest extends TestCase
         );
     }
 
-    public function testKeepsSavedExpressionTextWithoutEvaluatingIt(): void
+    public function testDoesNotExposeBindingExpressionText(): void
     {
-        $workspace = WorkspaceContext::fromRoot($this->fixture());
-        self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
+        $handler = new \Suzumaze\BearPhpactor\LanguageServer\SemanticQueryHandler($this->fixture('DiComposition'));
+        $response = \Amp\Promise\wait($handler->inspectDiBindings(limit: 100));
 
-        $result = (new DiBindingQuery())->listInWorkspace($workspace->value, limit: 100);
-
-        self::assertInstanceOf(DiBindingInventory::class, $result->value);
-        $items = $result->value->items;
-        self::assertSame('FileLogger::class', $items[3]->targetExpression);
-        self::assertSame("'host=smtp_host,port=smtp_port'", $items[7]->constructorArguments);
-        self::assertSame("['host' => 'queue_host']", $items[8]->constructorArguments);
-        self::assertNull($items[9]->targetExpression);
-        self::assertSame("'acme'", $items[10]->targetExpression);
-        self::assertSame('(int) $this->retry', $items[11]->targetExpression);
-        self::assertSame('new Clock()', $items[13]->targetExpression);
-        self::assertSame('$this->config', $items[14]->targetExpression);
-        self::assertSame('$loggerClass', $items[24]->targetExpression);
-        self::assertSame("'host=smtp_host'", $items[27]->constructorArguments);
+        self::assertSame('ok', $response['status']);
+        $serialized = json_encode($response['data']['items'], JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString('targetExpression', $serialized);
+        self::assertStringNotContainsString('constructorArguments', $serialized);
+        self::assertStringNotContainsString('fixture-private-value', $serialized);
+        $secretBinding = array_values(array_filter(
+            $response['data']['items'],
+            static fn (array $item): bool => $item['qualifier'] === 'api-key',
+        ))[0];
+        self::assertSame('instance', $secretBinding['kind']);
+        self::assertSame('string', $secretBinding['valueType']);
     }
 
     public function testFiltersByExactSourceTypeAndValidatesPagination(): void

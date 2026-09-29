@@ -161,6 +161,10 @@ final class SemanticQueryProtocolTest extends TestCase
             ],
             'bear/di/bindings' => ['DiAop', [null, null, 1, 0, 'app']],
             'bear/di/moduleGraph' => ['DiAop', ['test-app', null]],
+            'bear/di/moduleDeclarations' => [
+                'DiAop',
+                ['Acme\\DiAop\\Module\\FeatureModule', 'test-app', null, 1, 0],
+            ],
             'bear/di/container' => ['DiComposition', ['prod-app', null, 1, 0]],
             'bear/app/contexts' => ['DiComposition', [null, 1, 0]],
             'bear/di/bindingLookup' => ['DiComposition', ['prod-app']],
