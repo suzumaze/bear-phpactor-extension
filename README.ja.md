@@ -77,7 +77,8 @@ context規約、継承、静的なModule install経路に参加するworkspace�
 これは実行時コンテナの完全な再現ではなく、最終的に勝つDI binding、評価済みpointcut、
 runtimeでweaveされた振る舞いを断定しません。動的または未対応の形式は、推測で埋めず
 理由付きの`unresolved`として残します。
-`bear/di/moduleGraph`は、その絞り込みの根拠となるcontext segment、workspace module、継承、
+`bear/di/moduleGraph`は、context未指定ならworkspace内Moduleのソース地図と直接宣言数を返します。
+context指定時は、絞り込みの根拠となるsegment、workspace module、継承、
 静的な`install()`/`override()` edgeを返します。外部またはdynamicなedgeは明示したままにし、
 vendor展開、control flow評価、優先順位、container構築までは断定しません。
 `bear/di/bindings`はModule、provider、constructorを実行せず保存済みsourceを読み、解決不能な箇所を明示します。
@@ -86,6 +87,13 @@ vendor展開、control flow評価、優先順位、container構築までは断�
 `bear/di/bindingLookup`は明示したcontextで束縛候補・宣言位置・勝敗の根拠を返します。
 衝突した束縛やResourceだけに絞れます。未解決条件が残る場合は暫定候補として表示します。
 [DI inspection](docs/di-inspection.md)に今回の範囲とAOP側の残作業を記載しています。
+
+DI設定を調べるときは、まずcontextなしの`bear/di/moduleGraph`でModuleの出典を探し、
+該当Moduleを`bear/di/moduleDeclarations`で開けます。各束縛・AOP宣言にはソースの
+pathとlineがあり、エディタでその行に移動できます。contextが必要な問いでは、
+起動コードから見つかった候補を明示して両照会に渡すと、保存済みworkspaceソース上の
+Module組み込み経路が分かります。特定の型の合成履歴は`bear/di/bindingLookup`で調べます。
+Module全体の図や実行時コンテナを前提にしない、質問から出典へ進む手順です。
 
 `bear/di/container`は1つのcontextについてさらに踏み込み、アプリとインストール済みvendorのModuleをデータとして解釈し、
 Ray.Diの合成規則を適用した結果のbindingと所有Moduleを返します。実行時にしか決まらない値と、それに依存する分岐は

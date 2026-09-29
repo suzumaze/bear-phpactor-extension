@@ -55,7 +55,7 @@ through `language_server.diagnostic_providers` when selecting providers explicit
 
 Standard position-based LSP methods remain the primary interface. For clients that
 already have a BEAR identifier but no open document position, the Language Server also
-provides 23 read-only `bear/*` requests for project, Resource, Route, SQL, Template,
+provides read-only `bear/*` requests for project, Resource, Route, SQL, Template,
 ALPS, Schema, DI, and AOP facts. Resource attribute facts and their workspace inventory are
 available without executing application PHP. `bear/project/diagnostics` aggregates
 evidence-backed problems in explicit saved-source references while keeping per-item
@@ -93,6 +93,14 @@ Use `bear/app/contexts` to discover declared entry-point contexts without select
 Use `bear/di/bindingLookup` with an explicit context to inspect binding selections, declaration
 locations and discarded alternatives; filter conflicts or Resource bindings before pagination.
 Unknown composition conditions make every selection provisional. See [DI inspection](docs/di-inspection.md).
+
+For a source-first DI investigation, start with `bear/di/moduleGraph` without a context, then
+open a relevant Module with `bear/di/moduleDeclarations`. Each direct binding and pointcut has
+its own source path and line for editor navigation. If the question depends on a context,
+choose an entry-point candidate explicitly and pass it to the graph and declaration request:
+the returned route shows how that Module was reached in saved workspace source. Ask
+`bear/di/bindingLookup` for a particular type when its composition history matters. These
+queries answer a question without requiring a whole-module diagram or runtime container.
 
 `bear/di/container` goes further for one context: it interprets application and installed
 vendor modules as data, applies Ray.Di's composition rules, and returns the resulting

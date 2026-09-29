@@ -197,7 +197,7 @@ capabilityは追加でき、clientは未知のobject fieldを無視する。公�
 公開済みの`semanticApiVersion`は互換性のため`1`のまま非推奨memberとして残す。新しいclientは
 version交渉やcapability判断に使用しない。
 
-`tests/Contract/semantic-query-contract.json`とcontract testが、全24 methodの登録名、handler引数の
+`tests/Contract/semantic-query-contract.json`とcontract testが、公開methodの登録名、handler引数の
 名前・型・default、成功envelopeとtop-level data key、failure envelope、error key、全statusを
 実際のhandler responseに対して検証する。snapshotはversion交渉ではなく回帰検出に使う。
 
