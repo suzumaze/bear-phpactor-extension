@@ -324,6 +324,7 @@ problem in the chain wins:
 | `binding_constructor_injection_points_not_static` | `toConstructor()` receives `InjectionPoints` other than literal `null` |
 | `binding_constructor_post_construct_not_static` | `toConstructor()` `postConstruct` is neither a literal nor `null` |
 | `binding_untargeted_type_missing` | `bind()` without a type and without a target |
+| `binding_chain_retained` | The `Bind` is assigned to a variable or property; later statements may add a qualifier, target or scope that this chain reader does not follow |
 
 Null item members may be omitted by the stdio transport.
 
@@ -363,8 +364,11 @@ evaluated, and no runtime container is built.
 without it, the result is a source-only view; with it, `contextMembership` overlays the static module
 graph. `not_observed_in_workspace_graph` does not prove the Module is excluded, since vendor modules
 and dynamic edges are not expanded; unresolved graph edges produce `unknown`. Binding and pointcut
-inventories each apply the same `limit` and `offset` independently, so a response may contain up to
-twice `limit` items. Each category has its own total and truncation status. Binding facts are a safe
+inventories page independently, so a response may contain up to twice `limit` items, and either
+list may stop early at the page byte budget. `offset` seeds both lists; `bindingsOffset` and
+`pointcutsOffset` override it per list. To read everything, advance each list's own offset by the
+number of items it returned while that list is `truncated`. Each category reports its own
+`offset`, total and truncation status. Binding facts are a safe
 projection and never include source expressions or constructor argument values. Winner resolution is
 not joined; use `bear/di/bindingLookup` for source-selected binding evidence. Source structure and
 context-selected membership remain separate facts, not a runtime container view.
@@ -452,7 +456,7 @@ load module PHP, construct a DI container, or execute the application.
 | `bear/project/contractCoverage` | `{contextPath?, limit?, offset?, gapsOnly?, scheme?}` | `{items, total, matchingTotal, offset, truncated, gapsOnly, scheme, scannedResources, analyzedResources, resourceScanTruncated, summary}` |
 | `bear/di/bindings` | `{contextPath?, type?, limit?, offset?, applicationContext?}` | `{items, total, offset, truncated, scannedModules, unresolved, type, applicationContext}` |
 | `bear/di/moduleGraph` | `{applicationContext?, contextPath?}` | `{view?, applicationContext, segments, modules, edges, truncated, coverage}` |
-| `bear/di/moduleDeclarations` | `{module, applicationContext?, contextPath?, limit?, offset?}` | `{applicationContext, module, contextMembership, bindings, pointcuts, bindingSelection, coverage}` |
+| `bear/di/moduleDeclarations` | `{module, applicationContext?, contextPath?, limit?, offset?, bindingsOffset?, pointcutsOffset?}` | `{applicationContext, module, contextMembership, bindings, pointcuts, bindingSelection, coverage}` |
 | `bear/app/contexts` | `{contextPath?, limit?, offset?}` | `{items, total, offset, truncated, selectedContext, scannedFiles, skippedFiles, scanTruncated, unresolved, unresolvedTotal, unresolvedTruncated, coverage}` |
 | `bear/di/bindingLookup` | `{applicationContext, type?, name?, contextPath?, limit?, offset?, overridesOnly?, resourcesOnly?, environment?}` | `{applicationContext, type, name, overridesOnly, resourcesOnly, items, total, offset, truncated, unknowns, unknownTotal, unknownsTruncated, coverage}` |
 | `bear/di/container` | `{applicationContext, contextPath?, limit?, offset?, environment?}` | `{applicationContext, appName, items, total, offset, truncated, events, modules, unknowns, coverage}` |

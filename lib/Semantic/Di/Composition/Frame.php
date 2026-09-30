@@ -18,6 +18,9 @@ final class Frame
     /** A branch whose runtime choice could change this method's return value was skipped. */
     public bool $controlFlowUnknown = false;
 
+    /** Whether that skipped branch was recorded as an unknown (vendor helper internals are not). */
+    public bool $controlFlowReported = false;
+
     /** @var list<mixed>|null values yielded by a generator method */
     public ?array $yields = null;
 

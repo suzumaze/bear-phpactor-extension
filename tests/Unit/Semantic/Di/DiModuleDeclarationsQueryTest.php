@@ -73,6 +73,29 @@ final class DiModuleDeclarationsQueryTest extends TestCase
         self::assertSame('Acme\\DiAop\\Module\\AppModule', $response['data']['pointcuts']['items'][0]['module']);
     }
 
+    public function testBindingsAndPointcutsPageWithTheirOwnOffsets(): void
+    {
+        $handler = new SemanticQueryHandler($this->fixture());
+        $response = wait($handler->inspectDiModuleDeclarations(
+            'Acme\\DiAop\\Module\\AppModule',
+            limit: 1,
+            bindingsOffset: 2,
+            pointcutsOffset: 0,
+        ));
+
+        self::assertSame('ok', $response['status']);
+        self::assertSame(2, $response['data']['bindings']['offset']);
+        self::assertSame(22, $response['data']['bindings']['items'][0]['line']);
+        self::assertFalse($response['data']['bindings']['truncated']);
+        self::assertSame(0, $response['data']['pointcuts']['offset']);
+        self::assertSame(24, $response['data']['pointcuts']['items'][0]['line']);
+        self::assertTrue($response['data']['pointcuts']['truncated']);
+        self::assertSame(
+            'invalid_input',
+            wait($handler->inspectDiModuleDeclarations('Acme\\DiAop\\Module\\AppModule', bindingsOffset: -1))['status'],
+        );
+    }
+
     public function testRequiresAnExactModuleFqcn(): void
     {
         $handler = new SemanticQueryHandler($this->fixture());

@@ -42,11 +42,18 @@ release goal. Module relationships remain useful as supporting evidence.
 - Some framework assembly steps remain version-specific recipes. Recipe origins and edges
   have no invented source line; they are distinct from source declarations.
 
-The composition model follows the reviewed Ray.Di 2.23 implementation and does not inspect
-the installed Ray.Di version before applying every rule. In Ray.Di 2.20, for example,
-`bindInterceptor()` can bind only the first class in a multi-interceptor list, while the 2.23
-implementation binds all of them. A source-matched chain does not establish that an older
-injector can be constructed. Check the installed Ray.Di source when that distinction matters.
+The composition model targets the latest reviewed Ray.Di release (2.23.1) and applies the same
+rules whatever version is installed; it does not read the installed Ray.Di version. Projects on
+older Ray.Di releases are outside this model where their write rules differ. Known differences:
+
+- Ray.Di 2.20 `bindInterceptor()` binds only the first interceptor class of a list. The injector
+  still builds, but the first `getInstance()` of a woven class then fails with
+  `Ray\Di\Exception\Untargeted` for the second interceptor. The source-matched chain shows
+  the 2.23 result.
+- Ray.Di 2.20 `rename()` silently overwrites an already bound target index, while 2.23 throws
+  `RenameTargetAlreadyBound`.
+
+Upgrade Ray.Di, or check the installed Ray.Di source, when such a difference matters.
 
 The MCP adapter exposes `bear_app_context_list`, `bear_di_binding_lookup`, and
 `bear_di_module_tree_read`. Without a context, the latter returns a bounded workspace Module

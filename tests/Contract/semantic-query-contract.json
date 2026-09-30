@@ -305,7 +305,9 @@
                 {"name": "applicationContext", "type": "string|null", "required": false, "default": null},
                 {"name": "contextPath", "type": "string|null", "required": false, "default": null},
                 {"name": "limit", "type": "int", "required": false, "default": 50},
-                {"name": "offset", "type": "int", "required": false, "default": 0}
+                {"name": "offset", "type": "int", "required": false, "default": 0},
+                {"name": "bindingsOffset", "type": "int|null", "required": false, "default": null},
+                {"name": "pointcutsOffset", "type": "int|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["applicationContext", "module", "contextMembership", "bindings", "pointcuts", "bindingSelection", "coverage"]

@@ -126,6 +126,93 @@ final class UnknownPropagationTest extends CompositionTestCase
         );
     }
 
+    public function testRetainedUntargetedBindRegistersItsLaterQualifier(): void
+    {
+        // Ray.Di registers an untargeted Bind in __destruct, so a qualifier set through a
+        // retained variable is part of the key; registering at the end of the statement is not.
+        $module = $this->interpreter->newObject(self::CLAIM . 'ReviewModule');
+        self::assertInstanceOf(ObjectValue::class, $module);
+        $this->interpreter->callMethod($module, 'retainedUntargetedQualifier', [], null);
+
+        self::assertSame(
+            ['Acme\\Shop\\EmptyForwarder-later' => ['kind' => 'dependency', 'target' => 'Acme\\Shop\\EmptyForwarder']],
+            $this->interpreter->containerOf($module)->bindings,
+        );
+    }
+
+    /** @return iterable<string, array{string, string, string}> */
+    public static function unknownHelperStatementCases(): iterable
+    {
+        yield 'switch' => ['helperAfterSwitch', 'statement_unsupported', 'src/Module/Claim/ReviewHelper.php'];
+        yield 'while' => ['helperAfterWhile', 'statement_unsupported', 'src/Module/Claim/ReviewHelper.php'];
+        yield 'foreach' => ['helperAfterForeach', 'foreach_collection_unknown', 'src/Module/Claim/ReviewHelper.php'];
+        yield 'try' => ['helperAfterTry', 'statement_unsupported', 'src/Module/Claim/ReviewHelper.php'];
+    }
+
+    #[DataProvider('unknownHelperStatementCases')]
+    public function testSkippedHelperStatementDoesNotSelectItsFallbackReturn(
+        string $method,
+        string $reason,
+        string $path,
+    ): void {
+        $module = $this->interpreter->newObject(self::CLAIM . 'ReviewModule');
+        self::assertInstanceOf(ObjectValue::class, $module);
+        $this->interpreter->callMethod($module, $method, [], null);
+
+        self::assertSame([], $this->interpreter->containerOf($module)->bindings);
+        self::assertSame($reason, $this->interpreter->unknowns[0]['reason']);
+        self::assertSame($path, $this->interpreter->unknowns[0]['path']);
+        self::assertSame(self::CLAIM . 'ReviewModule', $this->interpreter->unknowns[0]['module']);
+    }
+
+    public function testUnknownVendorHelperBranchIsRecordedWhereTheModuleUsesIt(): void
+    {
+        // Vendor helper internals are not listed, so the consuming install() must record it.
+        $module = $this->interpreter->newObject(self::CLAIM . 'ReviewModule');
+        self::assertInstanceOf(ObjectValue::class, $module);
+        $this->interpreter->callMethod($module, 'vendorFactoryInstall', [], null);
+
+        self::assertSame([], $this->interpreter->containerOf($module)->bindings);
+        self::assertSame(
+            [['install_module_unknown', 'src/Module/Claim/ReviewModule.php']],
+            array_map(
+                static fn (array $unknown): array => [$unknown['reason'], $unknown['path']],
+                $this->interpreter->unknowns,
+            ),
+        );
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function unsupportedCallableArrayCases(): iterable
+    {
+        yield 'array_map' => ['arrayCallableChoice'];
+        yield 'array_filter' => ['filterCallableChoice'];
+    }
+
+    #[DataProvider('unsupportedCallableArrayCases')]
+    public function testCallableArrayCallbacksRemainExplicitlyUnknown(string $method): void
+    {
+        $module = $this->interpreter->newObject(self::CLAIM . 'ReviewModule');
+        self::assertInstanceOf(ObjectValue::class, $module);
+        $this->interpreter->callMethod($module, $method, [], null);
+
+        self::assertSame([], $this->interpreter->containerOf($module)->bindings);
+        self::assertContains('callback_unsupported', array_column($this->interpreter->unknowns, 'reason'));
+    }
+
+    public function testBuiltinOrMissingCallbackDoesNotHideBindings(): void
+    {
+        $module = $this->interpreter->newObject(self::CLAIM . 'ReviewModule');
+        self::assertInstanceOf(ObjectValue::class, $module);
+        $this->interpreter->callMethod($module, 'builtinCallbackChoice', [], null);
+
+        self::assertSame(
+            ['Service-' => ['kind' => 'dependency', 'target' => 'Enabled']],
+            $this->interpreter->containerOf($module)->bindings,
+        );
+        self::assertSame([], $this->interpreter->unknowns);
+    }
+
     public function testStringQualifierKeepsItsLeadingBackslash(): void
     {
         $module = $this->interpreter->newObject(self::CLAIM . 'ReviewModule');

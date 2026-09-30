@@ -83,11 +83,66 @@ final class ReviewModule extends AbstractModule
         }, [1]);
     }
 
+    public function helperAfterSwitch(): void
+    {
+        $this->bind('Service')->to(ReviewHelper::pickAfterSwitch());
+    }
+
+    public function helperAfterWhile(): void
+    {
+        $this->bind('Service')->to(ReviewHelper::pickAfterWhile());
+    }
+
+    public function helperAfterForeach(): void
+    {
+        $this->bind('Service')->to(ReviewHelper::pickAfterForeach());
+    }
+
+    public function helperAfterTry(): void
+    {
+        $this->bind('Service')->to(ReviewHelper::pickAfterTry());
+    }
+
+    public function vendorFactoryInstall(): void
+    {
+        $this->install((new \Acme\Factory\VendorModuleFactory())->choose());
+    }
+
+    public function arrayCallableChoice(): void
+    {
+        array_map([$this, 'bindHidden'], [1]);
+    }
+
+    public function filterCallableChoice(): void
+    {
+        array_filter([1], [$this, 'bindHidden']);
+    }
+
+    public function builtinCallbackChoice(): void
+    {
+        array_map('trim', [' a ']);
+        array_filter([1]);
+        $this->bind('Service')->to('Enabled');
+    }
+
+    public function bindHidden(): bool
+    {
+        $this->bind('Service')->to('Hidden');
+
+        return true;
+    }
+
     public function delayedQualifier(): void
     {
         $bind = $this->bind('Service');
         $bind->annotatedWith('qualified');
         $bind->to('Enabled');
+    }
+
+    public function retainedUntargetedQualifier(): void
+    {
+        $bind = $this->bind(\Acme\Shop\EmptyForwarder::class);
+        $bind->annotatedWith('later');
     }
 
     public function literalQualifier(): void

@@ -6,6 +6,7 @@
         {"name": "bear/resource", "install-path": "../bear/resource", "autoload": {"psr-4": {"BEAR\\Resource\\": "src/"}}},
         {"name": "bear/sunday", "install-path": "../bear/sunday", "autoload": {"psr-4": {"BEAR\\Sunday\\": "src/"}}},
         {"name": "bear/package", "install-path": "../bear/package", "autoload": {"psr-4": {"BEAR\\Package\\": "src/"}}},
+        {"name": "acme/factory", "install-path": "../acme/factory", "autoload": {"psr-4": {"Acme\\Factory\\": "src/"}}},
         {"name": "acme/sentinel", "install-path": "../acme/sentinel", "autoload": {"files": ["sentinel.php"]}}
     ],
     "dev": true,

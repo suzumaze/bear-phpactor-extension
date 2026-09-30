@@ -32,8 +32,14 @@ final readonly class DiModuleDeclarationsQuery
         ?string $contextPath = null,
         int $limit = self::DEFAULT_LIMIT,
         int $offset = 0,
+        ?int $bindingsOffset = null,
+        ?int $pointcutsOffset = null,
     ): SemanticResult {
         $module = ltrim($module, '\\');
+        // Bindings and pointcuts page independently; each list may also stop early at the
+        // page byte budget, so each keeps its own offset. `offset` seeds both.
+        $bindingsOffset ??= $offset;
+        $pointcutsOffset ??= $offset;
         if (
             !$this->isFqcn($module)
             || ($applicationContext !== null && preg_match(
@@ -43,6 +49,8 @@ final readonly class DiModuleDeclarationsQuery
             || $limit < 1
             || $limit > self::MAX_LIMIT
             || $offset < 0
+            || $bindingsOffset < 0
+            || $pointcutsOffset < 0
         ) {
             return SemanticResult::invalidInput();
         }
@@ -71,7 +79,7 @@ final readonly class DiModuleDeclarationsQuery
             $workspace,
             contextPath: $contextPath,
             limit: $limit,
-            offset: $offset,
+            offset: $bindingsOffset,
             module: $canonicalModule,
         );
         if ($bindings->value === null) {
@@ -81,7 +89,7 @@ final readonly class DiModuleDeclarationsQuery
             $workspace,
             contextPath: $contextPath,
             limit: $limit,
-            offset: $offset,
+            offset: $pointcutsOffset,
             module: $canonicalModule,
         );
         if ($pointcuts->value === null) {
@@ -131,14 +139,14 @@ final readonly class DiModuleDeclarationsQuery
             'bindings' => [
                 'items' => $bindingItems,
                 'total' => $bindings->value->total,
-                'offset' => $offset,
+                'offset' => $bindingsOffset,
                 'truncated' => $bindings->value->truncated,
                 'unresolved' => $bindings->value->unresolved,
             ],
             'pointcuts' => [
                 'items' => $pointcutItems,
                 'total' => $pointcuts->value->total,
-                'offset' => $offset,
+                'offset' => $pointcutsOffset,
                 'truncated' => $pointcuts->value->truncated,
                 'unresolved' => $pointcuts->value->unresolved,
             ],

@@ -281,7 +281,7 @@ final class ModuleInterpreter
                 $this->executeStatements($body->statements, $frame);
             } catch (ReturnSignal $return) {
                 return $frame->controlFlowUnknown
-                    ? new UnknownValue(reported: true)
+                    ? new UnknownValue(reported: $frame->controlFlowReported)
                     : ($frame->yields ?? $return->value);
             } catch (ThrowSignal) {
                 $this->unknown('throw_reached', $method, $declaring, $object);
@@ -289,7 +289,9 @@ final class ModuleInterpreter
                 return new UnknownValue();
             }
 
-            return $frame->controlFlowUnknown ? new UnknownValue(reported: true) : $frame->yields;
+            return $frame->controlFlowUnknown
+                ? new UnknownValue(reported: $frame->controlFlowReported)
+                : $frame->yields;
         } finally {
             $this->finishRetainedBinds($frame);
             --$this->depth;
@@ -381,8 +383,22 @@ final class ModuleInterpreter
             $statement instanceof IfStatementNode => $this->ifStatement($statement, $frame),
             $statement instanceof ForeachStatement => $this->foreachStatement($statement, $frame),
             $statement instanceof EmptyStatement => null,
-            default => $this->unknown('statement_unsupported', $statement, $frame->declaring, $frame->object),
+            default => $this->skipUnknownControlFlow('statement_unsupported', $statement, $frame),
         };
+    }
+
+    /**
+     * A skipped statement may return or bind at runtime, so the method's own return value
+     * is no longer known even when a later fallback `return` is readable.
+     */
+    private function skipUnknownControlFlow(string $reason, Node $statement, Frame $frame): void
+    {
+        $before = count($this->unknowns);
+        $this->unknown($reason, $statement, $frame->declaring, $frame->object);
+        $frame->controlFlowUnknown = true;
+        // Vendor helper internals are not recorded; leave their unknown return unreported so
+        // the consuming Module records it.
+        $frame->controlFlowReported = $frame->controlFlowReported || count($this->unknowns) > $before;
     }
 
     private function expressionStatement(ExpressionStatement $statement, Frame $frame): void
@@ -451,8 +467,7 @@ final class ModuleInterpreter
                     // A guard that only throws cannot change the bindings of a successful boot.
                     continue;
                 }
-                $this->unknown('branch_condition_unknown', $statement, $frame->declaring, $frame->object);
-                $frame->controlFlowUnknown = true;
+                $this->skipUnknownControlFlow('branch_condition_unknown', $statement, $frame);
 
                 return;
             }
@@ -499,7 +514,7 @@ final class ModuleInterpreter
     {
         $collection = $this->evaluate($statement->forEachCollectionName, $frame);
         if (!is_array($collection)) {
-            $this->unknown('foreach_collection_unknown', $statement, $frame->declaring, $frame->object);
+            $this->skipUnknownControlFlow('foreach_collection_unknown', $statement, $frame);
 
             return;
         }
@@ -903,12 +918,12 @@ final class ModuleInterpreter
             return new UnknownValue($returnTypes[$function]);
         }
         if (in_array($function, ['array_filter', 'array_map'], true)) {
-            // Callbacks are not evaluated; the result is still an array.
-            foreach ($arguments as $argument) {
-                if ($argument instanceof ObjectValue && $argument->class === 'Closure') {
-                    $this->unknown('callback_unsupported', $node, $frame->declaring, $frame->object);
-                    break;
-                }
+            // Callbacks are not evaluated; the result is still an array. Only a missing callback
+            // or a built-in PHP function is known not to bind; closures, [$object, 'method']
+            // arrays and user functions may call bind() and are reported.
+            $callback = $function === 'array_map' ? ($arguments[0] ?? null) : ($arguments[1] ?? null);
+            if ($callback !== null && !$this->isBuiltinFunctionName($callback)) {
+                $this->unknown('callback_unsupported', $node, $frame->declaring, $frame->object);
             }
 
             return new UnknownValue('array');
@@ -957,6 +972,15 @@ final class ModuleInterpreter
         $this->unknown('function_unsupported:' . $function, $node, $frame->declaring, $frame->object);
 
         return new UnknownValue();
+    }
+
+    private function isBuiltinFunctionName(mixed $callback): bool
+    {
+        if (!is_string($callback) || !function_exists($callback)) {
+            return false;
+        }
+
+        return (new \ReflectionFunction($callback))->isInternal();
     }
 
     /** @return array<int|string, mixed> */

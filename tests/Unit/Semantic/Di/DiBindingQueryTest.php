@@ -167,6 +167,25 @@ final class DiBindingQueryTest extends TestCase
         self::assertSame('single_$name', $result->value->items[5]->qualifier);
     }
 
+    public function testRetainedBindChainIsNotReportedAsResolved(): void
+    {
+        $workspace = WorkspaceContext::fromRoot($this->fixture('DiAopRetainedBind'));
+        self::assertInstanceOf(WorkspaceContext::class, $workspace->value);
+
+        $result = (new DiBindingQuery())->listInWorkspace($workspace->value);
+
+        self::assertInstanceOf(DiBindingInventory::class, $result->value);
+        // A qualifier added through the variable is not claimed; direct and conditional chains stay resolved.
+        self::assertSame([
+            [DiBindingFact::STATE_UNRESOLVED, 'binding_chain_retained', null],
+            [DiBindingFact::STATE_RESOLVED, null, 'direct'],
+            [DiBindingFact::STATE_RESOLVED, null, null],
+        ], array_map(
+            static fn (DiBindingFact $item): array => [$item->state, $item->reason, $item->qualifier],
+            $result->value->items,
+        ));
+    }
+
     private function fixture(string $name = 'DiAop'): string
     {
         $fixture = realpath(dirname(__DIR__, 3) . '/Fixture/' . $name);
