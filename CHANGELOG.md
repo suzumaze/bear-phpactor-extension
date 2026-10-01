@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Recognize the `AssistedInjectMatcher` source shipped in Ray.Di 2.23.1 as well as 2.20.0. Its
+  method matching is unchanged, but its source differs, so an application on 2.23.1 left every
+  `AssistedInjectModule` pointcut unresolved: each Resource method got two
+  `matcher_or_interceptors_unresolved` unknowns, `bear/aop/applications` reported every result as
+  `provisional`, and methods without interceptors were listed. A changed matcher source is still
+  not recognized.
+
 ## [0.3.2] - 2026-09-30
 
 ### Added
