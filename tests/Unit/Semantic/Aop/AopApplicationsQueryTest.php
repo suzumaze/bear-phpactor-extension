@@ -190,6 +190,43 @@ final class AopApplicationsQueryTest extends TestCase
         self::assertFalse(AssistedInjectMatcherRecipe::matches($wrongClass));
     }
 
+    public function testAssistedInjectMatcherSourceOfRayDi223IsRecognizedAndEditsAreRejected(): void
+    {
+        $classes = new ClassSourceIndex($this->root(), $this->root());
+        $ray220 = $classes->find(AssistedInjectMatcherRecipe::CLASS_NAME);
+        self::assertNotNull($ray220);
+        // Ray.Di 2.20.0 (the fixture) stays recognized.
+        self::assertTrue(AssistedInjectMatcherRecipe::matches($ray220));
+
+        // Verbatim vendor/ray/di/src/di/Matcher/AssistedInjectMatcher.php from Ray.Di 2.23.1 (MIT).
+        $ray223Contents = file_get_contents(
+            dirname(__DIR__, 3) . '/Fixture/AssistedInjectMatcher/ray-di-2.23.1.php.txt',
+        );
+        self::assertIsString($ray223Contents);
+        self::assertNotSame(
+            AssistedInjectMatcherRecipe::fingerprint($ray220->contents),
+            AssistedInjectMatcherRecipe::fingerprint($ray223Contents),
+            'the two releases differ in tokens, so each needs its own verified fingerprint',
+        );
+        $withContents = static fn (string $contents): ClassSource => new ClassSource(
+            $ray220->name,
+            $ray220->node,
+            $contents,
+            $ray220->path,
+            $ray220->parent,
+            $ray220->interfaces,
+        );
+        self::assertTrue(AssistedInjectMatcherRecipe::matches($withContents($ray223Contents)));
+
+        // A changed method-matching condition must not be recognized, in either release.
+        foreach ([$ray223Contents, $ray220->contents] as $contents) {
+            self::assertStringContainsString('isset($assisted[0])', $contents);
+            self::assertFalse(AssistedInjectMatcherRecipe::matches(
+                $withContents(str_replace('isset($assisted[0])', 'isset($assisted[1])', $contents)),
+            ));
+        }
+    }
+
     public function testAnnotationReplacementHappensBeforeClassConditionMatching(): void
     {
         $result = wait($this->handler()->listAopApplications('advice-nonmatch-app', 'app://self/advice'));

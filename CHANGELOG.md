@@ -6,6 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-10-02
+
+### Fixed
+
+- Recognize the `AssistedInjectMatcher` source shipped in Ray.Di 2.23.1 as well as 2.20.0. Its
+  method matching is unchanged, but its source differs, so an application on 2.23.1 left every
+  `AssistedInjectModule` pointcut unresolved: each Resource method got two
+  `matcher_or_interceptors_unresolved` unknowns, `bear/aop/applications` reported every result as
+  `provisional`, and methods without interceptors were listed. A changed matcher source is still
+  not recognized.
+
 ## [0.3.2] - 2026-09-30
 
 ### Added
@@ -294,7 +305,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Invalid, missing, ambiguous, malformed, and outside-workspace inputs return structured
   failure results instead of executing application PHP or exposing exception traces.
 
-[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.2.0...v0.3.0

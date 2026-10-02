@@ -122,8 +122,9 @@ The `assistedinject` method-matcher recipe models the reviewed
 `Ray\Di\Matcher\AssistedInjectMatcher` implementation: parameter attributes match by exact
 `Ray\Di\Di\Assisted` name or by `Ray\Di\Di\InjectInterface` compatibility. It is recognized
 only at the interceptor-binding boundary and only when the saved implementation's normalized
-PHP tokens match the reviewed source fingerprint (comments and whitespace are ignored).
-Class-name or package-version agreement alone is insufficient. A changed implementation,
+PHP tokens match one of the reviewed source fingerprints (comments and whitespace are ignored):
+the matcher source shipped in Ray.Di 2.20.0 or in Ray.Di 2.23.1. The installed Ray.Di version is
+not read. Class-name or package-version agreement alone is insufficient. A changed implementation,
 unreadable attribute ancestry, or class-matcher use remains unresolved. Application PHP and
 custom matcher methods are never executed by the query.
 
