@@ -37,11 +37,58 @@ final class AppContextListQueryTest extends TestCase
             $result->value['coverage']['supportedCalls'],
         );
         self::assertFalse($result->value['coverage']['runtimeUsageObserved']);
-        self::assertSame(
-            'static-positional-single-return-forwarders-only',
-            $result->value['coverage']['wrapperResolution'],
-        );
+        self::assertSame('positional-parameter-forwarders', $result->value['coverage']['wrapperResolution']);
         self::assertFalse($result->value['coverage']['overrideModulesApplied']);
+    }
+
+    public function testFollowsContextsPassedToClosuresAndInvokablesOfASkeletonApp(): void
+    {
+        $result = (new AppContextListQuery())->listInWorkspace($this->workspace('ContextForwarders'));
+        self::assertNotNull($result->value);
+        $items = array_column($result->value['items'], null, 'applicationContext');
+        self::assertSame(
+            [
+                'arrow-app',
+                'batch-app',
+                'cli-hal-app',
+                'hal-app',
+                'html-hal-app',
+                'prod-admin-app',
+                'prod-compile-app',
+                'prod-hal-app',
+            ],
+            array_keys($items),
+        );
+
+        // (require <file>)('…') where the file returns a closure, including a ternary of two literals.
+        self::assertSame('public/index.php', $items['prod-hal-app']['sources'][0]['path']);
+        self::assertSame('public/index.php', $items['hal-app']['sources'][0]['path']);
+        // (new C())(…) and (new C())->method(…), where the method reaches the app's own static forwarder.
+        self::assertSame('bin/app.php', $items['cli-hal-app']['sources'][0]['path']);
+        self::assertSame('bin/page.php', $items['html-hal-app']['sources'][0]['path']);
+        // A closure variable called in the file that defines it, plus an arrow function.
+        self::assertSame('bin/compile.php', $items['prod-compile-app']['sources'][0]['path']);
+        self::assertSame('bin/compile.php', $items['prod-admin-app']['sources'][0]['path']);
+        self::assertSame('bin/compile.php', $items['arrow-app']['sources'][0]['path']);
+        // Literal contexts in bootstrap/ are scanned too.
+        self::assertSame('bootstrap/batch.php', $items['batch-app']['sources'][0]['path']);
+
+        // Forwarders that were called leave no unresolved site behind. Only the five callables in
+        // negatives.php that cannot be followed keep the inner call visible.
+        self::assertSame(5, $result->value['unresolvedTotal']);
+        self::assertSame(
+            ['bin/negatives.php'],
+            array_values(array_unique(array_column($result->value['unresolved'], 'path'))),
+        );
+        self::assertSame(
+            ['context_expression_unresolved'],
+            array_values(array_unique(array_column($result->value['unresolved'], 'reason'))),
+        );
+        self::assertSame(
+            ['static-method', 'instance-method', 'closure-returned-by-required-file', 'closure-variable'],
+            $result->value['coverage']['forwarderForms'],
+        );
+        self::assertFalse($result->value['coverage']['variableAssignmentsResolved']);
     }
 
     public function testPaginationAndIncompleteScanAreIndependent(): void
@@ -56,9 +103,9 @@ final class AppContextListQueryTest extends TestCase
         self::assertNull($limited->value['selectedContext']);
     }
 
-    private function workspace(): WorkspaceContext
+    private function workspace(string $fixture = 'DiComposition'): WorkspaceContext
     {
-        $workspace = WorkspaceContext::fromRoot(dirname(__DIR__, 3) . '/Fixture/DiComposition')->value;
+        $workspace = WorkspaceContext::fromRoot(dirname(__DIR__, 3) . '/Fixture/' . $fixture)->value;
         self::assertNotNull($workspace);
 
         return $workspace;

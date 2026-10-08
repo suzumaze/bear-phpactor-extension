@@ -13,12 +13,23 @@ release goal. Module relationships remain useful as supporting evidence.
   the application name is not a context candidate.
   It resolves imported class names, reads literal branches of ternaries and coalescing
   expressions, and reports unresolved arguments. It does not choose a context or prove
-  which deployment uses one. Scanning covers public, bin, tests, src and project PSR-4
-  directories within the workspace; file-count, traversal and source-size limits are reported.
-  Static wrappers are recognized only when their entire body is one return forwarding a
-  context parameter directly to a supported Injector call. Wrapper callers must pass that
-  parameter positionally. General control flow, assignments and application Bootstrap bodies
-  are not evaluated. Discovering a context in `getOverrideInstance()` does not apply its extra
+  which deployment uses one. Scanning covers public, bin, bootstrap, tests, src and project
+  PSR-4 directories within the workspace, plus any file named by a `(require <path>)(...)`
+  call; file-count, traversal and source-size limits are reported.
+  A method, closure or arrow function forwards a context when one of its parameters is passed
+  unmodified as the context argument of a supported Injector call or of another forwarder,
+  is not by-reference or variadic, and is never assigned in its body (reading it elsewhere is
+  fine). A literal passed to a forwarder counts as a context named at the call site. The
+  calls that can be followed are `Class::method(...)`, `(new Class())(...)`,
+  `(new Class())->method(...)`, `$closure(...)` where the closure is the only value ever
+  assigned to that variable in the same function or file scope, and
+  `(require <path>)(...)` where the path is built from literals, `__DIR__`, `__FILE__`,
+  `dirname()` and `.` and the file returns exactly one closure. Callers must pass the
+  parameter positionally. A forwarder whose callers were seen no longer lists its own inner
+  call as unresolved; one nobody calls in a followable form keeps it listed. Named functions,
+  `$object->method(...)` on a stored object, values taken from the environment or from
+  `$context = ...` assignments, and general control flow are not evaluated.
+  Discovering a context in `getOverrideInstance()` does not apply its extra
   override Module to a context-only lookup; `coverage.overrideModulesApplied` remains false.
 - `bear/di/bindingLookup` requires `applicationContext` and explains binding selections
   from saved application and installed vendor source. Type and qualifier filters are exact;

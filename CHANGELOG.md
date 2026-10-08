@@ -6,6 +6,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `bear/app/contexts` now lists the production contexts of an application whose entry points
+  pass the context to a bootstrap closure or class instead of calling `Injector::getInstance()`
+  directly. Previously only the contexts in demo scripts and tests appeared: on public BEAR.Kata,
+  `prod-hal-app`, `hal-app`, `html-hal-app` and `cli-html-hal-app` were missing, and the only hint
+  was one unresolved `Injector::getInstance($context)` inside the bootstrap class. It follows
+  `(require <path>)(...)`, `(new Class())(...)`, `(new Class())->method(...)`, `$closure(...)`
+  and `Class::method(...)` into methods, closures and arrow functions that pass a parameter on
+  as the context, through chains of them, and scans `bootstrap/` as well. The environment is not
+  read; a context that comes only from an environment variable is still unresolved.
+- A forwarder whose callers were seen no longer lists its inner `Injector::getInstance($context)`
+  under `unresolved`; a forwarder nobody calls in a followable form keeps it listed.
+
+### Changed
+
+- `coverage.wrapperResolution` is now `positional-parameter-forwarders` (it was
+  `static-positional-single-return-forwarders-only`), and `coverage.forwarderForms` lists the
+  forms followed. A static method no longer has to be a single `return`; it must pass the
+  parameter on unmodified and never assign it.
+
 ## [0.3.3] - 2026-10-02
 
 ### Fixed
