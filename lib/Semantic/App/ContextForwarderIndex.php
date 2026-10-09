@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace Suzumaze\BearPhpactor\Semantic\App;
 
 use Microsoft\PhpParser\Node;
+use Microsoft\PhpParser\Node\CatchClause;
 use Microsoft\PhpParser\Node\Expression\AnonymousFunctionCreationExpression;
 use Microsoft\PhpParser\Node\Expression\ArrowFunctionCreationExpression;
 use Microsoft\PhpParser\Node\Expression\AssignmentExpression;
 use Microsoft\PhpParser\Node\Expression\CallExpression;
+use Microsoft\PhpParser\Node\Expression\PostfixUpdateExpression;
+use Microsoft\PhpParser\Node\Expression\PrefixUpdateExpression;
 use Microsoft\PhpParser\Node\Expression\ScriptInclusionExpression;
 use Microsoft\PhpParser\Node\Expression\Variable;
 use Microsoft\PhpParser\Node\ForeachKey;
@@ -16,6 +19,8 @@ use Microsoft\PhpParser\Node\ForeachValue;
 use Microsoft\PhpParser\Node\MethodDeclaration;
 use Microsoft\PhpParser\Node\Parameter;
 use Microsoft\PhpParser\Node\Statement\ClassDeclaration;
+use Microsoft\PhpParser\Node\Statement\FunctionStaticDeclaration;
+use Microsoft\PhpParser\Node\Statement\GlobalDeclaration;
 use Microsoft\PhpParser\Node\Statement\ReturnStatement;
 use Microsoft\PhpParser\Node\Statement\UnsetStatement;
 use Microsoft\PhpParser\Node\UseVariableName;
@@ -60,21 +65,24 @@ final class ContextForwarderIndex
     public function collectFile(Node $parsed, string $file): array
     {
         $returned = $this->returnedClosure($parsed);
-        $assignments = [];
+        $writes = [];
         $closures = [];
         $required = [];
         foreach ($parsed->getDescendantNodes() as $node) {
-            if ($node instanceof AssignmentExpression && $node->leftOperand instanceof Variable) {
-                $key = ContextCallee::variableKey($node->leftOperand, $file);
-                $assignments[$key] = ($assignments[$key] ?? 0) + 1;
-            } elseif ($node instanceof CallExpression) {
+            foreach (self::writesOf($node) as [$anchor, $name]) {
+                $key = ContextCallee::variableKeyIn($anchor, $name, $file);
+                $writes[$key] = ($writes[$key] ?? 0) + 1;
+            }
+            if ($node instanceof CallExpression) {
                 $callee = ContextCalls::unwrap($node->callableExpression);
                 $path = $callee instanceof ScriptInclusionExpression
                     ? ContextCallee::path($callee->expression, $file)
                     : null;
                 $inspected = $path === null ? null : $this->policy->inspectExisting($path)->value;
-                if ($inspected !== null) {
-                    $required[] = $inspected->absolute;
+                // Only a PHP file is queued; a required directory would widen the scan to everything in it.
+                $absolute = $inspected?->absolute;
+                if ($absolute !== null && is_file($absolute) && str_ends_with($absolute, '.php')) {
+                    $required[] = $absolute;
                 }
             } elseif (
                 $node instanceof MethodDeclaration
@@ -84,9 +92,9 @@ final class ContextForwarderIndex
                 $this->addCallable($node, $file, $returned, $closures);
             }
         }
-        // A variable names its closure only when nothing else is ever assigned to it.
+        // A variable names its closure only when the closure is the one and only thing ever written to it.
         foreach ($closures as $key => $ids) {
-            if (($assignments[$key] ?? 0) === 1 && count($ids) === 1) {
+            if (($writes[$key] ?? 0) === 1 && count($ids) === 1) {
                 $this->callables[$this->positions[$ids[0]]]['identities'][] = $key;
             }
         }
@@ -263,27 +271,74 @@ final class ContextForwarderIndex
         $written = [];
         // A nested closure is its own scope; its by-reference captures still count as writes here.
         foreach ($function->getDescendantNodes(static fn (Node $child): bool => !self::isCallable($child)) as $node) {
-            if ($node instanceof AssignmentExpression) {
-                self::markWritten($node->leftOperand, $written);
-            } elseif (
-                $node instanceof Node\Expression\PrefixUpdateExpression
-                || $node instanceof Node\Expression\PostfixUpdateExpression
-            ) {
-                self::markWritten($node->operand, $written);
-            } elseif ($node instanceof UnsetStatement || $node instanceof ForeachKey || $node instanceof ForeachValue) {
-                self::markWritten($node, $written);
-            } elseif ($node instanceof AnonymousFunctionCreationExpression) {
-                foreach (ParserNodes::elements($node->anonymousFunctionUseClause?->useVariableNameList) as $use) {
-                    if ($use instanceof UseVariableName && $use->byRef !== null) {
-                        $written['$' . $use->getName()] = true;
-                    }
-                }
-            } elseif ($node instanceof CallExpression) {
+            foreach (self::writesOf($node) as [, $name]) {
+                $written[$name] = true;
+            }
+            if ($node instanceof CallExpression) {
                 $this->addFacts($node, $file, $contents, $parameters, $facts);
             }
         }
 
         return [$facts, $written];
+    }
+
+    /**
+     * The variables one node writes or rebinds, each with a node that sits in the scope that owns it.
+     * Passing a variable to a function that takes it by reference cannot be seen from here.
+     *
+     * @return list<array{0: Node, 1: string}>
+     */
+    private static function writesOf(Node $node): array
+    {
+        if ($node instanceof AssignmentExpression) {
+            return self::variablesIn($node->leftOperand);
+        }
+        if ($node instanceof PrefixUpdateExpression || $node instanceof PostfixUpdateExpression) {
+            return self::variablesIn($node->operand);
+        }
+        if ($node instanceof UnsetStatement || $node instanceof ForeachKey || $node instanceof ForeachValue) {
+            return self::variablesIn($node);
+        }
+        if ($node instanceof GlobalDeclaration || $node instanceof FunctionStaticDeclaration) {
+            // `global $x;` and `static $x;` rebind the name to a different variable.
+            preg_match_all('/\$[A-Za-z_\x80-\xff][A-Za-z0-9_\x80-\xff]*/', $node->getText(), $names);
+
+            return array_map(static fn (string $name): array => [$node, $name], $names[0]);
+        }
+        if ($node instanceof CatchClause) {
+            $caught = ParserNodes::text($node->variableName, $node->getFileContents());
+
+            return $caught === null ? [] : [[$node, $caught]];
+        }
+        if ($node instanceof AnonymousFunctionCreationExpression) {
+            // `use (&$x)` lets the closure rebind `$x` in the scope that creates it.
+            $captured = [];
+            foreach (ParserNodes::elements($node->anonymousFunctionUseClause?->useVariableNameList) as $use) {
+                if ($use instanceof UseVariableName && $use->byRef !== null) {
+                    $captured[] = [$node, '$' . $use->getName()];
+                }
+            }
+
+            return $captured;
+        }
+
+        return [];
+    }
+
+    /** @return list<array{0: Node, 1: string}> every variable at or under the node (or none for a token) */
+    private static function variablesIn(mixed $node): array
+    {
+        if (!$node instanceof Node) {
+            return [];
+        }
+        $variables = $node instanceof Variable ? [[$node, $node->getText()]] : [];
+        foreach ($node->getDescendantNodes() as $descendant) {
+            if ($descendant instanceof Variable) {
+                $variables[] = [$descendant, $descendant->getText()];
+            }
+        }
+
+        return $variables;
     }
 
     /**
@@ -314,22 +369,6 @@ final class ContextForwarderIndex
             $variable = ContextCalls::unwrap($argument);
             if ($variable instanceof Variable && isset($parameters[$variable->getText()])) {
                 $facts[] = [$key, $position, $variable->getText()];
-            }
-        }
-    }
-
-    /** @param array<string, true> $written */
-    private static function markWritten(mixed $node, array &$written): void
-    {
-        if (!$node instanceof Node) {
-            return;
-        }
-        if ($node instanceof Variable) {
-            $written[$node->getText()] = true;
-        }
-        foreach ($node->getDescendantNodes() as $descendant) {
-            if ($descendant instanceof Variable) {
-                $written[$descendant->getText()] = true;
             }
         }
     }

@@ -73,9 +73,9 @@ final class AppContextListQueryTest extends TestCase
         // Literal contexts in bootstrap/ are scanned too.
         self::assertSame('bootstrap/batch.php', $items['batch-app']['sources'][0]['path']);
 
-        // Forwarders that were called leave no unresolved site behind. Only the five callables in
+        // Forwarders that were called leave no unresolved site behind. Only the nine callables in
         // negatives.php that cannot be followed keep the inner call visible.
-        self::assertSame(5, $result->value['unresolvedTotal']);
+        self::assertSame(9, $result->value['unresolvedTotal']);
         self::assertSame(
             ['bin/negatives.php'],
             array_values(array_unique(array_column($result->value['unresolved'], 'path'))),

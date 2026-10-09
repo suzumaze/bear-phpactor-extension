@@ -18,14 +18,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   as the context, through chains of them, and scans `bootstrap/` as well. The environment is not
   read; a context that comes only from an environment variable is still unresolved.
 - A forwarder whose callers were seen no longer lists its inner `Injector::getInstance($context)`
-  under `unresolved`; a forwarder nobody calls in a followable form keeps it listed.
+  under `unresolved`. A forwarder nobody calls in a followable form now lists it, including a
+  single-`return` static wrapper that was skipped silently before.
 
 ### Changed
 
 - `coverage.wrapperResolution` is now `positional-parameter-forwarders` (it was
   `static-positional-single-return-forwarders-only`), and `coverage.forwarderForms` lists the
   forms followed. A static method no longer has to be a single `return`; it must pass the
-  parameter on unmodified and never assign it.
+  parameter on unmodified and never assign or rebind it (`=`, `++`, `unset`, `foreach`,
+  `global`, `static`, `catch`). A closure variable is followed only when the closure is the one
+  and only thing written to it, so a self-referencing `use (&$closure)` is not followed.
+- `(require <path>)(...)` is followed only for a `.php` file whose path has at most 16 pieces,
+  and a required directory is never scanned.
 
 ## [0.3.3] - 2026-10-02
 

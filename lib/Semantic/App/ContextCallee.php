@@ -27,6 +27,9 @@ use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceAccessPolicy;
  */
 final class ContextCallee
 {
+    private const MAX_PATH_DEPTH = 16;
+    private const MAX_DIRNAME_LEVELS = 32;
+
     private function __construct()
     {
     }
@@ -81,9 +84,15 @@ final class ContextCallee
     /** A variable is only the same variable inside the function-like (or file) that holds it. */
     public static function variableKey(Variable $variable, string $file): string
     {
-        $scope = self::scope($variable)?->getStartPosition() ?? -1;
+        return self::variableKeyIn($variable, $variable->getText(), $file);
+    }
 
-        return 'variable:' . $file . '#' . $scope . ':' . $variable->getText();
+    /** The key of the variable `$name` (with its dollar sign) in the scope that contains `$anchor`. */
+    public static function variableKeyIn(Node $anchor, string $name, string $file): string
+    {
+        $scope = self::scope($anchor)?->getStartPosition() ?? -1;
+
+        return 'variable:' . $file . '#' . $scope . ':' . $name;
     }
 
     /** The method, closure, arrow function, or named function a node sits in; null at file level. */
@@ -96,8 +105,12 @@ final class ContextCallee
      * Evaluates a file path built from literals, `__DIR__`, `__FILE__`, `dirname()`, and `.`.
      * Anything that depends on a runtime value is null.
      */
-    public static function path(Node $node, string $file): ?string
+    public static function path(Node $node, string $file, int $depth = 0): ?string
     {
+        // A real require path has a handful of pieces; the bound keeps hostile input from recursing deeply.
+        if ($depth > self::MAX_PATH_DEPTH) {
+            return null;
+        }
         $node = ContextCalls::unwrap($node);
         if ($node instanceof StringLiteral) {
             $interpolated = array_filter(
@@ -115,19 +128,19 @@ final class ContextCallee
             };
         }
         if ($node instanceof BinaryExpression && $node->operator->getText($node->getFileContents()) === '.') {
-            $left = self::path($node->leftOperand, $file);
-            $right = self::path($node->rightOperand, $file);
+            $left = self::path($node->leftOperand, $file, $depth + 1);
+            $right = self::path($node->rightOperand, $file, $depth + 1);
 
             return $left !== null && $right !== null ? $left . $right : null;
         }
         if ($node instanceof CallExpression) {
-            return self::dirname($node, $file);
+            return self::dirname($node, $file, $depth + 1);
         }
 
         return null;
     }
 
-    private static function dirname(CallExpression $call, string $file): ?string
+    private static function dirname(CallExpression $call, string $file, int $depth): ?string
     {
         $callee = $call->callableExpression;
         if (!$callee instanceof QualifiedName || strtolower(ltrim($callee->getText(), '\\')) !== 'dirname') {
@@ -141,12 +154,15 @@ final class ContextCallee
         $levels = 1;
         if (isset($arguments[1])) {
             $level = ContextCalls::unwrap($arguments[1]);
-            if (!$level instanceof NumericLiteral || !ctype_digit($level->getText()) || (int) $level->getText() < 1) {
+            if (!$level instanceof NumericLiteral || !ctype_digit($level->getText())) {
                 return null;
             }
             $levels = (int) $level->getText();
+            if ($levels < 1 || $levels > self::MAX_DIRNAME_LEVELS) {
+                return null;
+            }
         }
-        $path = self::path($arguments[0], $file);
+        $path = self::path($arguments[0], $file, $depth);
         for ($i = 0; $i < $levels && $path !== null; ++$i) {
             $path = dirname($path);
         }
