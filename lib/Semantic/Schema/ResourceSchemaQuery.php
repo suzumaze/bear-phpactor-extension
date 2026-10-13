@@ -146,7 +146,7 @@ final readonly class ResourceSchemaQuery
             return ['result' => SemanticResult::unsupported(), 'subject' => $kind . ':dynamic',
                 'selection' => 'dynamic'];
         }
-        if ($name !== null && $name !== '' && !($kind === 'request' && $name === '0')) {
+        if ($name !== null && $name !== '' && $name !== '0') {
             $path = $workspace->accessPolicy()->inspectExisting($facts->resource->file);
             $result = $path->value === null ? SemanticResult::failure($path->status)
                 : $this->schemas->resolveNamedInWorkspace($workspace, $name, $kind, $path->value->relative);

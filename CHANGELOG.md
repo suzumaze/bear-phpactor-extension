@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Cross-tool regression fixtures cover URI aliases and schema selection in inventory,
+  descriptions, references, lookup, and comparison. A response selector of `'0'` now
+  uses the adjacent-file fallback, matching the interceptor's empty-string semantics.
+
 - Resource schema discovery now shares method attribute selection across description, lookup,
   and contract comparison. Lookup accepts `method`; description covers request and response
   schemas and distinguishes explicit attributes, adjacent-file BC fallback, and convention-only
