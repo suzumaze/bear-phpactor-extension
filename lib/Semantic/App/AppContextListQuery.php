@@ -230,13 +230,18 @@ final readonly class AppContextListQuery
      * @param list<array<string, mixed>> $unresolved
      */
     private function collect(
-        Node $argument,
+        mixed $argument,
         array $site,
         string $file,
         ContextForwarderIndex $forwarders,
         array &$contexts,
         array &$unresolved,
     ): void {
+        if (!$argument instanceof Node) {
+            // Half-typed source (`'a' ?? `) leaves a missing token where an expression should be.
+            $unresolved[] = $site + ['reason' => 'context_expression_unresolved'];
+            return;
+        }
         $argument = ContextCalls::unwrap($argument);
         if (
             $argument instanceof StringLiteral && !array_filter(

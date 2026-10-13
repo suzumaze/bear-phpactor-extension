@@ -94,7 +94,12 @@ final class ContextCalls
     public static function unwrap(Node $node): Node
     {
         while ($node instanceof ParenthesizedExpression) {
-            $node = $node->expression;
+            // Half-typed source such as `()` leaves a missing token inside; stop at the parentheses then.
+            $inner = ParserNodes::optional($node->expression);
+            if ($inner === null) {
+                break;
+            }
+            $node = $inner;
         }
 
         return $node;

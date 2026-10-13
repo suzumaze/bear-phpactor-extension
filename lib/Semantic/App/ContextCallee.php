@@ -105,10 +105,11 @@ final class ContextCallee
      * Evaluates a file path built from literals, `__DIR__`, `__FILE__`, `dirname()`, and `.`.
      * Anything that depends on a runtime value is null.
      */
-    public static function path(Node $node, string $file, int $depth = 0): ?string
+    public static function path(mixed $node, string $file, int $depth = 0): ?string
     {
         // A real require path has a handful of pieces; the bound keeps hostile input from recursing deeply.
-        if ($depth > self::MAX_PATH_DEPTH) {
+        // A missing operand in half-typed source arrives as a token rather than a node.
+        if (!$node instanceof Node || $depth > self::MAX_PATH_DEPTH) {
             return null;
         }
         $node = ContextCalls::unwrap($node);

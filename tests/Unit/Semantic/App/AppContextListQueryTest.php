@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Suzumaze\BearPhpactor\Tests\Unit\Semantic\App;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Suzumaze\BearPhpactor\Semantic\App\AppContextListQuery;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
@@ -101,6 +102,54 @@ final class AppContextListQueryTest extends TestCase
         self::assertSame([], $limited->value['items']);
         self::assertTrue($limited->value['scanTruncated']);
         self::assertNull($limited->value['selectedContext']);
+    }
+
+    /**
+     * A file that is half typed must not make the whole listing fail: the parser hands back a
+     * token where an expression is missing, and one broken file used to abort every other answer.
+     *
+     * @param list<string> $expectedContexts
+     */
+    #[DataProvider('halfTypedSources')]
+    public function testSurvivesSourceThatIsStillBeingTyped(string $statement, array $expectedContexts): void
+    {
+        $root = sys_get_temp_dir() . '/bear-context-halftyped-' . bin2hex(random_bytes(6));
+        mkdir($root . '/bin', 0700, true);
+        mkdir($root . '/src', 0700, true);
+        file_put_contents($root . '/composer.json', '{"autoload":{"psr-4":{"Acme\\\\Typing\\\\":"src/"}}}');
+        file_put_contents($root . '/bin/typing.php', "<?php\nuse BEAR\\Package\\Injector;\n" . $statement . "\n");
+        file_put_contents(
+            $root . '/bin/other.php',
+            "<?php\nuse BEAR\\Package\\Injector;\nInjector::getInstance('Acme', 'still-found-app');\n",
+        );
+        try {
+            $workspace = WorkspaceContext::fromRoot($root)->value;
+            self::assertNotNull($workspace);
+            $result = (new AppContextListQuery())->listInWorkspace($workspace);
+
+            self::assertNotNull($result->value);
+            $expected = [...$expectedContexts, 'still-found-app'];
+            sort($expected);
+            self::assertSame($expected, array_column($result->value['items'], 'applicationContext'));
+        } finally {
+            foreach (['/bin/typing.php', '/bin/other.php', '/composer.json'] as $file) {
+                unlink($root . $file);
+            }
+            rmdir($root . '/bin');
+            rmdir($root . '/src');
+            rmdir($root);
+        }
+    }
+
+    /** @return iterable<string, array{0: string, 1: list<string>}> */
+    public static function halfTypedSources(): iterable
+    {
+        yield 'right side of ?? missing' => ["Injector::getInstance('Acme', 'typed-app' ?? );", ['typed-app']];
+        yield 'else branch missing' => ["Injector::getInstance('Acme', \$x ? 'typed-app' : );", ['typed-app']];
+        yield 'empty parentheses' => ["Injector::getInstance('Acme', ());", []];
+        yield 'require of empty parentheses' => ["(require ())('typed-app');", []];
+        yield 'require path ends in a dot' => ["(require 'a' . )('typed-app');", []];
+        yield 'require path starts with a dot' => ["(require . 'a')('typed-app');", []];
     }
 
     private function workspace(string $fixture = 'DiComposition'): WorkspaceContext

@@ -17,6 +17,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and `Class::method(...)` into methods, closures and arrow functions that pass a parameter on
   as the context, through chains of them, and scans `bootstrap/` as well. The environment is not
   read; a context that comes only from an environment variable is still unresolved.
+- A source file that is still being typed no longer makes the whole listing fail. A missing
+  operand (`'a' ?? `, `$x ? 'a' : `, `()`) arrives from the parser as a token instead of an
+  expression, and that raised a `TypeError` that aborted `bear/app/contexts` for every other
+  file. The same went for a half-typed `require` path. Such an argument is now reported as
+  unresolved and the rest of the scan continues.
 - A forwarder whose callers were seen no longer lists its inner `Injector::getInstance($context)`
   under `unresolved`. A forwarder nobody calls in a followable form now lists it, including a
   single-`return` static wrapper that was skipped silently before.
@@ -29,7 +34,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   parameter on unmodified and never assign or rebind it (`=`, `++`, `unset`, `foreach`,
   `global`, `static`, `catch`). A closure variable is followed only when the closure is the one
   and only thing written to it, so a self-referencing `use (&$closure)` is not followed.
-- `(require <path>)(...)` is followed only for a `.php` file whose path has at most 16 pieces,
+- `(require <path>)(...)` is followed only for a `.php` file whose path has up to 17 concatenated pieces,
   and a required directory is never scanned.
 
 ## [0.3.3] - 2026-10-02

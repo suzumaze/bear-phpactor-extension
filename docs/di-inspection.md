@@ -25,7 +25,7 @@ release goal. Module relationships remain useful as supporting evidence.
   `$closure(...)` where the closure is the one and only thing ever written to that variable in
   the same function or file scope (any other write, including a `use (&$closure)` capture,
   makes it ambiguous), and `(require <path>)(...)` where the path is a `.php` file built from
-  literals, `__DIR__`, `__FILE__`, `dirname()` and `.` (at most 16 pieces) and the file returns
+  literals, `__DIR__`, `__FILE__`, `dirname()` and `.` (up to 17 concatenated pieces) and the file returns
   exactly one closure. Callers must pass the parameter positionally. A forwarder whose callers
   were seen no longer lists its own inner call as unresolved; one nobody calls in a followable
   form keeps it listed. Named functions, `$object->method(...)` on a stored object, values
