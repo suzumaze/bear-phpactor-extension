@@ -310,6 +310,22 @@ final class AopApplicationsQueryTest extends TestCase
         self::assertSame('invalid_input', wait($handler->listAopApplications('app', detail: 'invalid'))['status']);
     }
 
+    public function testUnknownInterceptorHasSuggestionsButKnownUnmatchedIsNotUnknown(): void
+    {
+        $handler = new SemanticQueryHandler(dirname(__DIR__, 3) . '/Fixture/AopOutput');
+        $missing = wait($handler->listAopApplications('lookup-app', interceptor: 'Vendor\\Wrong\\Trace'));
+        self::assertTrue($missing['data']['unknownInterceptor']);
+        self::assertSame(['Vendor\\App\\Interceptor\\Trace'], $missing['data']['interceptorCandidates']);
+        self::assertSame('composed_declarations', $missing['data']['coverage']['interceptorLookup']);
+        self::assertSame([], $missing['data']['items']);
+        self::assertSame([], $missing['data']['unknowns']);
+        self::assertGreaterThan(0, $missing['data']['unknownTotal']);
+        $known = wait($handler->listAopApplications('lookup-app', interceptor: '\\Vendor\\App\\Interceptor\\Unused'));
+        self::assertFalse($known['data']['unknownInterceptor']);
+        self::assertSame(0, $known['data']['total']);
+        self::assertSame([], $known['data']['interceptorCandidates']);
+    }
+
     private function handler(): SemanticQueryHandler
     {
         return new SemanticQueryHandler($this->root());

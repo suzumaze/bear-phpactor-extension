@@ -528,6 +528,9 @@
                 "provenance"
             ],
             "successDataKeys": [
+                "unknownInterceptor",
+                "interceptorCandidates",
+                "interceptorCandidateTotal",
                 "applicationContext",
                 "items",
                 "total",

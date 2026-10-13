@@ -71,7 +71,11 @@ final readonly class AopApplicationsQuery
         $scanned = 0;
         $unresolvedPointcutRegistrations = 0;
         $pointcutRegistrationsByOrigin = [];
+        $knownInterceptors = [];
         foreach ($container->pointcuts as $pointcut) {
+            foreach ($pointcut->interceptors as $known) {
+                $knownInterceptors[ltrim($known, '\\')] = true;
+            }
             $originKey = $this->originKey(
                 $pointcut->origin->module,
                 $pointcut->origin->path,
@@ -259,7 +263,23 @@ final readonly class AopApplicationsQuery
             ],
         ];
 
+        $selectedInterceptor = $interceptor === null ? null : ltrim($interceptor, '\\');
+        $unknownInterceptor = $selectedInterceptor !== null && !isset($knownInterceptors[$selectedInterceptor]);
+        $candidates = [];
+        if ($unknownInterceptor) {
+            $shortName = substr(strrchr('\\' . $selectedInterceptor, '\\'), 1);
+            foreach (array_keys($knownInterceptors) as $known) {
+                if (substr(strrchr('\\' . $known, '\\'), 1) === $shortName) {
+                    $candidates[] = $known;
+                }
+            }
+            sort($candidates, SORT_STRING);
+        }
+
         return SemanticResult::ok([
+            'unknownInterceptor' => $unknownInterceptor,
+            'interceptorCandidates' => array_slice($candidates, 0, 100),
+            'interceptorCandidateTotal' => count($candidates),
             'applicationContext' => $applicationContext,
             'items' => $page,
             'total' => count($items),
@@ -277,6 +297,8 @@ final readonly class AopApplicationsQuery
             'unknownSummary' => $unknownSummary,
             'coverage' => [
                 'basis' => 'source_matching_model',
+                'interceptorLookup' => 'composed_declarations',
+                'interceptorClassExistenceChecked' => false,
                 'orderingModel' => 'ray_aop_php_attribute_onion',
                 'runtimeObserved' => false,
                 'weavingValidated' => false,
