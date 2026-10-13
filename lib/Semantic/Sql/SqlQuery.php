@@ -22,6 +22,15 @@ final class SqlQuery
 {
     public const CONVENTION_DIRECTORY = 'var/db/sql';
 
+    public function __construct(
+        private readonly int $maxScanEntries = 5000,
+        private readonly int $maxCandidates = 100,
+    ) {
+        if ($maxScanEntries < 1 || $maxCandidates < 1) {
+            throw new \InvalidArgumentException('SQL search limits must be positive.');
+        }
+    }
+
     /**
      * @return SemanticResult<SqlResolution|null>
      */
@@ -44,7 +53,7 @@ final class SqlQuery
 
         $candidate = realpath($sqlRoot . '/' . $queryId . '.sql');
         if ($candidate === false || !is_file($candidate)) {
-            return SemanticResult::notFoundWithCandidates($this->suggestions($sqlRoot, $queryId));
+            return $this->suggestions($sqlRoot, $queryId);
         }
         $candidate = $this->normalize($candidate);
         if (!$this->contains($projectRoot, $candidate)) {
@@ -84,7 +93,7 @@ final class SqlQuery
                 }
             }
 
-            return SemanticResult::notFoundWithCandidates($candidates, $provenance);
+            return SemanticResult::notFoundWithCandidates($candidates, $provenance)->withCoverage($result->coverage);
         }
         if ($result->status !== SemanticStatus::Ok || $result->value === null) {
             return $result;
@@ -101,21 +110,24 @@ final class SqlQuery
         );
     }
 
-    /** @return list<SqlResolution> At most 100 suggestions from at most 5000 source entries. */
-    private function suggestions(string $sqlRoot, string $queryId): array
+    /** @return SemanticResult<SqlResolution|null> */
+    private function suggestions(string $sqlRoot, string $queryId): SemanticResult
     {
         $candidates = [];
         $scanned = 0;
+        $truncated = false;
+        $readFailed = false;
         try {
             $files = new RecursiveIteratorIterator(
                 new RecursiveDirectoryIterator($sqlRoot, FilesystemIterator::SKIP_DOTS),
                 RecursiveIteratorIterator::SELF_FIRST,
-                RecursiveIteratorIterator::CATCH_GET_CHILD,
             );
             foreach ($files as $file) {
-                if (++$scanned > 5000) {
+                if ($scanned >= $this->maxScanEntries) {
+                    $truncated = true;
                     break;
                 }
+                ++$scanned;
                 if (!$file->isFile() || $file->getFilename() !== basename($queryId) . '.sql') {
                     continue;
                 }
@@ -127,11 +139,23 @@ final class SqlQuery
                 $candidates[$id] = new SqlResolution($id, $this->normalize($canonical));
             }
         } catch (UnexpectedValueException) {
-            return [];
+            $readFailed = true;
         }
         ksort($candidates, SORT_STRING);
 
-        return array_slice(array_values($candidates), 0, 100);
+        return SemanticResult::notFoundWithCandidates(
+            array_slice(array_values($candidates), 0, $this->maxCandidates),
+        )->withCoverage(['suggestionScan' => [
+            'scannedEntries' => $scanned,
+            'scanLimit' => $this->maxScanEntries,
+            'scanTruncated' => $truncated,
+            'readFailed' => $readFailed,
+            'followsDirectorySymlinks' => false,
+            'candidateCount' => count($candidates),
+            'candidateLimit' => $this->maxCandidates,
+            'candidatesTruncated' => count($candidates) > $this->maxCandidates,
+            'complete' => !$truncated && !$readFailed && count($candidates) <= $this->maxCandidates,
+        ]]);
     }
 
     private function isValidQueryId(string $queryId): bool

@@ -12,6 +12,7 @@ use LogicException;
 final readonly class SemanticResult
 {
     /**
+     * @param array<string, mixed> $coverage
      * @param TValue|null  $value
      * @param list<TValue> $candidates
      * @param list<Provenance> $provenance
@@ -23,6 +24,7 @@ final readonly class SemanticResult
         public array $candidates = [],
         public ?SemanticError $error = null,
         public array $provenance = [],
+        public array $coverage = [],
     ) {
         if ($status === SemanticStatus::Ok && $value === null) {
             throw new LogicException('A successful semantic result must contain a value.');
@@ -200,6 +202,24 @@ final readonly class SemanticResult
             candidates: $this->candidates,
             error: $this->error,
             provenance: self::normalizeProvenance([...$this->provenance, ...$provenance]),
+            coverage: $this->coverage,
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $coverage
+     * @return self<TValue>
+     */
+    public function withCoverage(array $coverage): self
+    {
+        return new self(
+            status: $this->status,
+            value: $this->value,
+            partial: $this->partial,
+            candidates: $this->candidates,
+            error: $this->error,
+            provenance: $this->provenance,
+            coverage: $coverage,
         );
     }
 

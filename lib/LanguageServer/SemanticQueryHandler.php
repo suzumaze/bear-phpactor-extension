@@ -886,6 +886,9 @@ final class SemanticQueryHandler implements Handler
             'candidates' => array_map($normalize, $result->candidates),
             'provenance' => array_map($this->provenanceData(...), $result->provenance),
         ];
+        if ($result->coverage !== []) {
+            $envelope['coverage'] = $result->coverage;
+        }
         if ($result->partial !== null) {
             $envelope['partial'] = $normalize($result->partial);
         }
