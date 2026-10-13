@@ -241,7 +241,7 @@ final class ResourceReferencesQuery
 
         return SemanticResult::ok(
             new ResourceReferences(
-                new ResourceResolution($target->uri, $targetPath->value->absolute, $target->fqn),
+                new ResourceResolution($target->uri, $targetPath->value->absolute, $target->fqn, $target->resolvedVia),
                 $selected,
                 $total,
                 $limit !== null && $total > $limit,

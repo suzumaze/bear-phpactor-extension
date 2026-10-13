@@ -88,7 +88,7 @@
                 {"name": "contextPath", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["uri", "fqn", "path"]
+            "successDataKeys": ["uri", "canonicalUri", "resolvedVia", "fqn", "path"]
         },
         "bear/resource/list": {
             "handler": "listResources",
@@ -170,7 +170,7 @@
                 {"name": "contextPath", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["route", "resource"]
+            "successDataKeys": ["route", "routeUri", "canonicalUri", "resource"]
         },
         "bear/sql/resolve": {
             "handler": "resolveSql",

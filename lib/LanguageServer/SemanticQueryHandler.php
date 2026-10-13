@@ -423,6 +423,8 @@ final class SemanticQueryHandler implements Handler
                 $this->routeQuery->resolveInWorkspace($workspace, $route, $contextPath),
             fn (RouteResolution $resolution): array => [
                 'route' => $resolution->routeName,
+                'routeUri' => $resolution->resource->uri->uri(),
+                'canonicalUri' => $resolution->resource->canonicalUri(),
                 'resource' => $this->resourceData($resolution->resource),
             ],
         ));
@@ -999,11 +1001,13 @@ final class SemanticQueryHandler implements Handler
         ];
     }
 
-    /** @return array{uri:string,fqn:string,path:?string} */
+    /** @return array<string, mixed> */
     private function resourceData(ResourceResolution $resolution): array
     {
         return [
             'uri' => $resolution->uri->uri(),
+            'canonicalUri' => $resolution->canonicalUri(),
+            'resolvedVia' => $resolution->resolvedVia,
             'fqn' => $resolution->fqn,
             'path' => $this->relativePath($resolution->file),
         ];

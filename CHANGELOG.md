@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Resource results retain the requested URI and expose a class-convention `canonicalUri`
+  plus `resolvedVia`. Route results also expose `routeUri`; directory fallback is marked
+  `heuristic`, without asserting runtime rewrite behavior.
+
 - Missing exact SQL IDs now suggest full IDs with the same last segment, without selecting
   a candidate. Discovery inspects at most 5000 entries and returns at most 100 suggestions
   inside the SQL directory and workspace.
