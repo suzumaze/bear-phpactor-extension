@@ -104,12 +104,42 @@
         "bear/resource/describe": {
             "handler": "describeResource",
             "parameters": [
-                {"name": "uri", "type": "string", "required": true},
-                {"name": "contextPath", "type": "string|null", "required": false, "default": null},
-                {"name": "incomingLimit", "type": "int", "required": false, "default": 50}
+                {
+                    "name": "uri",
+                    "type": "string",
+                    "required": true
+                },
+                {
+                    "name": "contextPath",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "incomingLimit",
+                    "type": "int",
+                    "required": false,
+                    "default": 50
+                }
             ],
-            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["resource", "methods", "relationsOut", "relationsOutCoverage", "referencesOut", "referencesOutCoverage", "relationsIn", "templates", "schemas"]
+            "successEnvelopeKeys": [
+                "status",
+                "data",
+                "candidates",
+                "provenance"
+            ],
+            "successDataKeys": [
+                "resource",
+                "methods",
+                "relationsOut",
+                "relationsOutCoverage",
+                "referencesOut",
+                "referencesOutCoverage",
+                "relationsIn",
+                "templates",
+                "schemas",
+                "schemasCoverage"
+            ]
         },
         "bear/resource/attributes": {
             "handler": "describeResourceAttributes",
@@ -247,12 +277,44 @@
         "bear/schema/forResource": {
             "handler": "resolveResourceSchema",
             "parameters": [
-                {"name": "uri", "type": "string", "required": true},
-                {"name": "kind", "type": "string", "required": false, "default": "response"},
-                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+                {
+                    "name": "uri",
+                    "type": "string",
+                    "required": true
+                },
+                {
+                    "name": "kind",
+                    "type": "string",
+                    "required": false,
+                    "default": "response"
+                },
+                {
+                    "name": "contextPath",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "method",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                }
             ],
-            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["kind", "source", "path", "titleByteOffset", "resource"]
+            "successEnvelopeKeys": [
+                "status",
+                "data",
+                "candidates",
+                "provenance"
+            ],
+            "successDataKeys": [
+                "kind",
+                "source",
+                "path",
+                "titleByteOffset",
+                "selection",
+                "resource"
+            ]
         },
         "bear/schema/describeNamed": {
             "handler": "describeNamedSchema",
@@ -267,12 +329,47 @@
         "bear/schema/describeForResource": {
             "handler": "describeResourceSchema",
             "parameters": [
-                {"name": "uri", "type": "string", "required": true},
-                {"name": "kind", "type": "string", "required": false, "default": "response"},
-                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+                {
+                    "name": "uri",
+                    "type": "string",
+                    "required": true
+                },
+                {
+                    "name": "kind",
+                    "type": "string",
+                    "required": false,
+                    "default": "response"
+                },
+                {
+                    "name": "contextPath",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                },
+                {
+                    "name": "method",
+                    "type": "string|null",
+                    "required": false,
+                    "default": null
+                }
             ],
-            "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["kind", "source", "path", "titleByteOffset", "resource", "available", "types", "properties"]
+            "successEnvelopeKeys": [
+                "status",
+                "data",
+                "candidates",
+                "provenance"
+            ],
+            "successDataKeys": [
+                "kind",
+                "source",
+                "path",
+                "titleByteOffset",
+                "selection",
+                "resource",
+                "available",
+                "types",
+                "properties"
+            ]
         },
         "bear/di/bindings": {
             "handler": "inspectDiBindings",

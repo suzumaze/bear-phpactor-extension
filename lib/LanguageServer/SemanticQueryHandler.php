@@ -63,6 +63,7 @@ use Suzumaze\BearPhpactor\Semantic\Route\RouteResolution;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFacts;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
+use Suzumaze\BearPhpactor\Semantic\Schema\ResourceSchemaQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaResolution;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlResolution;
@@ -525,10 +526,11 @@ final class SemanticQueryHandler implements Handler
         string $uri,
         string $kind = SchemaQuery::KIND_RESPONSE,
         ?string $contextPath = null,
+        ?string $method = null,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
-                $this->schemaQuery->resolveForResourceInWorkspace($workspace, $uri, $kind, $contextPath),
+                (new ResourceSchemaQuery())->resolveInWorkspace($workspace, $uri, $kind, $contextPath, $method),
             fn (SchemaResolution $resolution): array => $this->schemaData($resolution),
         ));
     }
@@ -551,10 +553,11 @@ final class SemanticQueryHandler implements Handler
         string $uri,
         string $kind = SchemaQuery::KIND_RESPONSE,
         ?string $contextPath = null,
+        ?string $method = null,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
-                $this->schemaFactsQuery->describeForResourceInWorkspace($workspace, $uri, $kind, $contextPath),
+                $this->schemaFactsQuery->describeForResourceInWorkspace($workspace, $uri, $kind, $contextPath, $method),
             fn (SchemaFacts $facts): array => $this->schemaFactsData($facts),
         ));
     }
@@ -1084,9 +1087,16 @@ final class SemanticQueryHandler implements Handler
                 ],
                 $description->templates,
             ),
-            'schemas' => $description->responseSchema === null
-                ? []
-                : [$this->schemaData($description->responseSchema)],
+            'schemas' => array_map($this->schemaData(...), $description->schemas),
+            'schemasCoverage' => [
+                'kinds' => ['request', 'response'],
+                'methods' => 'declared_public_on_methods',
+                'sources' => ['attribute', 'bc_fallback', 'convention_only'],
+                'runtimeObserved' => false,
+                'configuredDirectoriesResolved' => false,
+                'directories' => ['request' => 'var/json_validate', 'response' => 'var/json_schema'],
+                'items' => $description->schemaCoverage,
+            ],
         ];
     }
 
@@ -1203,6 +1213,8 @@ final class SemanticQueryHandler implements Handler
             'source' => $resolution->source,
             'path' => $resolution->file === null ? null : $this->relativePath($resolution->file),
             'titleByteOffset' => $resolution->titleOffset,
+            ...($resolution->method === null ? [] : ['method' => $resolution->method]),
+            ...($resolution->selection === null ? [] : ['selection' => $resolution->selection]),
             'resource' => $resolution->resource === null ? null : $this->resourceData($resolution->resource),
         ];
     }

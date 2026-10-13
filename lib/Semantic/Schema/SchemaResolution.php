@@ -17,6 +17,8 @@ final readonly class SchemaResolution
         public ?string $file,
         public ?int $titleOffset,
         public ?ResourceResolution $resource = null,
+        public ?string $method = null,
+        public ?string $selection = null,
     ) {
     }
 }

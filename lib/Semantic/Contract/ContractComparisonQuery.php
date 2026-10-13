@@ -17,6 +17,7 @@ use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFacts;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
+use Suzumaze\BearPhpactor\Semantic\Schema\ResourceSchemaQuery;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 
 /**
@@ -167,27 +168,9 @@ final class ContractComparisonQuery
         string $method,
         string $schemaKind,
     ): array {
-        $schemaName = $this->schemaName($facts, $method, $schemaKind);
-        if ($schemaName !== null) {
-            $result = $this->schemaFactsQuery->describeNamedInWorkspace(
-                $workspace,
-                $schemaName,
-                $schemaKind,
-                $this->relativeResourcePath($workspace, $facts),
-            );
-            $subject = $schemaKind . ':' . $schemaName;
-        } elseif ($this->hasSchemaArgument($facts, $method, $schemaKind)) {
-            return [new ContractSurface('schema', SemanticStatus::Unsupported, $schemaKind . ':dynamic', []), []];
-        } elseif ($schemaKind === SchemaQuery::KIND_RESPONSE) {
-            $result = $this->schemaFactsQuery->describeForResolutionInWorkspace(
-                $workspace,
-                $facts->resource,
-                $schemaKind,
-            );
-            $subject = 'response:convention';
-        } else {
-            return [new ContractSurface('schema', SemanticStatus::Unsupported, 'request', []), []];
-        }
+        $selection = (new ResourceSchemaQuery())->select($workspace, $facts, $method, $schemaKind);
+        $result = $this->schemaFactsQuery->fromResolutionResult($workspace, $selection['result']);
+        $subject = $selection['subject'];
 
         if (!$result->value instanceof SchemaFacts) {
             return [new ContractSurface('schema', $result->status, $subject, []), $result->provenance];
@@ -279,41 +262,6 @@ final class ContractComparisonQuery
             new ContractSurface('alps', SemanticStatus::Ok, $surfaceId, $this->sortedNames($names)),
             $provenance,
         ];
-    }
-
-    private function schemaName(ResourceFacts $facts, string $method, string $schemaKind): ?string
-    {
-        foreach ($this->attributesForMethod($facts, $method, 'JsonSchema') as $attribute) {
-            foreach ($attribute->arguments as $index => $argument) {
-                $matches = $schemaKind === SchemaQuery::KIND_REQUEST
-                    ? $argument->name === 'params'
-                    : $argument->name === 'schema' || ($index === 0 && $argument->name === null);
-                if ($matches && $argument->valueType === 'string' && is_string($argument->value)) {
-                    return $argument->value;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private function hasSchemaArgument(ResourceFacts $facts, string $method, string $schemaKind): bool
-    {
-        foreach ($this->attributesForMethod($facts, $method, 'JsonSchema') as $attribute) {
-            foreach ($attribute->arguments as $index => $argument) {
-                if ($schemaKind === SchemaQuery::KIND_REQUEST && $argument->name === 'params') {
-                    return true;
-                }
-                if (
-                    $schemaKind === SchemaQuery::KIND_RESPONSE
-                    && ($argument->name === 'schema' || ($index === 0 && $argument->name === null))
-                ) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 
     private function alpsDescriptorId(ResourceFacts $facts, string $method): ?string

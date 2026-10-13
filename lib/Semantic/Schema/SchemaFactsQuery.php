@@ -51,14 +51,16 @@ final class SchemaFactsQuery
         string $resourceUri,
         string $kind = SchemaQuery::KIND_RESPONSE,
         ?string $contextPath = null,
+        ?string $method = null,
     ): SemanticResult {
         return $this->fromResolutionResult(
             $workspace,
-            $this->schemaQuery->resolveForResourceInWorkspace(
+            (new ResourceSchemaQuery($this->schemaQuery))->resolveInWorkspace(
                 $workspace,
                 $resourceUri,
                 $kind,
                 $contextPath,
+                $method,
             ),
         );
     }
@@ -79,7 +81,7 @@ final class SchemaFactsQuery
      * @param SemanticResult<SchemaResolution|null> $result
      * @return SemanticResult<SchemaFacts|null>
      */
-    private function fromResolutionResult(WorkspaceContext $workspace, SemanticResult $result): SemanticResult
+    public function fromResolutionResult(WorkspaceContext $workspace, SemanticResult $result): SemanticResult
     {
         if ($result->status === SemanticStatus::Ok && $result->value !== null) {
             return $this->facts($workspace, $result->value);
@@ -136,6 +138,8 @@ final class SchemaFactsQuery
                     $path->value->absolute,
                     $schema->titleOffset,
                     $schema->resource,
+                    $schema->method,
+                    $schema->selection,
                 ),
                 true,
                 $document->value->types,

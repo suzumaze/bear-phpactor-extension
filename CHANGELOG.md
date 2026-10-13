@@ -8,6 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Resource schema discovery now shares method attribute selection across description, lookup,
+  and contract comparison. Lookup accepts `method`; description covers request and response
+  schemas and distinguishes explicit attributes, adjacent-file BC fallback, and convention-only
+  discovery. These source facts do not prove runtime validation or resolve configured directories.
+
 - Resource results retain the requested URI and expose a class-convention `canonicalUri`
   plus `resolvedVia`. Route results also expose `routeUri`; directory fallback is marked
   `heuristic`, without asserting runtime rewrite behavior.

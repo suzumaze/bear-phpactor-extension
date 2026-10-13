@@ -216,6 +216,33 @@ final readonly class SchemaQuery
         );
     }
 
+    /** Resolve the documented legacy adjacent-file fallback without executing application code.
+     * @return SemanticResult<SchemaResolution|null>
+     */
+    public function resolveAdjacentInWorkspace(
+        WorkspaceContext $workspace,
+        ResourceResolution $resource,
+    ): SemanticResult {
+        $path = $workspace->accessPolicy()->inspectExisting($resource->file);
+        if ($path->value === null) {
+            return SemanticResult::failure($path->status);
+        }
+        $project = $workspace->project($path->value->relative);
+        if ($project->value === null) {
+            return SemanticResult::failure($project->status);
+        }
+        $file = substr($path->value->absolute, 0, -4) . '.json';
+
+        return $this->enforceWorkspace($workspace, $this->resolutionForPath(
+            $project->value,
+            $file,
+            self::KIND_RESPONSE,
+            'bc_fallback',
+            $resource,
+            dirname($path->value->absolute),
+        ));
+    }
+
     /** @return SemanticResult<SchemaResolution|null> */
     private function conventionForResource(Project $project, ResourceResolution $resource): SemanticResult
     {

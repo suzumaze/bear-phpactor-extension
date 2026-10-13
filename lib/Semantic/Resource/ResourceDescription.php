@@ -14,12 +14,16 @@ final readonly class ResourceDescription
 {
     /**
      * @param list<ResourceTemplateResolution> $templates
+     * @param list<SchemaResolution> $schemas
+     * @param list<array<string, mixed>> $schemaCoverage
      */
     public function __construct(
         public ResourceFacts $facts,
         public ResourceIncomingRelations $incomingRelations,
         public array $templates = [],
         public ?SchemaResolution $responseSchema = null,
+        public array $schemas = [],
+        public array $schemaCoverage = [],
     ) {
     }
 }

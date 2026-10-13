@@ -8,6 +8,7 @@ use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
+use Suzumaze\BearPhpactor\Semantic\Schema\ResourceSchemaQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateQuery;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 use Suzumaze\BearPhpactor\Template\TemplateReference;
@@ -92,16 +93,29 @@ final class ResourceDescriptionQuery
             }
         }
 
-        $schema = $this->schemaQuery->resolveForResolutionInWorkspace(
-            $workspace,
-            $facts->resource,
-        );
-        if ($schema->status === SemanticStatus::Ok && $schema->value !== null) {
-            $responseSchema = $schema->value;
-        } elseif ($schema->status === SemanticStatus::NotFound || $schema->status === SemanticStatus::Unsupported) {
-            $responseSchema = null;
-        } else {
-            return SemanticResult::failure($schema->status);
+        $schemas = [];
+        $schemaCoverage = [];
+        $responseSchema = null;
+        $discovery = new ResourceSchemaQuery($this->schemaQuery);
+        foreach ($facts->methods as $method) {
+            foreach ([SchemaQuery::KIND_REQUEST, SchemaQuery::KIND_RESPONSE] as $kind) {
+                $selection = $discovery->select($workspace, $facts, $method->name, $kind);
+                $schema = $selection['result'];
+                $schemaCoverage[] = [
+                    'method' => $method->name,
+                    'kind' => $kind,
+                    'selection' => $selection['selection'],
+                    'status' => $schema->status->value,
+                ];
+                if ($schema->value !== null) {
+                    $schemas[] = $schema->value;
+                    if ($kind === SchemaQuery::KIND_RESPONSE && $responseSchema === null) {
+                        $responseSchema = $schema->value;
+                    }
+                } elseif (!in_array($schema->status, [SemanticStatus::NotFound, SemanticStatus::Unsupported], true)) {
+                    return SemanticResult::failure($schema->status);
+                }
+            }
         }
 
         $provenance = [Provenance::derived()];
@@ -120,12 +134,14 @@ final class ResourceDescriptionQuery
                 $this->addFileProvenance($workspace, $provenance, $template->templateFile);
             }
         }
-        if ($responseSchema?->file !== null) {
-            $this->addFileProvenance($workspace, $provenance, $responseSchema->file);
+        foreach ($schemas as $schema) {
+            if ($schema->file !== null) {
+                $this->addFileProvenance($workspace, $provenance, $schema->file);
+            }
         }
 
         return SemanticResult::ok(
-            new ResourceDescription($facts, $incoming, $templates, $responseSchema),
+            new ResourceDescription($facts, $incoming, $templates, $responseSchema, $schemas, $schemaCoverage),
             $provenance,
         );
     }

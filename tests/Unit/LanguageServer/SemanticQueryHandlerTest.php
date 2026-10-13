@@ -321,7 +321,7 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame(1, $response['data']['scannedResources']);
         self::assertSame(1, $response['data']['analyzedResources']);
         self::assertFalse($response['data']['resourceScanTruncated']);
-        self::assertSame(2, $response['data']['summary']['coveredMethods']);
+        self::assertSame(1, $response['data']['summary']['coveredMethods']);
         self::assertSame(4, $response['data']['summary']['schemes']['app']['methods']);
 
         $items = [];
@@ -333,7 +333,7 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame('available', $items['onGet']['surfaces']['responseSchema']['state']);
         self::assertFalse($items['onPatch']['covered']);
         self::assertSame(
-            ['requestSchema', 'alps'],
+            ['requestSchema', 'responseSchema', 'alps'],
             $items['onPatch']['gaps'],
         );
         self::assertSame('dynamic', $items['onPatch']['surfaces']['alps']['state']);
@@ -344,10 +344,10 @@ final class SemanticQueryHandlerTest extends TestCase
             gapsOnly: true,
         ));
         self::assertSame(4, $gaps['data']['total']);
-        self::assertSame(2, $gaps['data']['matchingTotal']);
+        self::assertSame(3, $gaps['data']['matchingTotal']);
         self::assertSame(1, $gaps['data']['offset']);
         self::assertTrue($gaps['data']['gapsOnly']);
-        self::assertFalse($gaps['data']['truncated']);
+        self::assertTrue($gaps['data']['truncated']);
         self::assertCount(1, $gaps['data']['items']);
 
         $pages = wait((new SemanticQueryHandler($this->fixture('Contract')))->inspectContractCoverage(

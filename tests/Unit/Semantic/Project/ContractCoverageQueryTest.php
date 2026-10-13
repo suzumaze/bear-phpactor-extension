@@ -43,12 +43,13 @@ final class ContractCoverageQueryTest extends TestCase
 
         self::assertSame(ContractCoverageSurface::STATE_AVAILABLE, $items['onPost']->requestSchema->state);
         self::assertSame('request:user-params.json', $items['onPost']->requestSchema->subject);
-        self::assertTrue($items['onPost']->covered());
+        self::assertFalse($items['onPost']->covered());
+        self::assertSame(ContractCoverageSurface::STATE_UNRESOLVED, $items['onPost']->responseSchema->state);
 
         self::assertSame(ContractCoverageSurface::STATE_DYNAMIC, $items['onPatch']->requestSchema->state);
         self::assertSame(ContractCoverageSurface::STATE_DYNAMIC, $items['onPatch']->alps->state);
         self::assertSame(
-            ['requestSchema', 'alps'],
+            ['requestSchema', 'responseSchema', 'alps'],
             $items['onPatch']->gaps,
         );
 
@@ -59,12 +60,12 @@ final class ContractCoverageQueryTest extends TestCase
         self::assertSame(['requestSchema', 'responseSchema', 'alps'], $items['onDelete']->gaps);
 
         self::assertSame(4, $result->value->summary['methods']);
-        self::assertSame(2, $result->value->summary['coveredMethods']);
+        self::assertSame(1, $result->value->summary['coveredMethods']);
         self::assertSame(4, $result->value->summary['schemes']['app']['methods']);
         self::assertSame(0, $result->value->summary['schemes']['page']['methods']);
         self::assertSame(1, $result->value->summary['surfaces']['requestSchema']['not_applicable']);
         self::assertSame(1, $result->value->summary['surfaces']['requestSchema']['dynamic']);
-        self::assertSame(3, $result->value->summary['surfaces']['responseSchema']['available']);
+        self::assertSame(1, $result->value->summary['surfaces']['responseSchema']['available']);
         self::assertSame(1, $result->value->summary['surfaces']['alps']['unresolved']);
         $provenancePaths = array_values(array_filter(array_map(
             static fn ($evidence): ?string => $evidence->path,
@@ -122,10 +123,10 @@ final class ContractCoverageQueryTest extends TestCase
         self::assertSame(4, $first->value->matchingTotal);
         self::assertTrue($first->value->truncated);
         self::assertSame(4, $gaps->value->total);
-        self::assertSame(2, $gaps->value->matchingTotal);
+        self::assertSame(3, $gaps->value->matchingTotal);
         self::assertSame(1, $gaps->value->offset);
         self::assertTrue($gaps->value->gapsOnly);
-        self::assertFalse($gaps->value->truncated);
+        self::assertTrue($gaps->value->truncated);
         self::assertFalse($gaps->value->items[0]->covered());
         self::assertSame(4, $gaps->value->summary['methods']);
     }
