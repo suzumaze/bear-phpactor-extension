@@ -192,7 +192,7 @@ final class ProjectDiagnosticsQuery
                 continue;
             }
             $scannedFiles[$path->value->relative] = true;
-            $this->diagnoseTemplateReferences(
+            $dynamic = $this->diagnoseTemplateReferences(
                 $workspace,
                 $source->file,
                 $source->contents,
@@ -200,6 +200,9 @@ final class ProjectDiagnosticsQuery
                 $path->value->relative,
                 $items,
             );
+            if ($dynamic && !in_array('dynamic_template_references', $conventions['skipped'], true)) {
+                $conventions['skipped'][] = 'dynamic_template_references';
+            }
         }
 
         foreach ($inventory->value->resources as $resource) {
@@ -426,17 +429,22 @@ final class ProjectDiagnosticsQuery
         string $engine,
         string $relativePath,
         array &$items,
-    ): void {
+    ): bool {
         $document = TextDocumentBuilder::create($contents)
             ->uri($file)
             ->language($engine)
             ->build();
         try {
-            $references = $this->templateReferenceScanner->references($document);
+            $references = $this->templateReferenceScanner->references($document, includeDynamic: true);
         } catch (Throwable) {
             $references = [];
         }
+        $dynamic = false;
         foreach ($references as $reference) {
+            if ($reference->status === 'dynamic') {
+                $dynamic = true;
+                continue;
+            }
             $result = $this->templateQuery->resolveInWorkspace(
                 $workspace,
                 $reference->engine,
@@ -456,6 +464,8 @@ final class ProjectDiagnosticsQuery
                 ['engine' => $reference->engine],
             );
         }
+
+        return $dynamic;
     }
 
     /** @param list<ProjectDiagnostic> $items @param array<string,true> $scannedFiles */

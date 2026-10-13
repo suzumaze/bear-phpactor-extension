@@ -19,6 +19,7 @@ final class TemplateReference
         public readonly string $name,
         public readonly int $start,
         public readonly int $end,
+        public readonly string $status = 'static',
     ) {
     }
 

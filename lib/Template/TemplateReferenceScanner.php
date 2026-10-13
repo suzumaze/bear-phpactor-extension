@@ -26,9 +26,12 @@ use function token_get_all;
 final class TemplateReferenceScanner
 {
     /** @return list<TemplateReference> */
-    public function references(TextDocument $document): array
+    public function references(TextDocument $document, bool $includeDynamic = false): array
     {
-        return $this->referencesForEngine($document, $this->definitionEngine($document));
+        return array_values(array_filter(
+            $this->referencesForEngine($document, $this->definitionEngine($document)),
+            static fn (TemplateReference $reference): bool => $includeDynamic || $reference->status === 'static',
+        ));
     }
 
     /**
@@ -40,7 +43,10 @@ final class TemplateReferenceScanner
      */
     public function hoverReferences(TextDocument $document): array
     {
-        return $this->referencesForEngine($document, $this->hoverEngine($document));
+        return array_values(array_filter(
+            $this->referencesForEngine($document, $this->hoverEngine($document)),
+            static fn (TemplateReference $reference): bool => $reference->status === 'static',
+        ));
     }
 
     private function definitionEngine(TextDocument $document): ?string
@@ -146,7 +152,7 @@ final class TemplateReferenceScanner
             return;
         }
 
-        $reference = $this->referenceFromMatch(TemplateReference::ENGINE_TWIG, $match, 'literal', $baseOffset);
+        $reference = $this->referenceFromMatch(TemplateReference::ENGINE_TWIG, $match, 'literal', $baseOffset, $code);
         if ($reference !== null) {
             $references[] = $reference;
         }
@@ -168,6 +174,7 @@ final class TemplateReferenceScanner
                 $match,
                 'literal',
                 $baseOffset,
+                $code,
             );
             if ($reference !== null) {
                 $references[] = $reference;
@@ -188,6 +195,7 @@ final class TemplateReferenceScanner
                 $match,
                 'template',
                 $baseOffset,
+                $code,
             );
             if ($reference !== null) {
                 $references[] = $reference;
@@ -355,8 +363,13 @@ final class TemplateReferenceScanner
     /**
      * @param array<string, array{0: string, 1: int}|string|int> $match
      */
-    private function referenceFromMatch(string $engine, array $match, string $key, int $baseOffset): ?TemplateReference
-    {
+    private function referenceFromMatch(
+        string $engine,
+        array $match,
+        string $key,
+        int $baseOffset,
+        string $code,
+    ): ?TemplateReference {
         if (!isset($match[$key]) || !is_array($match[$key])) {
             return null;
         }
@@ -369,7 +382,17 @@ final class TemplateReferenceScanner
 
         $start = $baseOffset + $relativeOffset + 1;
 
-        return new TemplateReference($engine, $name, $start, $start + strlen($literal) - 2);
+        // A trailing ~ alone is Twig whitespace control, not concatenation.
+        $suffix = substr($code, $relativeOffset + strlen($literal));
+        $dynamic = preg_match('/^\s*~\s*\S/s', $suffix) === 1;
+
+        return new TemplateReference(
+            $engine,
+            $name,
+            $start,
+            $start + strlen($literal) - 2,
+            $dynamic ? 'dynamic' : 'static'
+        );
     }
 
     private function decodePhpStringLiteral(string $literal): ?string

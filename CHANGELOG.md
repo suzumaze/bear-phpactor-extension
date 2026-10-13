@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Twig concatenated template expressions no longer produce missing-template diagnostics.
+  Dynamic references are excluded from static navigation and reported in skipped checks.
+
 ### Changed
 
 - AOP applications now default to compact output: module traversal paths, matcher definitions,
