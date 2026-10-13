@@ -32,6 +32,7 @@ final class ResourceDescriptionQuery
         string $uri,
         ?string $contextPath = null,
         int $incomingLimit = ResourceIncomingRelationsQuery::DEFAULT_LIMIT,
+        ?string $applicationContext = null,
     ): SemanticResult {
         if ($incomingLimit < 1 || $incomingLimit > ResourceIncomingRelationsQuery::MAX_LIMIT) {
             return SemanticResult::invalidInput();
@@ -49,7 +50,7 @@ final class ResourceDescriptionQuery
                 return SemanticResult::failure($incoming->status);
             }
 
-            return $this->description($workspace, $facts->value, $incoming->value);
+            return $this->description($workspace, $facts->value, $incoming->value, $applicationContext);
         }
         if ($facts->status !== SemanticStatus::Ambiguous) {
             return SemanticResult::failure($facts->status);
@@ -61,6 +62,7 @@ final class ResourceDescriptionQuery
                 $workspace,
                 $candidate,
                 ResourceIncomingRelations::unavailable($candidate->resource),
+                $applicationContext,
             );
             if ($description->value === null) {
                 return SemanticResult::failure($description->status);
@@ -76,6 +78,7 @@ final class ResourceDescriptionQuery
         WorkspaceContext $workspace,
         ResourceFacts $facts,
         ResourceIncomingRelations $incoming,
+        ?string $applicationContext,
     ): SemanticResult {
         $templates = [];
         foreach ([TemplateReference::ENGINE_QIQ, TemplateReference::ENGINE_TWIG] as $engine) {
@@ -99,20 +102,29 @@ final class ResourceDescriptionQuery
         $discovery = new ResourceSchemaQuery($this->schemaQuery);
         foreach ($facts->methods as $method) {
             foreach ([SchemaQuery::KIND_REQUEST, SchemaQuery::KIND_RESPONSE] as $kind) {
-                $selection = $discovery->select($workspace, $facts, $method->name, $kind);
+                $selection = $discovery->select($workspace, $facts, $method->name, $kind, $applicationContext);
                 $schema = $selection['result'];
                 $schemaCoverage[] = [
                     'method' => $method->name,
                     'kind' => $kind,
                     'selection' => $selection['selection'],
                     'status' => $schema->status->value,
+                    'directorySelection' => $schema->value->directorySelection
+                        ?? $schema->coverage['schemaDirectories'] ?? null,
+                    'candidates' => array_map(static fn ($candidate) => [
+                        'directorySelection' => $candidate->directorySelection,
+                    ], $schema->candidates),
                 ];
                 if ($schema->value !== null) {
                     $schemas[] = $schema->value;
                     if ($kind === SchemaQuery::KIND_RESPONSE && $responseSchema === null) {
                         $responseSchema = $schema->value;
                     }
-                } elseif (!in_array($schema->status, [SemanticStatus::NotFound, SemanticStatus::Unsupported], true)) {
+                } elseif (
+                    !in_array($schema->status, [
+                        SemanticStatus::NotFound, SemanticStatus::Unsupported, SemanticStatus::Ambiguous,
+                    ], true)
+                ) {
                     return SemanticResult::failure($schema->status);
                 }
             }

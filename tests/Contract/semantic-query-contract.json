@@ -64,7 +64,8 @@
             "parameters": [
                 {"name": "contextPath", "type": "string|null", "required": false, "default": null},
                 {"name": "limit", "type": "int", "required": false, "default": 100},
-                {"name": "offset", "type": "int", "required": false, "default": 0}
+                {"name": "offset", "type": "int", "required": false, "default": 0},
+                {"name": "applicationContext", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["items", "total", "offset", "truncated", "scannedFiles", "scannedResources", "resourceScanTruncated", "skippedChecks"]
@@ -76,7 +77,8 @@
                 {"name": "limit", "type": "int", "required": false, "default": 100},
                 {"name": "offset", "type": "int", "required": false, "default": 0},
                 {"name": "gapsOnly", "type": "bool", "required": false, "default": false},
-                {"name": "scheme", "type": "string|null", "required": false, "default": null}
+                {"name": "scheme", "type": "string|null", "required": false, "default": null},
+                {"name": "applicationContext", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["items", "total", "matchingTotal", "offset", "truncated", "gapsOnly", "scheme", "scannedResources", "analyzedResources", "resourceScanTruncated", "summary"]
@@ -120,7 +122,8 @@
                     "type": "int",
                     "required": false,
                     "default": 50
-                }
+                },
+                {"name": "applicationContext", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": [
                 "status",
@@ -188,7 +191,8 @@
                 {"name": "method", "type": "string", "required": false, "default": "onGet"},
                 {"name": "schemaKind", "type": "string", "required": false, "default": "response"},
                 {"name": "descriptorId", "type": "string|null", "required": false, "default": null},
-                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null},
+                {"name": "applicationContext", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["resource", "method", "schemaKind", "surfaces", "comparison"]
@@ -299,7 +303,8 @@
                     "type": "string|null",
                     "required": false,
                     "default": null
-                }
+                },
+                {"name": "applicationContext", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": [
                 "status",
@@ -351,7 +356,8 @@
                     "type": "string|null",
                     "required": false,
                     "default": null
-                }
+                },
+                {"name": "applicationContext", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": [
                 "status",

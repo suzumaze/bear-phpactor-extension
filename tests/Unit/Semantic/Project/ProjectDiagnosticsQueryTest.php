@@ -125,7 +125,7 @@ PHP);
         self::assertSame($result->value->total, count($result->value->items));
         self::assertGreaterThanOrEqual(5, $result->value->scannedResources);
         self::assertFalse($result->value->resourceScanTruncated);
-        self::assertSame([], $result->value->skippedChecks);
+        self::assertSame(['contract_schema_unresolved'], $result->value->skippedChecks);
         self::assertGreaterThanOrEqual(6, $result->value->scannedFiles);
 
         $codes = array_column($result->value->items, 'code');
@@ -253,7 +253,7 @@ PHP;
         self::assertSame(SemanticStatus::Ok, $result->status);
         self::assertInstanceOf(ProjectDiagnostics::class, $result->value);
         self::assertNotContains('sql_reference_not_found', array_column($result->value->items, 'code'));
-        self::assertSame(['sql_references'], $result->value->skippedChecks);
+        self::assertSame(['sql_references', 'contract_schema_unresolved'], $result->value->skippedChecks);
     }
 
     public function testSkipsSchemaAndAlpsReferencesWhenTheirRootsAreAbsent(): void
@@ -273,7 +273,7 @@ PHP;
         self::assertNotContains('alps_descriptor_not_found', $codes);
         self::assertContains('sql_reference_not_found', $codes);
         self::assertSame(
-            ['response_schema_references', 'alps_descriptors'],
+            ['response_schema_references', 'alps_descriptors', 'contract_schema_unresolved'],
             $result->value->skippedChecks,
         );
     }

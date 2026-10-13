@@ -26,6 +26,8 @@ use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Route\RouteQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
+use Suzumaze\BearPhpactor\Semantic\Schema\ResourceSchemaQuery;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaDirectoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateSourceScanner;
@@ -148,8 +150,15 @@ final class ProjectDiagnosticsQuery
         ?string $contextPath = null,
         int $limit = self::DEFAULT_LIMIT,
         int $offset = 0,
+        ?string $applicationContext = null,
     ): SemanticResult {
         if ($limit < 1 || $limit > self::MAX_LIMIT || $offset < 0) {
+            return SemanticResult::invalidInput();
+        }
+        if (
+            $applicationContext !== null
+            && preg_match('/^[A-Za-z0-9_]+(?:-[A-Za-z0-9_]+)*$/', $applicationContext) !== 1
+        ) {
             return SemanticResult::invalidInput();
         }
         $project = $workspace->project($contextPath);
@@ -166,7 +175,7 @@ final class ProjectDiagnosticsQuery
 
         $items = [];
         $scannedFiles = [];
-        $conventions = $this->referenceConventions($workspace, $project->value->root());
+        $conventions = $this->referenceConventions($workspace, $project->value->root(), $applicationContext);
         foreach ($this->phpSourceScanner->scan($workspace, $project->value) as $source) {
             $path = $workspace->accessPolicy()->inspectExisting($source->file);
             if ($path->value === null) {
@@ -181,6 +190,7 @@ final class ProjectDiagnosticsQuery
                 $conventions['schema'],
                 $conventions['alps'],
                 $items,
+                $applicationContext,
             );
         }
 
@@ -230,7 +240,14 @@ final class ProjectDiagnosticsQuery
                 $resourcePath->value->relative,
                 $items,
             );
-            $this->diagnoseContracts($workspace, $facts->value, $resourcePath->value->relative, $items);
+            $this->diagnoseContracts(
+                $workspace,
+                $facts->value,
+                $resourcePath->value->relative,
+                $items,
+                $applicationContext,
+                $conventions['skipped'],
+            );
         }
 
         $this->sortItems($items);
@@ -263,7 +280,7 @@ final class ProjectDiagnosticsQuery
                 count($scannedFiles),
                 count($inventory->value->resources),
                 $inventory->value->truncated,
-                $conventions['skipped'],
+                array_values(array_unique($conventions['skipped'])),
             ),
             $provenance,
         );
@@ -278,6 +295,7 @@ final class ProjectDiagnosticsQuery
         array $schemaRoots,
         bool $scanAlpsReferences,
         array &$items,
+        ?string $applicationContext = null,
     ): void {
         try {
             $root = $this->parser->parseSourceFile($source->contents, $source->file);
@@ -342,15 +360,20 @@ final class ProjectDiagnosticsQuery
         }
         try {
             foreach ($this->schemaReferenceScanner->references($document) as [$start, $name, $end, $kind]) {
-                if (!($schemaRoots[$kind] ?? false)) {
-                    continue;
-                }
-                $result = $this->schemaFactsQuery->describeNamedInWorkspace(
+                $resolution = (new ResourceSchemaQuery())->resolveNamedInWorkspace(
                     $workspace,
                     $name,
                     $kind,
                     $relativePath,
+                    $applicationContext,
                 );
+                if (
+                    !($schemaRoots[$kind] ?? false)
+                    && ($resolution->coverage['schemaDirectories']['status'] ?? null) === 'convention'
+                ) {
+                    continue;
+                }
+                $result = $this->schemaFactsQuery->fromResolutionResult($workspace, $resolution);
                 if (!$this->reportableReferenceFailure($result->status)) {
                     continue;
                 }
@@ -393,8 +416,11 @@ final class ProjectDiagnosticsQuery
     /**
      * @return array{sql:bool,schema:array<string,bool>,alps:bool,skipped:list<string>}
      */
-    private function referenceConventions(WorkspaceContext $workspace, string $projectRoot): array
-    {
+    private function referenceConventions(
+        WorkspaceContext $workspace,
+        string $projectRoot,
+        ?string $applicationContext = null,
+    ): array {
         $sqlRoot = $workspace->accessPolicy()->inspectExisting(
             $projectRoot . '/' . SqlQuery::CONVENTION_DIRECTORY,
         );
@@ -405,9 +431,15 @@ final class ProjectDiagnosticsQuery
             SchemaQuery::KIND_REQUEST => JsonSchemaPathResolver::REQUEST_SCHEMA_DIR,
             SchemaQuery::KIND_RESPONSE => JsonSchemaPathResolver::RESPONSE_SCHEMA_DIR,
         ];
+        $configuration = new SchemaDirectoryQuery();
+        $composer = $workspace->accessPolicy()->inspectExisting($projectRoot . '/composer.json');
         foreach ($schemaDirectories as $kind => $directory) {
             $root = $workspace->accessPolicy()->inspectExisting($projectRoot . '/' . $directory);
             $schema[$kind] = $root->value !== null && is_dir($root->value->absolute);
+            if (!$schema[$kind] && $composer->value !== null) {
+                $setting = $configuration->inspect($workspace, $composer->value->relative, $kind, $applicationContext);
+                $schema[$kind] = $setting['status'] === 'configured';
+            }
             if (!$schema[$kind]) {
                 $skipped[] = $kind . '_schema_references';
             }
@@ -625,12 +657,14 @@ final class ProjectDiagnosticsQuery
         return [$byteOffset, $byteOffset];
     }
 
-    /** @param list<ProjectDiagnostic> $items */
+    /** @param list<ProjectDiagnostic> $items @param list<string> $skippedChecks */
     private function diagnoseContracts(
         WorkspaceContext $workspace,
         ResourceFacts $facts,
         string $relativePath,
         array &$items,
+        ?string $applicationContext,
+        array &$skippedChecks,
     ): void {
         foreach ($facts->methods as $method) {
             foreach ([SchemaQuery::KIND_REQUEST, SchemaQuery::KIND_RESPONSE] as $kind) {
@@ -639,7 +673,16 @@ final class ProjectDiagnosticsQuery
                     $facts,
                     $method->name,
                     $kind,
+                    applicationContext: $applicationContext,
                 );
+                foreach ($result->value->surfaces ?? [] as $surface) {
+                    if (
+                        $surface->source === 'schema' && $surface->status !== SemanticStatus::Ok
+                        && !in_array($surface->subject, ['request', 'response:convention'], true)
+                    ) {
+                        $skippedChecks[] = 'contract_schema_unresolved';
+                    }
+                }
                 if (!$result->value instanceof ContractComparison || $result->value->comparison === null) {
                     continue;
                 }

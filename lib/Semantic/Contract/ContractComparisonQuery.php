@@ -40,6 +40,7 @@ final class ContractComparisonQuery
         string $schemaKind = SchemaQuery::KIND_RESPONSE,
         ?string $descriptorId = null,
         ?string $contextPath = null,
+        ?string $applicationContext = null,
     ): SemanticResult {
         if (
             $method === ''
@@ -50,9 +51,22 @@ final class ContractComparisonQuery
             return SemanticResult::invalidInput();
         }
 
+        if (
+            $applicationContext !== null
+            && preg_match('/^[A-Za-z0-9_]+(?:-[A-Za-z0-9_]+)*$/', $applicationContext) !== 1
+        ) {
+            return SemanticResult::invalidInput();
+        }
         $facts = $this->resourceFactsQuery->describeInWorkspace($workspace, $uri, $contextPath);
         if ($facts->status === SemanticStatus::Ok && $facts->value instanceof ResourceFacts) {
-            return $this->compareFacts($workspace, $facts->value, $method, $schemaKind, $descriptorId)
+            return $this->compareFacts(
+                $workspace,
+                $facts->value,
+                $method,
+                $schemaKind,
+                $descriptorId,
+                $applicationContext,
+            )
                 ->withProvenance($facts->provenance);
         }
         if ($facts->status !== SemanticStatus::Ambiguous) {
@@ -61,7 +75,14 @@ final class ContractComparisonQuery
 
         $candidates = [];
         foreach ($facts->candidates as $candidate) {
-            $comparison = $this->compareFacts($workspace, $candidate, $method, $schemaKind, $descriptorId);
+            $comparison = $this->compareFacts(
+                $workspace,
+                $candidate,
+                $method,
+                $schemaKind,
+                $descriptorId,
+                $applicationContext,
+            );
             if (!$comparison->value instanceof ContractComparison) {
                 return SemanticResult::failure($comparison->status, $comparison->error, $comparison->provenance);
             }
@@ -85,6 +106,7 @@ final class ContractComparisonQuery
         string $method = 'onGet',
         string $schemaKind = SchemaQuery::KIND_RESPONSE,
         ?string $descriptorId = null,
+        ?string $applicationContext = null,
     ): SemanticResult {
         if (
             $method === ''
@@ -95,7 +117,7 @@ final class ContractComparisonQuery
             return SemanticResult::invalidInput();
         }
 
-        return $this->compareFacts($workspace, $facts, $method, $schemaKind, $descriptorId);
+        return $this->compareFacts($workspace, $facts, $method, $schemaKind, $descriptorId, $applicationContext);
     }
 
     /** @return SemanticResult<ContractComparison|null> */
@@ -105,9 +127,16 @@ final class ContractComparisonQuery
         string $method,
         string $schemaKind,
         ?string $descriptorId,
+        ?string $applicationContext = null,
     ): SemanticResult {
         $resourceSurface = $this->resourceSurface($facts, $method, $schemaKind);
-        [$schemaSurface, $schemaProvenance] = $this->schemaSurface($workspace, $facts, $method, $schemaKind);
+        [$schemaSurface, $schemaProvenance] = $this->schemaSurface(
+            $workspace,
+            $facts,
+            $method,
+            $schemaKind,
+            $applicationContext,
+        );
         [$alpsSurface, $alpsProvenance] = $this->alpsSurface(
             $workspace,
             $facts,
@@ -167,8 +196,9 @@ final class ContractComparisonQuery
         ResourceFacts $facts,
         string $method,
         string $schemaKind,
+        ?string $applicationContext,
     ): array {
-        $selection = (new ResourceSchemaQuery())->select($workspace, $facts, $method, $schemaKind);
+        $selection = (new ResourceSchemaQuery())->select($workspace, $facts, $method, $schemaKind, $applicationContext);
         $result = $this->schemaFactsQuery->fromResolutionResult($workspace, $selection['result']);
         $subject = $selection['subject'];
 

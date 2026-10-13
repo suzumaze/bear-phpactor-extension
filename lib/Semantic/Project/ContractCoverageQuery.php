@@ -58,11 +58,14 @@ final class ContractCoverageQuery
         int $offset = 0,
         bool $gapsOnly = false,
         ?string $scheme = null,
+        ?string $applicationContext = null,
     ): SemanticResult {
         if (
             $limit < 1
             || $limit > self::MAX_LIMIT
             || $offset < 0
+            || ($applicationContext !== null
+                && preg_match('/^[A-Za-z0-9_]+(?:-[A-Za-z0-9_]+)*$/', $applicationContext) !== 1)
             || ($scheme !== null && !in_array($scheme, ['app', 'page'], true))
         ) {
             return SemanticResult::invalidInput();
@@ -95,6 +98,7 @@ final class ContractCoverageQuery
                     $facts->value,
                     $method,
                     $path->value->relative,
+                    $applicationContext,
                 );
                 if ($record !== null) {
                     $record['provenance'] = [...$facts->provenance, ...$record['provenance']];
@@ -177,18 +181,21 @@ final class ContractCoverageQuery
         ResourceFacts $facts,
         ResourceMethodFact $method,
         string $path,
+        ?string $applicationContext,
     ): ?array {
         $request = $this->comparisonQuery->compareFactsInWorkspace(
             $workspace,
             $facts,
             $method->name,
             SchemaQuery::KIND_REQUEST,
+            applicationContext: $applicationContext,
         );
         $response = $this->comparisonQuery->compareFactsInWorkspace(
             $workspace,
             $facts,
             $method->name,
             SchemaQuery::KIND_RESPONSE,
+            applicationContext: $applicationContext,
         );
         if (
             !$request->value instanceof ContractComparison
