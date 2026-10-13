@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Suzumaze\BearPhpactor\Semantic\Sql;
 
+use FilesystemIterator;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use UnexpectedValueException;
 use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
@@ -40,7 +44,7 @@ final class SqlQuery
 
         $candidate = realpath($sqlRoot . '/' . $queryId . '.sql');
         if ($candidate === false || !is_file($candidate)) {
-            return SemanticResult::notFound();
+            return SemanticResult::notFoundWithCandidates($this->suggestions($sqlRoot, $queryId));
         }
         $candidate = $this->normalize($candidate);
         if (!$this->contains($projectRoot, $candidate)) {
@@ -69,6 +73,19 @@ final class SqlQuery
         }
 
         $result = $this->resolve($project->value, $queryId);
+        if ($result->status === SemanticStatus::NotFound && $result->candidates !== []) {
+            $candidates = [];
+            $provenance = [];
+            foreach ($result->candidates as $candidate) {
+                $path = $workspace->accessPolicy()->inspectExisting($candidate->file);
+                if ($path->value !== null) {
+                    $candidates[] = new SqlResolution($candidate->queryId, $path->value->absolute);
+                    $provenance[] = Provenance::savedFile($path->value->relative);
+                }
+            }
+
+            return SemanticResult::notFoundWithCandidates($candidates, $provenance);
+        }
         if ($result->status !== SemanticStatus::Ok || $result->value === null) {
             return $result;
         }
@@ -82,6 +99,39 @@ final class SqlQuery
             new SqlResolution($queryId, $path->value->absolute),
             [Provenance::savedFile($path->value->relative)],
         );
+    }
+
+    /** @return list<SqlResolution> At most 100 suggestions from at most 5000 source entries. */
+    private function suggestions(string $sqlRoot, string $queryId): array
+    {
+        $candidates = [];
+        $scanned = 0;
+        try {
+            $files = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($sqlRoot, FilesystemIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::SELF_FIRST,
+                RecursiveIteratorIterator::CATCH_GET_CHILD,
+            );
+            foreach ($files as $file) {
+                if (++$scanned > 5000) {
+                    break;
+                }
+                if (!$file->isFile() || $file->getFilename() !== basename($queryId) . '.sql') {
+                    continue;
+                }
+                $canonical = realpath($file->getPathname());
+                if ($canonical === false || !$this->contains($sqlRoot, $this->normalize($canonical))) {
+                    continue;
+                }
+                $id = substr($this->normalize($file->getPathname()), strlen($sqlRoot) + 1, -4);
+                $candidates[$id] = new SqlResolution($id, $this->normalize($canonical));
+            }
+        } catch (UnexpectedValueException) {
+            return [];
+        }
+        ksort($candidates, SORT_STRING);
+
+        return array_slice(array_values($candidates), 0, 100);
     }
 
     private function isValidQueryId(string $queryId): bool

@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Missing exact SQL IDs now suggest full IDs with the same last segment, without selecting
+  a candidate. Discovery inspects at most 5000 entries and returns at most 100 suggestions
+  inside the SQL directory and workspace.
+
 - AOP interceptor filters now distinguish names absent from known composed declarations
   from known interceptors with no matched methods, and suggest matching short class names.
   This does not assert that an unobserved class does not exist.

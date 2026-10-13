@@ -125,6 +125,24 @@ final readonly class SemanticResult
         );
     }
 
+    /**
+     * Suggestions for a missing exact identifier; candidates are not successful resolutions.
+     *
+     * @template T
+     * @param list<T> $candidates
+     * @param list<Provenance> $provenance
+     * @return self<T>
+     */
+    public static function notFoundWithCandidates(array $candidates, array $provenance = []): self
+    {
+        return new self(
+            SemanticStatus::NotFound,
+            candidates: $candidates,
+            error: SemanticError::fromStatus(SemanticStatus::NotFound),
+            provenance: self::normalizeProvenance($provenance),
+        );
+    }
+
     /** @return self<null> */
     public static function notFound(): self
     {
