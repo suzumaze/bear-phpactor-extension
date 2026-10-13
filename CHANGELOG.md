@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-10-13
+
 ### Fixed
 
 - `bear/app/contexts` now lists the production contexts of an application whose entry points
@@ -336,7 +338,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Invalid, missing, ambiguous, malformed, and outside-workspace inputs return structured
   failure results instead of executing application PHP or exposing exception traces.
 
-[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.3.3...HEAD
+[Unreleased]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.3.4...HEAD
+[0.3.4]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/suzumaze/bear-phpactor-extension/compare/v0.3.0...v0.3.1
