@@ -733,6 +733,8 @@ final class SemanticQueryHandler implements Handler
         ?string $contextPath = null,
         int $limit = 50,
         int $offset = 0,
+        string $detail = 'compact',
+        bool $includeUnknowns = false,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult => (new AopApplicationsQuery())->listInWorkspace(
@@ -745,6 +747,8 @@ final class SemanticQueryHandler implements Handler
                 $contextPath,
                 $limit,
                 $offset,
+                $detail,
+                $includeUnknowns,
             ),
             static fn (array $data): array => $data,
         ));

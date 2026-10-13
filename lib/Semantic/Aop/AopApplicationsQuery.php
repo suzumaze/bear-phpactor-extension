@@ -31,10 +31,13 @@ final readonly class AopApplicationsQuery
         ?string $contextPath = null,
         int $limit = 50,
         int $offset = 0,
+        string $detail = 'compact',
+        bool $includeUnknowns = false,
     ): SemanticResult {
         if (
             preg_match('/^[A-Za-z0-9_]+(?:-[A-Za-z0-9_]+)*$/', $applicationContext) !== 1
             || ($methodFilter !== null && preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,254}$/', $methodFilter) !== 1)
+            || !in_array($detail, ['compact', 'full'], true)
             || $limit < 1 || $limit > 100 || $offset < 0
         ) {
             return SemanticResult::invalidInput();
@@ -197,6 +200,21 @@ final readonly class AopApplicationsQuery
                 ];
             }
         }
+        if ($detail === 'compact') {
+            foreach ($items as &$item) {
+                foreach ($item['chain'] as &$entry) {
+                    unset($entry['origin']['via'], $entry['classMatcher'], $entry['methodMatcher']);
+                }
+                unset($entry);
+            }
+            unset($item);
+        }
+        if (!$includeUnknowns) {
+            foreach ($items as &$item) {
+                $item['unresolvedPointcuts'] = [];
+            }
+            unset($item);
+        }
         $page = ProjectReportPage::slice($items, $offset, $limit, ProjectReportPage::serializedBytes(...));
         foreach ($interpreter->unknowns as $unknown) {
             $this->recordUnknownGroup($unknownGroups, 'composition', $unknown);
@@ -247,7 +265,13 @@ final readonly class AopApplicationsQuery
             'total' => count($items),
             'offset' => $offset,
             'truncated' => $offset + count($page) < count($items),
-            'unknowns' => array_slice([...$interpreter->unknowns, ...$unresolved, ...$applicationUnknowns], 0, 100),
+            'nextOffset' => $offset + count($page) < count($items) ? $offset + count($page) : null,
+            'truncatedBy' => $offset + count($page) >= count($items) ? null
+                : (count($page) < $limit ? 'byte_budget' : 'limit'),
+            'omitted' => ['via' => $detail === 'compact', 'matchers' => $detail === 'compact',
+                'unknownsDetail' => !$includeUnknowns],
+            'unknowns' => $includeUnknowns
+                ? array_slice([...$interpreter->unknowns, ...$unresolved, ...$applicationUnknowns], 0, 100) : [],
             'unknownTotal' => count($interpreter->unknowns) + count($unresolved) + $unresolvedApplicationTotal,
             'unresolvedPointcutTotal' => $unresolvedPointcutRegistrations + $unresolvedApplicationTotal,
             'unknownSummary' => $unknownSummary,

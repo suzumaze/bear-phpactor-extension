@@ -507,6 +507,18 @@
                     "type": "int",
                     "required": false,
                     "default": 0
+                },
+                {
+                    "name": "detail",
+                    "type": "string",
+                    "required": false,
+                    "default": "compact"
+                },
+                {
+                    "name": "includeUnknowns",
+                    "type": "bool",
+                    "required": false,
+                    "default": false
                 }
             ],
             "successEnvelopeKeys": [
@@ -521,6 +533,9 @@
                 "total",
                 "offset",
                 "truncated",
+                "nextOffset",
+                "truncatedBy",
+                "omitted",
                 "unknowns",
                 "unknownTotal",
                 "unresolvedPointcutTotal",

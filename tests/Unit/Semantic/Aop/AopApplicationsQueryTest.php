@@ -18,7 +18,11 @@ final class AopApplicationsQueryTest extends TestCase
 {
     public function testPriorityAnnotationOrderReplacementAndDuplicates(): void
     {
-        $result = wait($this->handler()->listAopApplications('advice-app', 'app://self/advice'));
+        $result = wait($this->handler()->listAopApplications(
+            'advice-app',
+            'app://self/advice',
+            includeUnknowns: true,
+        ));
         self::assertSame('ok', $result['status']);
         self::assertSame(2, $result['data']['total']);
         $item = $result['data']['items'][0];
@@ -238,7 +242,11 @@ final class AopApplicationsQueryTest extends TestCase
 
     public function testProviderReplacementIsUnresolvedInsteadOfMatchingDeclaredResource(): void
     {
-        $result = wait($this->handler()->listAopApplications('indirect-advice-app', 'app://self/advice'));
+        $result = wait($this->handler()->listAopApplications(
+            'indirect-advice-app',
+            'app://self/advice',
+            includeUnknowns: true,
+        ));
         self::assertSame([], $result['data']['items']);
         self::assertContains('resource_binding_not_class', array_column($result['data']['unknowns'], 'reason'));
     }
@@ -279,6 +287,27 @@ final class AopApplicationsQueryTest extends TestCase
         self::assertSame(1, $selected['data']['total']);
         self::assertSame('helper', $selected['data']['items'][0]['method']);
         self::assertSame('exact_public_method', $selected['data']['coverage']['methodScope']);
+    }
+
+    public function testCompactOutputKeepsAllMethodsAndMakesOmissionsExplicit(): void
+    {
+        $handler = new SemanticQueryHandler(dirname(__DIR__, 3) . '/Fixture/AopOutput');
+        $compact = wait($handler->listAopApplications('app', interceptor: 'Vendor\\App\\Interceptor\\Trace'));
+        self::assertSame('ok', $compact['status']);
+        self::assertSame(22, $compact['data']['total']);
+        self::assertCount(22, $compact['data']['items']);
+        self::assertSame([], $compact['data']['unknowns']);
+        self::assertTrue($compact['data']['omitted']['unknownsDetail']);
+        self::assertArrayNotHasKey('via', $compact['data']['items'][0]['chain'][0]['origin']);
+        self::assertSame('provisional', $compact['data']['items'][0]['status']);
+        self::assertNull($compact['data']['nextOffset']);
+        $full = wait($handler->listAopApplications('app', detail: 'full', includeUnknowns: true));
+        self::assertNotEmpty($full['data']['unknowns']);
+        self::assertArrayHasKey('via', $full['data']['items'][0]['chain'][0]['origin']);
+        self::assertSame('byte_budget', $full['data']['truncatedBy']);
+        self::assertSame(count($full['data']['items']), $full['data']['nextOffset']);
+        self::assertSame($full['data']['unknownTotal'], $compact['data']['unknownTotal']);
+        self::assertSame('invalid_input', wait($handler->listAopApplications('app', detail: 'invalid'))['status']);
     }
 
     private function handler(): SemanticQueryHandler
