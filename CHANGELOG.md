@@ -36,6 +36,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- AOP `detail: "shared"` emits a page-local `chains` dictionary and per-method `chainId`,
+  preserving compact chain order and duplicates while avoiding repeated definitions.
+  Existing compact and full layouts remain available; shared definitions count toward pagination.
+
 - AOP applications now default to compact output: module traversal paths, matcher definitions,
   and unresolved details are omitted explicitly. Use `detail: "full"` and
   `includeUnknowns: true` for the previous detail level. Counts, chain order, and provisional
