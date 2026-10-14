@@ -28,7 +28,7 @@ final class SchemaContextConsensusTest extends TestCase
         int $unresolved,
     ): void {
         $handler = new SemanticQueryHandler(dirname(__DIR__, 3) . '/Fixture/' . $fixture);
-        $lookup = wait($handler->describeResourceSchema('app://self/example', 'request'));
+        $lookup = wait($handler->describeResourceSchema('app://self/example', 'request', method: 'onGet'));
         self::assertSame('ok', $lookup['status']);
         self::assertSame('schema/input.json', $lookup['data']['path']);
         $selection = $lookup['data']['directorySelection'];
@@ -40,7 +40,8 @@ final class SchemaContextConsensusTest extends TestCase
         self::assertSame($unresolved, $selection['contextDiscovery']['unresolvedTotal']);
 
         $description = wait($handler->describeResource('app://self/example'));
-        self::assertCount(2, $description['data']['schemas']);
+        self::assertCount(2, array_filter($description['data']['schemas'], static fn ($schema): bool =>
+            $schema['method'] === 'onGet'));
         $compare = wait($handler->compareContract('app://self/example'));
         self::assertContains('schema/output.json', array_column($compare['provenance'], 'path'));
         $surfaces = array_column($compare['data']['surfaces'], null, 'source');

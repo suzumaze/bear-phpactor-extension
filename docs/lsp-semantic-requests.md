@@ -499,6 +499,10 @@ directory remains usable with `provisional: true` and `contextDiscoveryComplete:
 `contextDiscovery` reports discovered/evaluated counts, limits and unresolved entry points.
 Dynamic, empty, relative or conflicting incomplete settings remain unsupported.
 No configuration at all retains convention discovery, explicitly labelled as such.
+Resource descriptions put directory evidence in `schemasCoverage.directorySelections`;
+inline `directorySelection.ref` resolves within that response. A definition groups candidates
+with identical status, directory and origin into `candidateGroups[].applicationContexts`.
+Counts and provisional/completeness flags remain inline. Schema lookup keeps full candidates.
 `contract_schema_unresolved` in diagnostic `skippedChecks` means contract comparison
 could not fully inspect an explicit schema; zero diagnostics does not mean it was checked.
 

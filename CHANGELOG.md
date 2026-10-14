@@ -47,6 +47,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Resource descriptions share schema directory evidence in `schemasCoverage.directorySelections`.
+  Inline selections retain summaries and a `ref`; definitions group contexts only when their
+  selected directory, status and origin agree. Lookup continues to expose full per-context candidates.
+
 - AOP `detail: "shared"` emits a page-local `chains` dictionary and per-method `chainId`,
   preserving compact chain order and duplicates while avoiding repeated definitions.
   Existing compact and full layouts remain available; shared definitions count toward pagination.

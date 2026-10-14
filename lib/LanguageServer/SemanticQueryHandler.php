@@ -64,6 +64,7 @@ use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFacts;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\ResourceSchemaQuery;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaSelectionTable;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaResolution;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlResolution;
@@ -1111,6 +1112,26 @@ final class SemanticQueryHandler implements Handler
         $named = array_filter($description->schemaCoverage, static fn ($item): bool =>
             $item['selection'] === 'attribute');
 
+        $table = new SchemaSelectionTable();
+        $schemas = array_map(function (SchemaResolution $schema) use ($table): array {
+            $data = $this->schemaData($schema);
+            if (isset($data['directorySelection'])) {
+                $data['directorySelection'] = $table->reference($data['directorySelection']);
+            }
+
+            return $data;
+        }, $description->schemas);
+        $coverage = array_map(static function (array $item) use ($table): array {
+            if (is_array($item['directorySelection'] ?? null)) {
+                $item['directorySelection'] = $table->reference($item['directorySelection']);
+            }
+            foreach ($item['candidates'] ?? [] as $index => $candidate) {
+                $item['candidates'][$index]['directorySelection'] = $table->reference($candidate['directorySelection']);
+            }
+
+            return $item;
+        }, $description->schemaCoverage);
+
         return [
             ...$this->resourceFactsData($description->facts),
             'relationsIn' => $this->incomingRelationsData($description->incomingRelations),
@@ -1123,7 +1144,7 @@ final class SemanticQueryHandler implements Handler
                 ],
                 $description->templates,
             ),
-            'schemas' => array_map($this->schemaData(...), $description->schemas),
+            'schemas' => $schemas,
             'schemasCoverage' => [
                 'kinds' => ['request', 'response'],
                 'methods' => 'declared_public_on_methods',
@@ -1132,7 +1153,8 @@ final class SemanticQueryHandler implements Handler
                 'configuredDirectoriesResolved' => $named !== [] && array_filter($named, static fn ($item): bool =>
                     ($item['directorySelection']['status'] ?? null) !== 'configured') === [],
                 'conventionDirectories' => ['request' => 'var/json_validate', 'response' => 'var/json_schema'],
-                'items' => $description->schemaCoverage,
+                'items' => $coverage,
+                ...($table->definitions() === [] ? [] : ['directorySelections' => $table->definitions()]),
             ],
         ];
     }
