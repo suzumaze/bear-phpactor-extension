@@ -494,8 +494,10 @@ paths, module origins, context discovery coverage, the Composer-root `appDir`
 assumption and provisional composition. No PHP application code is executed.
 Without a context, saved entry points supply candidates (at most 20 contexts).
 If no entry point is found, only AppModule is inspected and this scope is reported.
-Different directories stay ambiguous; incomplete discovery, dynamic, empty or
-relative settings are unsupported instead of falling back to the standard directory.
+Different directories stay ambiguous. With incomplete discovery, an agreed configured
+directory remains usable with `provisional: true` and `contextDiscoveryComplete: false`.
+`contextDiscovery` reports discovered/evaluated counts, limits and unresolved entry points.
+Dynamic, empty, relative or conflicting incomplete settings remain unsupported.
 No configuration at all retains convention discovery, explicitly labelled as such.
 `contract_schema_unresolved` in diagnostic `skippedChecks` means contract comparison
 could not fully inspect an explicit schema; zero diagnostics does not mean it was checked.

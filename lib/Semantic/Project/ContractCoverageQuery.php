@@ -280,7 +280,7 @@ final class ContractCoverageQuery
             $state = ContractCoverageSurface::STATE_UNRESOLVED;
         }
 
-        return new ContractCoverageSurface($state, $surface->status, $surface->subject);
+        return new ContractCoverageSurface($state, $surface->status, $surface->subject, $surface->directorySelection);
     }
 
     private function isAbsent(ContractSurface $surface): bool

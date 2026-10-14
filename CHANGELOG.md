@@ -8,6 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Incomplete context discovery no longer hides explicit schemas when every evaluated
+  context selects the same configured directory. Results are provisional and expose
+  discovery counts and limits; comparison, coverage and diagnostics retain that uncertainty.
+  Missing context modules, dynamic settings and conflicting incomplete candidates remain unresolved.
+
 - Cross-tool regression fixtures cover URI aliases and schema selection in inventory,
   descriptions, references, lookup, and comparison. A response selector of `'0'` now
   uses the adjacent-file fallback, matching the interceptor's empty-string semantics.

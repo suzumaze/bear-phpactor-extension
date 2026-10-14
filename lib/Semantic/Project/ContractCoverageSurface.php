@@ -20,10 +20,12 @@ final readonly class ContractCoverageSurface
     /**
      * @param self::STATE_* $state
      */
+    /** @param array<string, mixed> $directorySelection */
     public function __construct(
         public string $state,
         public SemanticStatus $status,
         public ?string $subject,
+        public array $directorySelection = [],
     ) {
     }
 }

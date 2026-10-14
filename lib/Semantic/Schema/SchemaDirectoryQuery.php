@@ -42,7 +42,12 @@ final class SchemaDirectoryQuery
         } elseif (array_diff($states, ['configured']) !== []) {
             $status = 'unsupported';
         }
-        if (!$all['complete'] || ($status === 'convention' && $all['provisional'])) {
+        $consensus = $status === 'configured'
+            && count(array_unique(array_column($candidates, 'directory'))) === 1;
+        if (
+            (!$all['complete'] && !$consensus) || !$all['compositionComplete']
+            || ($status === 'convention' && $all['provisional'])
+        ) {
             $status = 'unsupported';
         }
 
@@ -51,10 +56,25 @@ final class SchemaDirectoryQuery
             'candidates' => $candidates,
             'contextSelection' => $all['selection'],
             'contextDiscoveryComplete' => $all['complete'],
-            'provisional' => $all['provisional'],
+            'provisional' => $all['provisional'] || !$all['complete'],
+            'contextDiscovery' => $all['discovery'],
             'appDirAssumption' => 'composer_project_root',
             'runtimeObserved' => false,
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $selection
+     * @return array<string, mixed>
+     */
+    public static function summary(array $selection): array
+    {
+        if ($selection === []) {
+            return [];
+        }
+
+        return array_diff_key($selection, ['candidates' => true])
+            + ['candidateCount' => count($selection['candidates'] ?? [])];
     }
 
     /**
@@ -70,7 +90,12 @@ final class SchemaDirectoryQuery
     ): array {
         $classes = new ClassSourceIndex($root, $workspace->root());
         $app = DiContainerQuery::appName($psr4, $root);
-        $empty = ['contexts' => [], 'complete' => true, 'provisional' => false, 'selection' => 'no_app_module'];
+        $discoveryCoverage = [
+            'discoveredTotal' => 0, 'evaluated' => 0, 'limit' => 20, 'truncated' => false,
+            'scanTruncated' => false, 'unresolvedTotal' => 0, 'skippedFiles' => 0,
+        ];
+        $empty = ['contexts' => [], 'complete' => true, 'compositionComplete' => true,
+            'provisional' => false, 'selection' => 'no_app_module', 'discovery' => $discoveryCoverage];
         if ($app === null || ($context === null && $classes->find($app . '\\Module\\AppModule') === null)) {
             return $empty;
         }
@@ -82,12 +107,24 @@ final class SchemaDirectoryQuery
             $contexts = array_column($data['items'] ?? [], 'applicationContext');
             $complete = $data !== null && !$data['truncated'] && !$data['scanTruncated']
                 && $data['skippedFiles'] === 0 && $data['unresolvedTotal'] === 0 && count($contexts) <= 20;
+            $discoveryCoverage = [
+                'discoveredTotal' => $data['total'] ?? 0,
+                'evaluated' => 0,
+                'limit' => 20,
+                'truncated' => ($data['truncated'] ?? false) || count($contexts) > 20,
+                'scanTruncated' => $data['scanTruncated'] ?? true,
+                'unresolvedTotal' => $data['unresolvedTotal'] ?? 0,
+                'skippedFiles' => $data['skippedFiles'] ?? 0,
+            ];
             $selection = $contexts === [] ? 'app_module_only' : 'discovered_candidates';
             $contexts = $contexts === [] ? ['app'] : array_slice($contexts, 0, 20);
         } else {
             $contexts = [$context];
+            $discoveryCoverage['discoveredTotal'] = 1;
         }
-        $result = ['contexts' => [], 'complete' => $complete, 'provisional' => false, 'selection' => $selection];
+        $discoveryCoverage['evaluated'] = count($contexts);
+        $result = ['contexts' => [], 'complete' => $complete, 'compositionComplete' => true,
+            'provisional' => false, 'selection' => $selection, 'discovery' => $discoveryCoverage];
         foreach ($contexts as $name) {
             $interpreter = new ModuleInterpreter($classes, captureSchemaDirectories: true);
             $container = (new BearPackageComposition($classes, $interpreter))($app, $name);
@@ -95,6 +132,7 @@ final class SchemaDirectoryQuery
             foreach ($interpreter->unknowns as $unknown) {
                 if (str_starts_with($unknown['reason'], 'context_module_not_found:')) {
                     $result['complete'] = false;
+                    $result['compositionComplete'] = false;
                 }
             }
             foreach (['response' => 'json_schema_dir', 'request' => 'json_validate_dir'] as $kind => $qualifier) {

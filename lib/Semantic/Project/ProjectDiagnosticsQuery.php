@@ -675,7 +675,11 @@ final class ProjectDiagnosticsQuery
                     $kind,
                     applicationContext: $applicationContext,
                 );
+                $directory = [];
                 foreach ($result->value->surfaces ?? [] as $surface) {
+                    if ($surface->source === 'schema') {
+                        $directory = $surface->directorySelection;
+                    }
                     if (
                         $surface->source === 'schema' && $surface->status !== SemanticStatus::Ok
                         && !in_array($surface->subject, ['request', 'response:convention'], true)
@@ -700,6 +704,7 @@ final class ProjectDiagnosticsQuery
                     $facts->resource->uri->uri() . '#' . $method->name . ':' . $kind,
                     $relativePath,
                     details: [
+                        ...($directory === [] ? [] : ['directorySelection' => $directory]),
                         'comparison' => 'exact_name_presence_only',
                         'compared' => $comparison->compared,
                         'onlyInResource' => array_slice($comparison->onlyInResource, 0, self::MAX_DETAIL_NAMES),

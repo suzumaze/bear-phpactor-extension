@@ -1030,6 +1030,7 @@ final class SemanticQueryHandler implements Handler
     private function contractCoverageSurfaceData(ContractCoverageSurface $surface): array
     {
         return [
+            ...($surface->directorySelection === [] ? [] : ['directorySelection' => $surface->directorySelection]),
             'state' => $surface->state,
             'status' => $surface->status->value,
             'subject' => $surface->subject,
@@ -1207,6 +1208,8 @@ final class SemanticQueryHandler implements Handler
                     'status' => $surface->status->value,
                     'subject' => $surface->subject,
                     'names' => $surface->names,
+                    ...($surface->directorySelection === [] ? []
+                        : ['directorySelection' => $surface->directorySelection]),
                 ],
                 $comparison->surfaces,
             ),

@@ -18,6 +18,7 @@ use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFacts;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\ResourceSchemaQuery;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaDirectoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 
 /**
@@ -201,12 +202,17 @@ final class ContractComparisonQuery
         $selection = (new ResourceSchemaQuery())->select($workspace, $facts, $method, $schemaKind, $applicationContext);
         $result = $this->schemaFactsQuery->fromResolutionResult($workspace, $selection['result']);
         $subject = $selection['subject'];
+        $directory = SchemaDirectoryQuery::summary($selection['result']->value->directorySelection
+            ?? $selection['result']->coverage['schemaDirectories'] ?? []);
 
         if (!$result->value instanceof SchemaFacts) {
-            return [new ContractSurface('schema', $result->status, $subject, []), $result->provenance];
+            return [new ContractSurface('schema', $result->status, $subject, [], $directory), $result->provenance];
         }
         if (!$result->value->available) {
-            return [new ContractSurface('schema', SemanticStatus::NotFound, $subject, []), $result->provenance];
+            return [
+                new ContractSurface('schema', SemanticStatus::NotFound, $subject, [], $directory),
+                $result->provenance,
+            ];
         }
 
         return [
@@ -218,6 +224,7 @@ final class ContractComparisonQuery
                     static fn ($property): string => $property->name,
                     $result->value->properties,
                 )),
+                $directory,
             ),
             $result->provenance,
         ];
