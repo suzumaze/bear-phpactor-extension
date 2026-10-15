@@ -6,6 +6,62 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-10-15
+
+### Fixed
+
+- Incomplete context discovery no longer hides explicit schemas when every evaluated
+  context selects the same configured directory. Results are provisional and expose
+  discovery counts and limits; comparison, coverage and diagnostics retain that uncertainty.
+  Missing context modules, dynamic settings and conflicting incomplete candidates remain unresolved.
+
+- Cross-tool regression fixtures cover URI aliases and schema selection in inventory,
+  descriptions, references, lookup, and comparison. A response selector of `'0'` now
+  uses the adjacent-file fallback, matching the interceptor's empty-string semantics.
+
+- Resource schema discovery now shares method attribute selection across description, lookup,
+  and contract comparison. Lookup accepts `method`; description covers request and response
+  schemas and distinguishes explicit attributes, adjacent-file BC fallback, and convention-only
+  discovery. These source facts do not prove runtime validation.
+  Explicit selectors now use source-composed `json_schema_dir` / `json_validate_dir` bindings,
+  including module constructor arguments, local aliases, named arguments and overrides.
+  Description, schema lookup, comparison, coverage and diagnostics accept `applicationContext`.
+  Without it, discovered contexts remain candidates (up to 20); absent entry points limit
+  discovery to AppModule. Directory provenance, context coverage and provisional composition
+  are reported. Dynamic, empty, relative or inaccessible settings never fall back to convention.
+
+- Resource results retain the requested URI and expose a class-convention `canonicalUri`
+  plus `resolvedVia`. Route results also expose `routeUri`; directory fallback is marked
+  `heuristic`, without asserting runtime rewrite behavior.
+
+- Missing exact SQL IDs now suggest full IDs with the same last segment, without selecting
+  a candidate. Discovery inspects at most 5000 entries and returns at most 100 suggestions
+  inside the SQL directory and workspace. The `coverage.suggestionScan` envelope reports
+  scanned entries, candidate counts, both limits, truncation, and read failures; `complete`
+  only means that this bounded, non-symlink-following suggestion search finished.
+
+- AOP interceptor filters now distinguish names absent from known composed declarations
+  from known interceptors with no matched methods, and suggest matching short class names.
+  This does not assert that an unobserved class does not exist.
+
+- Twig concatenated template expressions no longer produce missing-template diagnostics.
+  Dynamic references are excluded from static navigation and reported in skipped checks.
+
+### Changed
+
+- Resource descriptions share schema directory evidence in `schemasCoverage.directorySelections`.
+  Inline selections retain summaries and a `ref`; definitions group contexts only when their
+  selected directory, status and origin agree. Lookup continues to expose full per-context candidates.
+
+- AOP `detail: "shared"` emits a page-local `chains` dictionary and per-method `chainId`,
+  preserving compact chain order and duplicates while avoiding repeated definitions.
+  Existing compact and full layouts remain available; shared definitions count toward pagination.
+
+- AOP applications now default to compact output: module traversal paths, matcher definitions,
+  and unresolved details are omitted explicitly. Use `detail: "full"` and
+  `includeUnknowns: true` for the previous detail level. Counts, chain order, and provisional
+  status are retained. `nextOffset` and `truncatedBy` explain pagination.
+
 ## [0.3.4] - 2026-10-13
 
 ### Fixed

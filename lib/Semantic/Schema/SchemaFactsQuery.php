@@ -51,14 +51,18 @@ final class SchemaFactsQuery
         string $resourceUri,
         string $kind = SchemaQuery::KIND_RESPONSE,
         ?string $contextPath = null,
+        ?string $method = null,
+        ?string $applicationContext = null,
     ): SemanticResult {
         return $this->fromResolutionResult(
             $workspace,
-            $this->schemaQuery->resolveForResourceInWorkspace(
+            (new ResourceSchemaQuery($this->schemaQuery))->resolveInWorkspace(
                 $workspace,
                 $resourceUri,
                 $kind,
                 $contextPath,
+                $method,
+                $applicationContext,
             ),
         );
     }
@@ -79,13 +83,13 @@ final class SchemaFactsQuery
      * @param SemanticResult<SchemaResolution|null> $result
      * @return SemanticResult<SchemaFacts|null>
      */
-    private function fromResolutionResult(WorkspaceContext $workspace, SemanticResult $result): SemanticResult
+    public function fromResolutionResult(WorkspaceContext $workspace, SemanticResult $result): SemanticResult
     {
         if ($result->status === SemanticStatus::Ok && $result->value !== null) {
-            return $this->facts($workspace, $result->value);
+            return $this->facts($workspace, $result->value)->withProvenance($result->provenance);
         }
         if ($result->status !== SemanticStatus::Ambiguous) {
-            return SemanticResult::failure($result->status);
+            return SemanticResult::failure($result->status)->withCoverage($result->coverage);
         }
 
         $candidates = [];
@@ -101,7 +105,7 @@ final class SchemaFactsQuery
             $candidates[] = $facts->value;
         }
 
-        return SemanticResult::ambiguous($candidates);
+        return SemanticResult::ambiguous($candidates, provenance: $result->provenance);
     }
 
     /** @return SemanticResult<SchemaFacts|null> */
@@ -136,6 +140,9 @@ final class SchemaFactsQuery
                     $path->value->absolute,
                     $schema->titleOffset,
                     $schema->resource,
+                    $schema->method,
+                    $schema->selection,
+                    $schema->directorySelection,
                 ),
                 true,
                 $document->value->types,

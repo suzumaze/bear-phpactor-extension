@@ -1,0 +1,6 @@
+{% include 'parts/' ~ name ~ '.html.twig' %}
+{{ include('cards/' ~ name ~ '.html.twig', {}) }}
+{% include 'multi/'
+    ~ name %}
+{% include 'missing.html.twig' with {} %}
+{% include 'missing.html.twig' ~%}

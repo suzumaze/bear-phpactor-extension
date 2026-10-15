@@ -131,7 +131,7 @@ final class ResourceIncomingRelationsQuery
 
         return SemanticResult::ok(
             new ResourceIncomingRelations(
-                new ResourceResolution($target->uri, $targetPath->value->absolute, $target->fqn),
+                new ResourceResolution($target->uri, $targetPath->value->absolute, $target->fqn, $target->resolvedVia),
                 true,
                 $selected,
                 $total,

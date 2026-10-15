@@ -15,11 +15,13 @@ final readonly class ContractSurface
      * @param 'resource'|'schema'|'alps' $source
      * @param list<string>               $names
      */
+    /** @param array<string, mixed> $directorySelection */
     public function __construct(
         public string $source,
         public SemanticStatus $status,
         public ?string $subject,
         public array $names,
+        public array $directorySelection = [],
     ) {
     }
 }

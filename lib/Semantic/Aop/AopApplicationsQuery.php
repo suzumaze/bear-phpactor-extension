@@ -31,10 +31,13 @@ final readonly class AopApplicationsQuery
         ?string $contextPath = null,
         int $limit = 50,
         int $offset = 0,
+        string $detail = 'compact',
+        bool $includeUnknowns = false,
     ): SemanticResult {
         if (
             preg_match('/^[A-Za-z0-9_]+(?:-[A-Za-z0-9_]+)*$/', $applicationContext) !== 1
             || ($methodFilter !== null && preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,254}$/', $methodFilter) !== 1)
+            || !in_array($detail, ['compact', 'full', 'shared'], true)
             || $limit < 1 || $limit > 100 || $offset < 0
         ) {
             return SemanticResult::invalidInput();
@@ -68,7 +71,11 @@ final readonly class AopApplicationsQuery
         $scanned = 0;
         $unresolvedPointcutRegistrations = 0;
         $pointcutRegistrationsByOrigin = [];
+        $knownInterceptors = [];
         foreach ($container->pointcuts as $pointcut) {
+            foreach ($pointcut->interceptors as $known) {
+                $knownInterceptors[ltrim($known, '\\')] = true;
+            }
             $originKey = $this->originKey(
                 $pointcut->origin->module,
                 $pointcut->origin->path,
@@ -197,7 +204,49 @@ final readonly class AopApplicationsQuery
                 ];
             }
         }
-        $page = ProjectReportPage::slice($items, $offset, $limit, ProjectReportPage::serializedBytes(...));
+        if ($detail !== 'full') {
+            foreach ($items as &$item) {
+                foreach ($item['chain'] as &$entry) {
+                    unset($entry['origin']['via'], $entry['classMatcher'], $entry['methodMatcher']);
+                }
+                unset($entry);
+            }
+            unset($item);
+        }
+        if (!$includeUnknowns) {
+            foreach ($items as &$item) {
+                $item['unresolvedPointcuts'] = [];
+            }
+            unset($item);
+        }
+        $chains = [];
+        if ($detail === 'shared') {
+            foreach ($items as &$item) {
+                $id = hash('sha256', json_encode($item['chain'], JSON_THROW_ON_ERROR));
+                $chains[$id] = $item['chain'];
+                $item['chainId'] = $id;
+                unset($item['chain']);
+            }
+            unset($item);
+        }
+        $seenChains = [];
+        $page = ProjectReportPage::slice(
+            $items,
+            $offset,
+            $limit,
+            static function (array $item) use ($chains, &$seenChains): int {
+                $size = ProjectReportPage::serializedBytes($item);
+                $id = $item['chainId'] ?? null;
+                if ($id !== null && !isset($seenChains[$id])) {
+                    $size += ProjectReportPage::serializedBytes([$id => $chains[$id]]);
+                    $seenChains[$id] = true;
+                }
+
+                return $size;
+            },
+        );
+        // Each page is self-contained; never send definitions used only by other pages.
+        $chains = array_intersect_key($chains, array_flip(array_column($page, 'chainId')));
         foreach ($interpreter->unknowns as $unknown) {
             $this->recordUnknownGroup($unknownGroups, 'composition', $unknown);
         }
@@ -241,18 +290,43 @@ final readonly class AopApplicationsQuery
             ],
         ];
 
+        $selectedInterceptor = $interceptor === null ? null : ltrim($interceptor, '\\');
+        $unknownInterceptor = $selectedInterceptor !== null && !isset($knownInterceptors[$selectedInterceptor]);
+        $candidates = [];
+        if ($unknownInterceptor) {
+            $shortName = substr(strrchr('\\' . $selectedInterceptor, '\\'), 1);
+            foreach (array_keys($knownInterceptors) as $known) {
+                if (substr(strrchr('\\' . $known, '\\'), 1) === $shortName) {
+                    $candidates[] = $known;
+                }
+            }
+            sort($candidates, SORT_STRING);
+        }
+
         return SemanticResult::ok([
+            'unknownInterceptor' => $unknownInterceptor,
+            'interceptorCandidates' => array_slice($candidates, 0, 100),
+            'interceptorCandidateTotal' => count($candidates),
             'applicationContext' => $applicationContext,
             'items' => $page,
+            ...($detail === 'shared' ? ['chainEncoding' => 'shared', 'chains' => $chains] : []),
             'total' => count($items),
             'offset' => $offset,
             'truncated' => $offset + count($page) < count($items),
-            'unknowns' => array_slice([...$interpreter->unknowns, ...$unresolved, ...$applicationUnknowns], 0, 100),
+            'nextOffset' => $offset + count($page) < count($items) ? $offset + count($page) : null,
+            'truncatedBy' => $offset + count($page) >= count($items) ? null
+                : (count($page) < $limit ? 'byte_budget' : 'limit'),
+            'omitted' => ['via' => $detail !== 'full', 'matchers' => $detail !== 'full',
+                'unknownsDetail' => !$includeUnknowns],
+            'unknowns' => $includeUnknowns
+                ? array_slice([...$interpreter->unknowns, ...$unresolved, ...$applicationUnknowns], 0, 100) : [],
             'unknownTotal' => count($interpreter->unknowns) + count($unresolved) + $unresolvedApplicationTotal,
             'unresolvedPointcutTotal' => $unresolvedPointcutRegistrations + $unresolvedApplicationTotal,
             'unknownSummary' => $unknownSummary,
             'coverage' => [
                 'basis' => 'source_matching_model',
+                'interceptorLookup' => 'composed_declarations',
+                'interceptorClassExistenceChecked' => false,
                 'orderingModel' => 'ray_aop_php_attribute_onion',
                 'runtimeObserved' => false,
                 'weavingValidated' => false,

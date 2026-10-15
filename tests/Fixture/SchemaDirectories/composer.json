@@ -1,0 +1,9 @@
+{
+    "autoload": {
+        "psr-4": {
+            "Vendor\\App\\": "src/",
+            "BEAR\\Package\\": "framework/Package/",
+            "BEAR\\Resource\\Module\\": "framework/Resource/Module/"
+        }
+    }
+}

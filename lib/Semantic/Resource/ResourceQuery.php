@@ -68,7 +68,7 @@ final class ResourceQuery
                 return SemanticResult::notFound();
             }
 
-            $resolution = $this->resolution($uri, $target);
+            $resolution = $this->resolution($uri, $target, 'import_app');
             if ($target['origin'] === ImportAppRegistry::ORIGIN_INSTALLED_PACKAGE) {
                 // Composer path repositories commonly install packages as symlinks.
                 // The package root came from vendor/composer/installed.json, so the
@@ -122,9 +122,12 @@ final class ResourceQuery
     /**
      * @param array{file: string, fqn: string} $target
      */
-    private function resolution(ResourceUri $uri, array $target): ResourceResolution
-    {
-        return new ResourceResolution($uri, $target['file'], $target['fqn']);
+    private function resolution(
+        ResourceUri $uri,
+        array $target,
+        string $resolvedVia = 'heuristic',
+    ): ResourceResolution {
+        return new ResourceResolution($uri, $target['file'], $target['fqn'], $resolvedVia);
     }
 
     private function containsParentSegment(ResourceUri $uri): bool
@@ -165,6 +168,7 @@ final class ResourceQuery
                     $result->value->uri,
                     $path->value->absolute,
                     $result->value->fqn,
+                    $result->value->resolvedVia,
                 ),
                 [Provenance::savedFile($path->value->relative)],
             );
@@ -186,6 +190,7 @@ final class ResourceQuery
                 $candidate->uri,
                 $path->value->absolute,
                 $candidate->fqn,
+                $candidate->resolvedVia,
             );
             if (!isset($candidates[$key]) || $resolution->fqn < $candidates[$key]->fqn) {
                 $candidates[$key] = $resolution;

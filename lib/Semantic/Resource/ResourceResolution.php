@@ -15,7 +15,22 @@ final readonly class ResourceResolution
         public ResourceUri $uri,
         public string $file,
         public string $fqn,
+        public string $resolvedVia = 'direct',
     ) {
+    }
+
+    /** Class-convention identity, not a claim about runtime routing or rewriting. */
+    public function canonicalUri(): ?string
+    {
+        $marker = '\\Resource\\' . ucfirst($this->uri->scheme()) . '\\';
+        $position = strrpos($this->fqn, $marker);
+        if ($position === false) {
+            return null;
+        }
+        $path = substr($this->fqn, $position + strlen($marker));
+
+        return $this->uri->scheme() . '://' . $this->uri->host() . '/'
+            . implode('/', array_map(lcfirst(...), explode('\\', $path)));
     }
 
     /**

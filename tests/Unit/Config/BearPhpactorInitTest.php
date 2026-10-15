@@ -83,6 +83,8 @@ PHP);
             [
                 'PHPACTOR_BIN' => (string) realpath(__DIR__ . '/../../Fixture/Config/fake-phpactor'),
                 'TMPDIR' => $this->installRoot,
+                ...is_string(getenv('PHP_INI_SCAN_DIR'))
+                    ? ['PHP_INI_SCAN_DIR' => getenv('PHP_INI_SCAN_DIR')] : [],
             ]
         );
         self::assertIsResource($process);

@@ -11,12 +11,16 @@ use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
  */
 final readonly class SchemaResolution
 {
+    /** @param array<string, mixed> $directorySelection */
     public function __construct(
         public string $kind,
         public string $source,
         public ?string $file,
         public ?int $titleOffset,
         public ?ResourceResolution $resource = null,
+        public ?string $method = null,
+        public ?string $selection = null,
+        public array $directorySelection = [],
     ) {
     }
 }

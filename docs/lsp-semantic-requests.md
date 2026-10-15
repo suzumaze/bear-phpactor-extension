@@ -452,8 +452,8 @@ load module PHP, construct a DI container, or execute the application.
 | Method | Params | Successful data |
 |---|---|---|
 | `bear/project/info` | `{contextPath?}` | `{semanticApiVersion, semanticProtocol, requests, workspaceName, projectPath, composerPath, psr4Roots, excludedPsr4Roots, resourceCount, capabilities, versions, compatibilityIssues}` |
-| `bear/project/diagnostics` | `{contextPath?, limit?, offset?}` | `{items, total, offset, truncated, scannedFiles, scannedResources, resourceScanTruncated, skippedChecks}` |
-| `bear/project/contractCoverage` | `{contextPath?, limit?, offset?, gapsOnly?, scheme?}` | `{items, total, matchingTotal, offset, truncated, gapsOnly, scheme, scannedResources, analyzedResources, resourceScanTruncated, summary}` |
+| `bear/project/diagnostics` | `{contextPath?, limit?, offset?, applicationContext?}` | `{items, total, offset, truncated, scannedFiles, scannedResources, resourceScanTruncated, skippedChecks}` |
+| `bear/project/contractCoverage` | `{contextPath?, limit?, offset?, gapsOnly?, scheme?, applicationContext?}` | `{items, total, matchingTotal, offset, truncated, gapsOnly, scheme, scannedResources, analyzedResources, resourceScanTruncated, summary}` |
 | `bear/di/bindings` | `{contextPath?, type?, limit?, offset?, applicationContext?}` | `{items, total, offset, truncated, scannedModules, unresolved, type, applicationContext}` |
 | `bear/di/moduleGraph` | `{applicationContext?, contextPath?}` | `{view?, applicationContext, segments, modules, edges, truncated, coverage}` |
 | `bear/di/moduleDeclarations` | `{module, applicationContext?, contextPath?, limit?, offset?, bindingsOffset?, pointcutsOffset?}` | `{applicationContext, module, contextMembership, bindings, pointcuts, bindingSelection, coverage}` |
@@ -461,16 +461,16 @@ load module PHP, construct a DI container, or execute the application.
 | `bear/di/bindingLookup` | `{applicationContext, type?, name?, contextPath?, limit?, offset?, overridesOnly?, resourcesOnly?, environment?}` | `{applicationContext, type, name, overridesOnly, resourcesOnly, items, total, offset, truncated, unknowns, unknownTotal, unknownsTruncated, coverage}` |
 | `bear/di/container` | `{applicationContext, contextPath?, limit?, offset?, environment?}` | `{applicationContext, appName, items, total, offset, truncated, events, modules, unknowns, coverage}` |
 | `bear/aop/pointcuts` | `{contextPath?, interceptor?, limit?, offset?, applicationContext?}` | `{items, total, offset, truncated, scannedModules, unresolved, interceptor, applicationContext}` |
-| `bear/aop/applications` | `{applicationContext, uri?, interceptor?, attribute?, method?, contextPath?, limit?, offset?}` | `{applicationContext, items, total, offset, truncated, unknowns, unknownTotal, unresolvedPointcutTotal, coverage}` |
+| `bear/aop/applications` | `{applicationContext, uri?, interceptor?, attribute?, method?, contextPath?, limit?, offset?, detail?, includeUnknowns?}` | `{applicationContext, items, total, offset, truncated, unknowns, unknownTotal, unresolvedPointcutTotal, coverage}` |
 | `bear/attribute/catalog` | `{applicationContext?, attribute?, contextPath?, limit?, offset?}` | `{applicationContext, items, total, offset, truncated, scannedFiles, skippedFiles, scanTruncated, unknowns, unknownTotal, coverage}` |
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
 | `bear/resource/list` | `{scheme?, prefix?, limit?, offset?}` | `{resources, total, offset, truncated}` |
-| `bear/resource/describe` | `{uri, contextPath?, incomingLimit?}` | `{resource, methods[{name, parameters, responseBody}], relationsOut, relationsOutCoverage, referencesOut, referencesOutCoverage, relationsIn, templates, schemas}` |
+| `bear/resource/describe` | `{uri, contextPath?, incomingLimit?, applicationContext?}` | `{resource, methods[{name, parameters, responseBody}], relationsOut, relationsOutCoverage, referencesOut, referencesOutCoverage, relationsIn, templates, schemas}` |
 | `bear/resource/attributes` | `{uri, contextPath?}` | `{resource, attributes, argumentPolicy}` |
 | `bear/resource/attributeIndex` | `{scheme?, prefix?, limit?, offset?}` | `{items, total, offset, truncated, argumentPolicy}` |
 | `bear/resource/incomingRelations` | `{uri, contextPath?, limit?}` | `{resource, available, items, total, truncated}` |
 | `bear/resource/references` | `{uri, contextPath?, limit?}` | `{resource, references, total, truncated}` |
-| `bear/contract/compare` | `{uri, method?, schemaKind?, descriptorId?, contextPath?}` | `{resource, method, schemaKind, surfaces, comparison}` |
+| `bear/contract/compare` | `{uri, method?, schemaKind?, descriptorId?, contextPath?, applicationContext?}` | `{resource, method, schemaKind, surfaces, comparison}` |
 | `bear/route/resolve` | `{route, contextPath?}` | `{route, resource}` |
 | `bear/sql/resolve` | `{queryId, contextPath?}` | `{queryId, path}` |
 | `bear/template/resolve` | `{engine, name, contextPath?}` | `{engine, name, path}` |
@@ -478,13 +478,45 @@ load module PHP, construct a DI container, or execute the application.
 | `bear/alps/resolveDescriptor` | `{descriptorId, contextPath?}` | `{descriptorId, profilePath, byteOffset}` |
 | `bear/alps/describeDescriptor` | `{descriptorId, contextPath?}` | `{descriptorId, profilePath, byteOffset, type, name, rt, href, rel, doc, def, tag, title, relationsOut, relationsIn}` |
 | `bear/schema/resolveNamed` | `{fileName, kind, contextPath?}` | `{kind, source, path, titleByteOffset, resource}` |
-| `bear/schema/forResource` | `{uri, kind?, contextPath?}` | `{kind, source, path, titleByteOffset, resource}` |
+| `bear/schema/forResource` | `{uri, kind?, contextPath?, method?, applicationContext?}` | `{kind, source, path, titleByteOffset, resource}` |
 | `bear/schema/describeNamed` | `{fileName, kind, contextPath?}` | `{kind, source, path, titleByteOffset, resource, available, types, properties}` |
-| `bear/schema/describeForResource` | `{uri, kind?, contextPath?}` | `{kind, source, path, titleByteOffset, resource, available, types, properties}` |
+| `bear/schema/describeForResource` | `{uri, kind?, contextPath?, method?, applicationContext?}` | `{kind, source, path, titleByteOffset, resource, available, types, properties}` |
 
 `engine` is `twig` or `qiq`. A relative Qiq name requires `contextPath`. The ALPS
 offset is a byte offset in the saved JSON profile; positional standard LSP methods
 continue to use UTF-16 line/character positions.
+
+Schema description, lookup, comparison, coverage and diagnostics accept an optional
+`applicationContext` for directory selection. Explicit attribute filenames use the
+source-composed `json_schema_dir` / `json_validate_dir` bindings, with the same
+install/override precedence as DI lookup. `directorySelection` reports relative
+paths, module origins, context discovery coverage, the Composer-root `appDir`
+assumption and provisional composition. No PHP application code is executed.
+Without a context, saved entry points supply candidates (at most 20 contexts).
+If no entry point is found, only AppModule is inspected and this scope is reported.
+Different directories stay ambiguous. With incomplete discovery, an agreed configured
+directory remains usable with `provisional: true` and `contextDiscoveryComplete: false`.
+`contextDiscovery` reports discovered/evaluated counts, limits and unresolved entry points.
+Dynamic, empty, relative or conflicting incomplete settings remain unsupported.
+No configuration at all retains convention discovery, explicitly labelled as such.
+Resource descriptions put directory evidence in `schemasCoverage.directorySelections`;
+inline `directorySelection.ref` resolves within that response. A definition groups candidates
+with identical status, directory and origin into `candidateGroups[].applicationContexts`.
+Counts and provisional/completeness flags remain inline. Schema lookup keeps full candidates.
+`contract_schema_unresolved` in diagnostic `skippedChecks` means contract comparison
+could not fully inspect an explicit schema; zero diagnostics does not mean it was checked.
+
+AOP `detail` accepts `compact` (default), `full`, or `shared`. Shared output replaces
+an item's `chain` with `chainId`, resolved through that page's `chains` dictionary.
+Chain order and duplicate interceptors remain meaningful. Each page contains every
+referenced definition, and dictionary bytes count toward its item budget.
+`includeUnknowns: true` restores unresolved details independently of `detail`;
+counts and summaries are always present. Follow `nextOffset` while `truncated` is true.
+
+A missing exact SQL identifier retains `not_found` and may provide full IDs in
+`candidates`. `coverage.suggestionScan` reports scanned entries, candidate count,
+limits, truncation and read failures. Its `complete` flag applies only to this
+basename suggestion search; directory symlinks are not traversed.
 
 For `bear/resource/describe`, `relationsOut` contains only declarative `#[Link]` and
 `#[Embed]` relations. `referencesOut` contains direct static Resource client calls

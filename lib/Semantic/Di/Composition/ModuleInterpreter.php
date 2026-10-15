@@ -82,6 +82,7 @@ final class ModuleInterpreter
     public function __construct(
         private readonly ClassSourceIndex $classes,
         private readonly ?array $environment = null,
+        private readonly bool $captureSchemaDirectories = false,
     ) {
     }
 
@@ -1516,7 +1517,14 @@ final class ModuleInterpreter
                 return $bind;
             case 'toInstance':
                 $bind->untarget = false;
-                $dependency = $this->instanceDependency($arguments['instance'] ?? $first);
+                $value = $arguments['instance'] ?? $first;
+                $dependency = $this->instanceDependency($value);
+                if (
+                    $this->captureSchemaDirectories && $bind->interface === '' && is_string($value)
+                    && in_array($bind->name, ['json_schema_dir', 'json_validate_dir'], true)
+                ) {
+                    $dependency['schemaDirectory'] = $value;
+                }
                 $bind->container->add($index(), $dependency, $bind->source, $bind->origin);
 
                 return $bind;

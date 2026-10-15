@@ -35,8 +35,12 @@ final readonly class SchemaQuery
      *
      * @return SemanticResult<SchemaResolution|null>
      */
-    public function resolveNamed(Project $project, string $fileName, string $kind): SemanticResult
-    {
+    public function resolveNamed(
+        Project $project,
+        string $fileName,
+        string $kind,
+        ?string $directory = null,
+    ): SemanticResult {
         if (!$this->supportsKind($kind)) {
             return SemanticResult::unsupported();
         }
@@ -44,16 +48,18 @@ final readonly class SchemaQuery
             return SemanticResult::invalidInput();
         }
 
-        $directory = $kind === self::KIND_REQUEST
+        $directory ??= $kind === self::KIND_REQUEST
             ? JsonSchemaPathResolver::REQUEST_SCHEMA_DIR
             : JsonSchemaPathResolver::RESPONSE_SCHEMA_DIR;
 
+        $directory = PathGuard::isAbsolutePath($directory) ? $directory : $project->root() . '/' . $directory;
+
         return $this->resolutionForPath(
             $project,
-            $project->root() . '/' . $directory . '/' . $fileName,
+            $directory . '/' . $fileName,
             $kind,
             self::SOURCE_ATTRIBUTE,
-            allowedRoot: $project->root() . '/' . $directory,
+            allowedRoot: $directory,
         );
     }
 
@@ -150,6 +156,7 @@ final readonly class SchemaQuery
         string $fileName,
         string $kind,
         ?string $contextPath = null,
+        ?string $directory = null,
     ): SemanticResult {
         $project = $workspace->project($contextPath);
         if ($project->value === null) {
@@ -158,7 +165,7 @@ final readonly class SchemaQuery
 
         return $this->enforceWorkspace(
             $workspace,
-            $this->resolveNamed($project->value, $fileName, $kind),
+            $this->resolveNamed($project->value, $fileName, $kind, $directory),
         );
     }
 
@@ -214,6 +221,33 @@ final readonly class SchemaQuery
                 new ResourceResolution($resource->uri, $path->value->absolute, $resource->fqn),
             ),
         );
+    }
+
+    /** Resolve the documented legacy adjacent-file fallback without executing application code.
+     * @return SemanticResult<SchemaResolution|null>
+     */
+    public function resolveAdjacentInWorkspace(
+        WorkspaceContext $workspace,
+        ResourceResolution $resource,
+    ): SemanticResult {
+        $path = $workspace->accessPolicy()->inspectExisting($resource->file);
+        if ($path->value === null) {
+            return SemanticResult::failure($path->status);
+        }
+        $project = $workspace->project($path->value->relative);
+        if ($project->value === null) {
+            return SemanticResult::failure($project->status);
+        }
+        $file = substr($path->value->absolute, 0, -4) . '.json';
+
+        return $this->enforceWorkspace($workspace, $this->resolutionForPath(
+            $project->value,
+            $file,
+            self::KIND_RESPONSE,
+            'bc_fallback',
+            $resource,
+            dirname($path->value->absolute),
+        ));
     }
 
     /** @return SemanticResult<SchemaResolution|null> */

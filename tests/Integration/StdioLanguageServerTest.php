@@ -708,6 +708,8 @@ PHP;
                 'status' => 'ok',
                 'data' => [
                     'uri' => 'app://self/user',
+                    'canonicalUri' => 'app://self/user',
+                    'resolvedVia' => 'direct',
                     'fqn' => 'Acme\\Blog\\Resource\\App\\User',
                     'path' => 'src/Resource/App/User.php',
                 ],

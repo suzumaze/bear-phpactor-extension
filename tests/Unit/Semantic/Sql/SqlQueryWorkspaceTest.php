@@ -60,6 +60,30 @@ JSON,
         self::assertNull($result->value);
     }
 
+    public function testMissingShortIdSuggestsFullIdsWithoutSelectingOne(): void
+    {
+        $root = dirname(__DIR__, 3) . '/Fixture/SqlCandidates';
+        $handler = new \Suzumaze\BearPhpactor\LanguageServer\SemanticQueryHandler($root);
+        $result = \Amp\Promise\wait($handler->resolveSql('findRecord'));
+        self::assertSame('not_found', $result['status']);
+        self::assertNull($result['data']);
+        self::assertSame(['archive/findRecord', 'current/findRecord'], array_column($result['candidates'], 'queryId'));
+        self::assertSame('var/db/sql/archive/findRecord.sql', $result['candidates'][0]['path']);
+        $exact = \Amp\Promise\wait($handler->resolveSql('current/findRecord'));
+        self::assertSame('ok', $exact['status']);
+        self::assertSame([], $exact['candidates']);
+        self::assertSame([], \Amp\Promise\wait($handler->resolveSql('../findRecord'))['candidates']);
+    }
+
+    public function testSuggestionsNeverExposeOutsideSymlinkTargets(): void
+    {
+        mkdir($this->workspace . '/var/db/sql/group');
+        symlink($this->temporaryRoot . '/outside/escape.sql', $this->workspace . '/var/db/sql/group/findRecord.sql');
+        $result = (new SqlQuery())->resolveInWorkspace($this->context(), 'findRecord');
+        self::assertSame(SemanticStatus::NotFound, $result->status);
+        self::assertSame([], $result->candidates);
+    }
+
     private function context(): WorkspaceContext
     {
         $result = WorkspaceContext::fromRoot($this->workspace);

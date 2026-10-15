@@ -17,6 +17,8 @@ use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFacts;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
+use Suzumaze\BearPhpactor\Semantic\Schema\ResourceSchemaQuery;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaDirectoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 
 /**
@@ -39,6 +41,7 @@ final class ContractComparisonQuery
         string $schemaKind = SchemaQuery::KIND_RESPONSE,
         ?string $descriptorId = null,
         ?string $contextPath = null,
+        ?string $applicationContext = null,
     ): SemanticResult {
         if (
             $method === ''
@@ -49,9 +52,22 @@ final class ContractComparisonQuery
             return SemanticResult::invalidInput();
         }
 
+        if (
+            $applicationContext !== null
+            && preg_match('/^[A-Za-z0-9_]+(?:-[A-Za-z0-9_]+)*$/', $applicationContext) !== 1
+        ) {
+            return SemanticResult::invalidInput();
+        }
         $facts = $this->resourceFactsQuery->describeInWorkspace($workspace, $uri, $contextPath);
         if ($facts->status === SemanticStatus::Ok && $facts->value instanceof ResourceFacts) {
-            return $this->compareFacts($workspace, $facts->value, $method, $schemaKind, $descriptorId)
+            return $this->compareFacts(
+                $workspace,
+                $facts->value,
+                $method,
+                $schemaKind,
+                $descriptorId,
+                $applicationContext,
+            )
                 ->withProvenance($facts->provenance);
         }
         if ($facts->status !== SemanticStatus::Ambiguous) {
@@ -60,7 +76,14 @@ final class ContractComparisonQuery
 
         $candidates = [];
         foreach ($facts->candidates as $candidate) {
-            $comparison = $this->compareFacts($workspace, $candidate, $method, $schemaKind, $descriptorId);
+            $comparison = $this->compareFacts(
+                $workspace,
+                $candidate,
+                $method,
+                $schemaKind,
+                $descriptorId,
+                $applicationContext,
+            );
             if (!$comparison->value instanceof ContractComparison) {
                 return SemanticResult::failure($comparison->status, $comparison->error, $comparison->provenance);
             }
@@ -84,6 +107,7 @@ final class ContractComparisonQuery
         string $method = 'onGet',
         string $schemaKind = SchemaQuery::KIND_RESPONSE,
         ?string $descriptorId = null,
+        ?string $applicationContext = null,
     ): SemanticResult {
         if (
             $method === ''
@@ -94,7 +118,7 @@ final class ContractComparisonQuery
             return SemanticResult::invalidInput();
         }
 
-        return $this->compareFacts($workspace, $facts, $method, $schemaKind, $descriptorId);
+        return $this->compareFacts($workspace, $facts, $method, $schemaKind, $descriptorId, $applicationContext);
     }
 
     /** @return SemanticResult<ContractComparison|null> */
@@ -104,9 +128,16 @@ final class ContractComparisonQuery
         string $method,
         string $schemaKind,
         ?string $descriptorId,
+        ?string $applicationContext = null,
     ): SemanticResult {
         $resourceSurface = $this->resourceSurface($facts, $method, $schemaKind);
-        [$schemaSurface, $schemaProvenance] = $this->schemaSurface($workspace, $facts, $method, $schemaKind);
+        [$schemaSurface, $schemaProvenance] = $this->schemaSurface(
+            $workspace,
+            $facts,
+            $method,
+            $schemaKind,
+            $applicationContext,
+        );
         [$alpsSurface, $alpsProvenance] = $this->alpsSurface(
             $workspace,
             $facts,
@@ -166,34 +197,22 @@ final class ContractComparisonQuery
         ResourceFacts $facts,
         string $method,
         string $schemaKind,
+        ?string $applicationContext,
     ): array {
-        $schemaName = $this->schemaName($facts, $method, $schemaKind);
-        if ($schemaName !== null) {
-            $result = $this->schemaFactsQuery->describeNamedInWorkspace(
-                $workspace,
-                $schemaName,
-                $schemaKind,
-                $this->relativeResourcePath($workspace, $facts),
-            );
-            $subject = $schemaKind . ':' . $schemaName;
-        } elseif ($this->hasSchemaArgument($facts, $method, $schemaKind)) {
-            return [new ContractSurface('schema', SemanticStatus::Unsupported, $schemaKind . ':dynamic', []), []];
-        } elseif ($schemaKind === SchemaQuery::KIND_RESPONSE) {
-            $result = $this->schemaFactsQuery->describeForResolutionInWorkspace(
-                $workspace,
-                $facts->resource,
-                $schemaKind,
-            );
-            $subject = 'response:convention';
-        } else {
-            return [new ContractSurface('schema', SemanticStatus::Unsupported, 'request', []), []];
-        }
+        $selection = (new ResourceSchemaQuery())->select($workspace, $facts, $method, $schemaKind, $applicationContext);
+        $result = $this->schemaFactsQuery->fromResolutionResult($workspace, $selection['result']);
+        $subject = $selection['subject'];
+        $directory = SchemaDirectoryQuery::summary($selection['result']->value->directorySelection
+            ?? $selection['result']->coverage['schemaDirectories'] ?? []);
 
         if (!$result->value instanceof SchemaFacts) {
-            return [new ContractSurface('schema', $result->status, $subject, []), $result->provenance];
+            return [new ContractSurface('schema', $result->status, $subject, [], $directory), $result->provenance];
         }
         if (!$result->value->available) {
-            return [new ContractSurface('schema', SemanticStatus::NotFound, $subject, []), $result->provenance];
+            return [
+                new ContractSurface('schema', SemanticStatus::NotFound, $subject, [], $directory),
+                $result->provenance,
+            ];
         }
 
         return [
@@ -205,6 +224,7 @@ final class ContractComparisonQuery
                     static fn ($property): string => $property->name,
                     $result->value->properties,
                 )),
+                $directory,
             ),
             $result->provenance,
         ];
@@ -279,41 +299,6 @@ final class ContractComparisonQuery
             new ContractSurface('alps', SemanticStatus::Ok, $surfaceId, $this->sortedNames($names)),
             $provenance,
         ];
-    }
-
-    private function schemaName(ResourceFacts $facts, string $method, string $schemaKind): ?string
-    {
-        foreach ($this->attributesForMethod($facts, $method, 'JsonSchema') as $attribute) {
-            foreach ($attribute->arguments as $index => $argument) {
-                $matches = $schemaKind === SchemaQuery::KIND_REQUEST
-                    ? $argument->name === 'params'
-                    : $argument->name === 'schema' || ($index === 0 && $argument->name === null);
-                if ($matches && $argument->valueType === 'string' && is_string($argument->value)) {
-                    return $argument->value;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private function hasSchemaArgument(ResourceFacts $facts, string $method, string $schemaKind): bool
-    {
-        foreach ($this->attributesForMethod($facts, $method, 'JsonSchema') as $attribute) {
-            foreach ($attribute->arguments as $index => $argument) {
-                if ($schemaKind === SchemaQuery::KIND_REQUEST && $argument->name === 'params') {
-                    return true;
-                }
-                if (
-                    $schemaKind === SchemaQuery::KIND_RESPONSE
-                    && ($argument->name === 'schema' || ($index === 0 && $argument->name === null))
-                ) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 
     private function alpsDescriptorId(ResourceFacts $facts, string $method): ?string

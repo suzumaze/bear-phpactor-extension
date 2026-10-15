@@ -63,6 +63,8 @@ use Suzumaze\BearPhpactor\Semantic\Route\RouteResolution;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFacts;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaFactsQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
+use Suzumaze\BearPhpactor\Semantic\Schema\ResourceSchemaQuery;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaSelectionTable;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaResolution;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlQuery;
 use Suzumaze\BearPhpactor\Semantic\Sql\SqlResolution;
@@ -205,10 +207,17 @@ final class SemanticQueryHandler implements Handler
         ?string $contextPath = null,
         int $limit = ProjectDiagnosticsQuery::DEFAULT_LIMIT,
         int $offset = 0,
+        ?string $applicationContext = null,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
-                $this->projectDiagnosticsQuery->diagnoseInWorkspace($workspace, $contextPath, $limit, $offset),
+                $this->projectDiagnosticsQuery->diagnoseInWorkspace(
+                    $workspace,
+                    $contextPath,
+                    $limit,
+                    $offset,
+                    $applicationContext,
+                ),
             fn (ProjectDiagnostics $diagnostics): array => [
                 'items' => array_map($this->projectDiagnosticData(...), $diagnostics->items),
                 'total' => $diagnostics->total,
@@ -229,6 +238,7 @@ final class SemanticQueryHandler implements Handler
         int $offset = 0,
         bool $gapsOnly = false,
         ?string $scheme = null,
+        ?string $applicationContext = null,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
@@ -239,6 +249,7 @@ final class SemanticQueryHandler implements Handler
                     $offset,
                     $gapsOnly,
                     $scheme,
+                    $applicationContext,
                 ),
             fn (ContractCoverage $coverage): array => [
                 'items' => array_map($this->contractCoverageItemData(...), $coverage->items),
@@ -296,6 +307,7 @@ final class SemanticQueryHandler implements Handler
         string $uri,
         ?string $contextPath = null,
         int $incomingLimit = ResourceIncomingRelationsQuery::DEFAULT_LIMIT,
+        ?string $applicationContext = null,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
@@ -304,6 +316,7 @@ final class SemanticQueryHandler implements Handler
                     $uri,
                     $contextPath,
                     $incomingLimit,
+                    $applicationContext,
                 ),
             fn (ResourceDescription $description): array => $this->resourceDescriptionData($description),
         ));
@@ -400,6 +413,7 @@ final class SemanticQueryHandler implements Handler
         string $schemaKind = SchemaQuery::KIND_RESPONSE,
         ?string $descriptorId = null,
         ?string $contextPath = null,
+        ?string $applicationContext = null,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
@@ -410,6 +424,7 @@ final class SemanticQueryHandler implements Handler
                     $schemaKind,
                     $descriptorId,
                     $contextPath,
+                    $applicationContext,
                 ),
             fn (ContractComparison $comparison): array => $this->contractComparisonData($comparison),
         ));
@@ -423,6 +438,8 @@ final class SemanticQueryHandler implements Handler
                 $this->routeQuery->resolveInWorkspace($workspace, $route, $contextPath),
             fn (RouteResolution $resolution): array => [
                 'route' => $resolution->routeName,
+                'routeUri' => $resolution->resource->uri->uri(),
+                'canonicalUri' => $resolution->resource->canonicalUri(),
                 'resource' => $this->resourceData($resolution->resource),
             ],
         ));
@@ -523,10 +540,19 @@ final class SemanticQueryHandler implements Handler
         string $uri,
         string $kind = SchemaQuery::KIND_RESPONSE,
         ?string $contextPath = null,
+        ?string $method = null,
+        ?string $applicationContext = null,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
-                $this->schemaQuery->resolveForResourceInWorkspace($workspace, $uri, $kind, $contextPath),
+                (new ResourceSchemaQuery())->resolveInWorkspace(
+                    $workspace,
+                    $uri,
+                    $kind,
+                    $contextPath,
+                    $method,
+                    $applicationContext,
+                ),
             fn (SchemaResolution $resolution): array => $this->schemaData($resolution),
         ));
     }
@@ -549,10 +575,19 @@ final class SemanticQueryHandler implements Handler
         string $uri,
         string $kind = SchemaQuery::KIND_RESPONSE,
         ?string $contextPath = null,
+        ?string $method = null,
+        ?string $applicationContext = null,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
-                $this->schemaFactsQuery->describeForResourceInWorkspace($workspace, $uri, $kind, $contextPath),
+                $this->schemaFactsQuery->describeForResourceInWorkspace(
+                    $workspace,
+                    $uri,
+                    $kind,
+                    $contextPath,
+                    $method,
+                    $applicationContext,
+                ),
             fn (SchemaFacts $facts): array => $this->schemaFactsData($facts),
         ));
     }
@@ -733,6 +768,8 @@ final class SemanticQueryHandler implements Handler
         ?string $contextPath = null,
         int $limit = 50,
         int $offset = 0,
+        string $detail = 'compact',
+        bool $includeUnknowns = false,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult => (new AopApplicationsQuery())->listInWorkspace(
@@ -745,6 +782,8 @@ final class SemanticQueryHandler implements Handler
                 $contextPath,
                 $limit,
                 $offset,
+                $detail,
+                $includeUnknowns,
             ),
             static fn (array $data): array => $data,
         ));
@@ -877,6 +916,9 @@ final class SemanticQueryHandler implements Handler
             'candidates' => array_map($normalize, $result->candidates),
             'provenance' => array_map($this->provenanceData(...), $result->provenance),
         ];
+        if ($result->coverage !== []) {
+            $envelope['coverage'] = $result->coverage;
+        }
         if ($result->partial !== null) {
             $envelope['partial'] = $normalize($result->partial);
         }
@@ -989,17 +1031,20 @@ final class SemanticQueryHandler implements Handler
     private function contractCoverageSurfaceData(ContractCoverageSurface $surface): array
     {
         return [
+            ...($surface->directorySelection === [] ? [] : ['directorySelection' => $surface->directorySelection]),
             'state' => $surface->state,
             'status' => $surface->status->value,
             'subject' => $surface->subject,
         ];
     }
 
-    /** @return array{uri:string,fqn:string,path:?string} */
+    /** @return array<string, mixed> */
     private function resourceData(ResourceResolution $resolution): array
     {
         return [
             'uri' => $resolution->uri->uri(),
+            'canonicalUri' => $resolution->canonicalUri(),
+            'resolvedVia' => $resolution->resolvedVia,
             'fqn' => $resolution->fqn,
             'path' => $this->relativePath($resolution->file),
         ];
@@ -1064,6 +1109,29 @@ final class SemanticQueryHandler implements Handler
     /** @return array<string,mixed> */
     private function resourceDescriptionData(ResourceDescription $description): array
     {
+        $named = array_filter($description->schemaCoverage, static fn ($item): bool =>
+            $item['selection'] === 'attribute');
+
+        $table = new SchemaSelectionTable();
+        $schemas = array_map(function (SchemaResolution $schema) use ($table): array {
+            $data = $this->schemaData($schema);
+            if (isset($data['directorySelection'])) {
+                $data['directorySelection'] = $table->reference($data['directorySelection']);
+            }
+
+            return $data;
+        }, $description->schemas);
+        $coverage = array_map(static function (array $item) use ($table): array {
+            if (is_array($item['directorySelection'] ?? null)) {
+                $item['directorySelection'] = $table->reference($item['directorySelection']);
+            }
+            foreach ($item['candidates'] ?? [] as $index => $candidate) {
+                $item['candidates'][$index]['directorySelection'] = $table->reference($candidate['directorySelection']);
+            }
+
+            return $item;
+        }, $description->schemaCoverage);
+
         return [
             ...$this->resourceFactsData($description->facts),
             'relationsIn' => $this->incomingRelationsData($description->incomingRelations),
@@ -1076,9 +1144,18 @@ final class SemanticQueryHandler implements Handler
                 ],
                 $description->templates,
             ),
-            'schemas' => $description->responseSchema === null
-                ? []
-                : [$this->schemaData($description->responseSchema)],
+            'schemas' => $schemas,
+            'schemasCoverage' => [
+                'kinds' => ['request', 'response'],
+                'methods' => 'declared_public_on_methods',
+                'sources' => ['attribute', 'bc_fallback', 'convention_only'],
+                'runtimeObserved' => false,
+                'configuredDirectoriesResolved' => $named !== [] && array_filter($named, static fn ($item): bool =>
+                    ($item['directorySelection']['status'] ?? null) !== 'configured') === [],
+                'conventionDirectories' => ['request' => 'var/json_validate', 'response' => 'var/json_schema'],
+                'items' => $coverage,
+                ...($table->definitions() === [] ? [] : ['directorySelections' => $table->definitions()]),
+            ],
         ];
     }
 
@@ -1153,6 +1230,8 @@ final class SemanticQueryHandler implements Handler
                     'status' => $surface->status->value,
                     'subject' => $surface->subject,
                     'names' => $surface->names,
+                    ...($surface->directorySelection === [] ? []
+                        : ['directorySelection' => $surface->directorySelection]),
                 ],
                 $comparison->surfaces,
             ),
@@ -1191,10 +1270,14 @@ final class SemanticQueryHandler implements Handler
     private function schemaData(SchemaResolution $resolution): array
     {
         return [
+            ...($resolution->directorySelection !== []
+                ? ['directorySelection' => $resolution->directorySelection] : []),
             'kind' => $resolution->kind,
             'source' => $resolution->source,
             'path' => $resolution->file === null ? null : $this->relativePath($resolution->file),
             'titleByteOffset' => $resolution->titleOffset,
+            ...($resolution->method === null ? [] : ['method' => $resolution->method]),
+            ...($resolution->selection === null ? [] : ['selection' => $resolution->selection]),
             'resource' => $resolution->resource === null ? null : $this->resourceData($resolution->resource),
         ];
     }
