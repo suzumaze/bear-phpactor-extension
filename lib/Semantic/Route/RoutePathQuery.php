@@ -45,16 +45,74 @@ final class RoutePathQuery
         if ($project->value === null) {
             return SemanticResult::failure($project->status);
         }
-        $file = $workspace->accessPolicy()->inspectExisting($project->value->root() . '/aura.route.php');
+        $matches = [];
+        $provenance = [];
+        $coverage = ['input' => 'path', 'scope' => 'static_exact_path_declarations',
+            'runtimeObserved' => false, 'runtimeRewrite' => 'not_evaluated', 'provisional' => true,
+            'complete' => true, 'truncated' => false, 'files' => [], 'searched' => [],
+            'declarations' => 0, 'staticPaths' => 0, 'patternPaths' => 0, 'unresolved' => []];
+        foreach (['aura.route.php', 'var/conf/aura.route.php'] as $relative) {
+            $coverage['searched'][] = $relative;
+            $result = $this->inspectFile(
+                $workspace,
+                $path,
+                $contextPath,
+                $httpMethod,
+                $project->value->root() . '/' . $relative,
+            );
+            $scan = $result->coverage['routing'];
+            if ($result->status === SemanticStatus::NotFound && $scan['files'] === []) {
+                continue;
+            }
+            array_push($provenance, ...$result->provenance);
+            array_push($coverage['files'], ...$scan['files']);
+            array_push($coverage['unresolved'], ...$scan['unresolved']);
+            foreach (['declarations', 'staticPaths', 'patternPaths'] as $count) {
+                $coverage[$count] += $scan[$count];
+            }
+            $coverage['complete'] = $coverage['complete'] && $scan['complete'];
+            $coverage['truncated'] = $coverage['truncated'] || $scan['truncated'];
+            if ($result->value !== null) {
+                $matches[] = $result->value;
+            }
+            array_push($matches, ...$result->candidates);
+        }
+        if ($coverage['files'] === []) {
+            $coverage['complete'] = false;
+            $coverage['unresolved'][] = ['reason' => 'no_readable_route_definition_file'];
+        }
+        $result = match (count($matches)) {
+            0 => SemanticResult::failure(
+                $coverage['complete'] ? SemanticStatus::NotFound : SemanticStatus::Unsupported,
+                provenance: $provenance,
+            ),
+            1 => SemanticResult::ok($matches[0], $provenance),
+            default => SemanticResult::ambiguous($matches, provenance: $provenance),
+        };
+
+        return $result->withCoverage(['routing' => $coverage]);
+    }
+
+    /** @return SemanticResult<array<string, mixed>|null> */
+    private function inspectFile(
+        WorkspaceContext $workspace,
+        string $path,
+        ?string $contextPath,
+        ?string $httpMethod,
+        string $filePath,
+    ): SemanticResult {
+        $file = $workspace->accessPolicy()->inspectExisting($filePath);
         $coverage = [
             'input' => 'path', 'scope' => 'static_exact_path_declarations',
             'runtimeObserved' => false, 'runtimeRewrite' => 'not_evaluated',
             'complete' => false, 'unresolved' => [], 'truncated' => false,
             'maxBytes' => self::MAX_BYTES, 'maxCalls' => self::MAX_CALLS,
+            'files' => [], 'declarations' => 0, 'staticPaths' => 0, 'patternPaths' => 0,
         ];
         if ($file->value === null) {
             return SemanticResult::failure($file->status)->withCoverage(['routing' => $coverage]);
         }
+        $coverage['files'][] = $file->value->relative;
         $source = @file_get_contents($file->value->absolute, false, null, 0, self::MAX_BYTES + 1);
         $provenance = [Provenance::savedFile($file->value->relative)];
         if ($source === false || strlen($source) > self::MAX_BYTES) {
@@ -82,11 +140,15 @@ final class RoutePathQuery
                 $coverage['unresolved'][] = ['line' => $line, 'reason' => 'route_configuration_not_evaluated'];
                 continue;
             }
+            ++$coverage['declarations'];
             $args = $this->arguments($node, $source);
             $route = $args['name'] ?? $args[0] ?? null;
             $pattern = $args['path'] ?? $args[1] ?? null;
             $handler = array_key_exists('handler', $args) ? $args['handler']
                 : (array_key_exists(2, $args) ? $args[2] : $route);
+            if ($pattern !== null) {
+                ++$coverage[strpbrk($pattern, '{}') === false ? 'staticPaths' : 'patternPaths'];
+            }
             $reason = match (true) {
                 !$this->plainDeclaration($node) => 'conditional_nested_or_modified_declaration',
                 $route === null || $pattern === null || $handler === null => 'dynamic_arguments',
@@ -96,7 +158,8 @@ final class RoutePathQuery
             };
             if ($reason !== null) {
                 $coverage['unresolved'][] = [
-                    'line' => $line, 'route' => $route, 'path' => $pattern, 'reason' => $reason,
+                    'file' => $file->value->relative, 'line' => $line,
+                    'route' => $route, 'path' => $pattern, 'reason' => $reason,
                 ];
                 continue;
             }

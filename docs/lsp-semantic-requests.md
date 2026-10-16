@@ -701,7 +701,8 @@ for this response, not the total Resource inventory.
 
 `bear/route/resolve` keeps route-name lookup by default. With `input: "path"`, `route` is a URL
 path without host/query, and optional `httpMethod` filters static exact declarations in the
-project-root `aura.route.php`. Multiple matches stay ambiguous; unknown definitions, modifiers
+`aura.route.php` and `var/conf/aura.route.php`. Coverage includes searched/read files and
+declaration, static-path and pattern counts. Multiple matches stay ambiguous; unknown definitions, modifiers
 and patterns are reported in `coverage.routing`. No default URI fallback is attempted.
 `complete` describes this bounded declaration scan, never runtime route completeness.
 `canonicalUri` means class-convention identity, `routeUri` is derived from the declared name,

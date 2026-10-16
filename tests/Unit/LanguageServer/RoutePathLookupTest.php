@@ -11,6 +11,21 @@ use function Amp\Promise\wait;
 
 final class RoutePathLookupTest extends TestCase
 {
+    public function testReadsConventionalRouteConfigAndReportsDeclarationCoverage(): void
+    {
+        $handler = new SemanticQueryHandler(dirname(__DIR__, 2) . '/Fixture/RoutePathsConfigured');
+        foreach (['/latest', '/sitemap.xml'] as $path) {
+            $result = wait($handler->resolveRoute($path, input: 'path'));
+            self::assertSame('ok', $result['status']);
+            $coverage = $result['coverage']['routing'];
+            self::assertSame(['var/conf/aura.route.php'], $coverage['files']);
+            self::assertSame(3, $coverage['declarations']);
+            self::assertSame(2, $coverage['staticPaths']);
+            self::assertSame(1, $coverage['patternPaths']);
+            self::assertNotEmpty($coverage['unresolved']);
+        }
+    }
+
     public function testPathSearchUsesDefinitionsAndKeepsIdentitySeparate(): void
     {
         $handler = new SemanticQueryHandler(dirname(__DIR__, 2) . '/Fixture/RoutePaths');
