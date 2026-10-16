@@ -16,3 +16,4 @@
 {# {% include 'comment.html.twig' %} #}
 {% verbatim %}{% include 'verbatim.html.twig' %}{% endverbatim %}
 {{ "include('quoted.html.twig')" }}
+{{ include('optional.html.twig', ignore_missing = true) }}

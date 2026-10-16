@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- Template dependency edges omit unverified `ignoreMissing` flags instead of reporting false
+  for function options that were not interpreted.
+
 - Twig dependency scanning recognizes expression-style short blocks without requiring an `endblock`,
   including short blocks inside embeds. Valid syntax no longer produces unbalanced-structure warnings.
 

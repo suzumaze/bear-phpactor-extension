@@ -119,7 +119,8 @@ final class TwigDependencyScanner
             'status' => $name === null ? 'dynamic' : 'static',
             'conditional' => array_intersect($contexts, ['if', 'for']) !== [],
             'contexts' => $contexts, 'conditionScope' => 'source_local',
-            'ignoreMissing' => !$function && preg_match('/\bignore\s+missing\b/', $expression) === 1,
+            ...(!$function && preg_match('/^ignore\s+missing\b/', $tail ?? '') === 1
+                ? ['ignoreMissing' => true] : []),
         ];
     }
 

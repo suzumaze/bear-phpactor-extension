@@ -723,3 +723,6 @@ Path lookup groups uncertainty reasons in `coverage.routing.unresolvedReasons` a
 `unresolvedCount`. A single successful match omits individual unrelated entries, explicitly
 counted by `unresolvedOmitted`; unsuccessful or ambiguous lookups retain the details.
 A chained route modifier and its declaration share one explanation.
+
+Dependency edges report `ignoreMissing: true` only for an explicit supported tag option.
+The field is otherwise omitted; omission does not assert false, and function options are not evaluated.

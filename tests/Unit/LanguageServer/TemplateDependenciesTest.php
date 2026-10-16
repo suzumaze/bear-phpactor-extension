@@ -32,6 +32,9 @@ final class TemplateDependenciesTest extends TestCase
         self::assertContains('cycle', array_column($edges, 'status'));
         self::assertSame(3, count(array_filter($edges, static fn ($e): bool => $e['status'] === 'dynamic')));
         self::assertContains('not_found', array_column($edges, 'status'));
+        $byName = array_column($edges, null, 'name');
+        self::assertTrue($byName['missing.html.twig']['ignoreMissing']);
+        self::assertArrayNotHasKey('ignoreMissing', $byName['optional.html.twig']);
         foreach (['extends', 'include', 'embed', 'use', 'import', 'from'] as $kind) {
             self::assertContains($kind, array_column($edges, 'kind'));
         }
