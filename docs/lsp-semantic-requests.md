@@ -693,3 +693,8 @@ php tools/semantic-lsp-query.php /path/to/bear-project \
 
 The target project must already have Phpactor and this extension configured. Set
 `PHPACTOR_BIN` if Phpactor is not available in the target project or this repository.
+
+`bear/resource/attributeIndex` accepts `provenanceDetail: "full" | "summary"` (default full).
+Summary leaves facts and pagination unchanged, empties `provenance`, and returns counts,
+freshness and omission metadata in `coverage.provenance`. Counts describe evidence collected
+for this response, not the total Resource inventory.

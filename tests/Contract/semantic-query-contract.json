@@ -159,7 +159,8 @@
                 {"name": "scheme", "type": "string|null", "required": false, "default": null},
                 {"name": "prefix", "type": "string", "required": false, "default": ""},
                 {"name": "limit", "type": "int", "required": false, "default": 50},
-                {"name": "offset", "type": "int", "required": false, "default": 0}
+                {"name": "offset", "type": "int", "required": false, "default": 0},
+                {"name": "provenanceDetail", "type": "string", "required": false, "default": "full"}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["items", "total", "offset", "truncated", "argumentPolicy"]

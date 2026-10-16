@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- Attribute index supports opt-in `provenanceDetail: "summary"`. Full evidence remains the default;
+  summary retains response-evidence counts and freshness while omitting provenance entries.
+
 ## [0.3.5] - 2026-10-15
 
 ### Fixed

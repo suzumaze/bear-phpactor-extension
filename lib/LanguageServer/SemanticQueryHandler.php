@@ -342,8 +342,15 @@ final class SemanticQueryHandler implements Handler
         string $prefix = '',
         int $limit = ResourceInventoryQuery::DEFAULT_LIMIT,
         int $offset = 0,
+        string $provenanceDetail = 'full',
     ): Promise {
-        return new Success($this->query(
+        if (!in_array($provenanceDetail, ['full', 'summary'], true)) {
+            return new Success($this->query(
+                static fn (): SemanticResult => SemanticResult::invalidInput(),
+                static fn (): array => [],
+            ));
+        }
+        $result = $this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
                 $this->resourceAttributeIndexQuery->listInWorkspace(
                     $workspace,
@@ -366,7 +373,21 @@ final class SemanticQueryHandler implements Handler
                 'truncated' => $index->truncated,
                 'argumentPolicy' => $this->attributeArgumentPolicy(),
             ],
-        ));
+        );
+        if ($provenanceDetail === 'summary') {
+            $evidence = $result['provenance'];
+            $result['coverage']['provenance'] = [
+                'detail' => 'summary',
+                'scope' => 'response_evidence',
+                'entryCount' => count($evidence),
+                'fileCount' => count(array_unique(array_column($evidence, 'path'))),
+                'freshness' => array_values(array_unique(array_column($evidence, 'freshness'))),
+                'omittedEntries' => count($evidence),
+            ];
+            $result['provenance'] = [];
+        }
+
+        return new Success($result);
     }
 
     /** @return Promise<array<string,mixed>> */
