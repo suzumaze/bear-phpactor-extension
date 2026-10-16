@@ -71,6 +71,7 @@ use Suzumaze\BearPhpactor\Semantic\Sql\SqlResolution;
 use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateResolution;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateQuery;
+use Suzumaze\BearPhpactor\Semantic\Template\TemplateDependenciesQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateResolution;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 use Phpactor\LanguageServer\Core\Handler\Handler;
@@ -523,11 +524,18 @@ final class SemanticQueryHandler implements Handler
         string $uri,
         string $engine,
         ?string $contextPath = null,
+        bool $includeDependencies = false,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
                 $this->resourceTemplateQuery->resolveInWorkspace($workspace, $uri, $engine, $contextPath),
             fn (ResourceTemplateResolution $resolution): array => [
+                ...(!$includeDependencies || $this->workspace->value === null ? [] : [
+                    'dependencies' => (new TemplateDependenciesQuery())->inspect(
+                        $this->workspace->value,
+                        $resolution,
+                    ),
+                ]),
                 'resource' => $this->resourceData($resolution->resource),
                 'engine' => $resolution->engine,
                 'path' => $resolution->templateFile === null

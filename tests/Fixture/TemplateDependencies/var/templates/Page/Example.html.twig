@@ -1,0 +1,17 @@
+{% extends 'base.html.twig' %}
+{% if entries %}
+  {% include 'list.html.twig' %}
+  {{ resource('page://self/fragment') }}
+{% endif %}
+{% include templateName %}
+{% include 'prefix' ~ suffix %}
+{% include active ? 'yes.html.twig' : 'no.html.twig' %}
+{% include 'missing.html.twig' ignore missing %}
+{% embed 'frame.html.twig' %}{% endembed %}
+{% use 'blocks.html.twig' %}
+{% import 'macros.html.twig' as forms %}
+{% from 'macros.html.twig' import button %}
+{{ include('footer.html.twig') }}
+{# {% include 'comment.html.twig' %} #}
+{% verbatim %}{% include 'verbatim.html.twig' %}{% endverbatim %}
+{{ "include('quoted.html.twig')" }}

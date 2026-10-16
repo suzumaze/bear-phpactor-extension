@@ -708,3 +708,13 @@ and patterns are reported in `coverage.routing`. No default URI fallback is atte
 `canonicalUri` means class-convention identity, `routeUri` is derived from the declared name,
 and `resource.uri` is the handler identifier used for source resolution. Heuristic resolution
 and bootstrap rewriting are distinct: `resolvedVia` does not prove runtime routing.
+
+`bear/template/forResource` accepts `includeDependencies: true` (default false).
+For Twig, `data.dependencies` contains saved files, template edges and separate `resource(...)`
+calls; supported tags are include, extends, embed, use, import, and from. Static include()
+and source() references are recognized (source() reads raw text, so its contents are not traversed).
+Condition metadata is source-local: caller conditions, macro invocation and inheritance are not
+evaluated. A false conditional flag never proves rendering. Dynamic expressions, missing files,
+cycles and limits make `complete` false. Even true completeness refers only to supported source
+references, not runtime behavior; Resource expansion and Qiq dependency graphs are unsupported.
+Limits: 100 files, depth 20, 1,000 edges including Resource calls, 256 KiB/file, 2 MiB total.

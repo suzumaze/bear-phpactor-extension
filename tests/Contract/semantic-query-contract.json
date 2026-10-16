@@ -233,7 +233,8 @@
             "parameters": [
                 {"name": "uri", "type": "string", "required": true},
                 {"name": "engine", "type": "string", "required": true},
-                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null},
+                {"name": "includeDependencies", "type": "bool", "required": false, "default": false}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["resource", "engine", "path", "searched"]

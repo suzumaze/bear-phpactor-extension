@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- Resource template lookup offers `includeDependencies: true` for bounded Twig source-reference graphs.
+  Edges retain local conditional contexts; Resource calls are separate. Dynamic/missing references,
+  cycles, byte/file/depth/edge limits remain visible. This is not a runtime render trace.
+
 - Route lookup supports opt-in exact URL-path declaration lookup with `input: "path"` and optional
   `httpMethod`. Patterns, conditional definitions and runtime rewrites are not guessed.
 
