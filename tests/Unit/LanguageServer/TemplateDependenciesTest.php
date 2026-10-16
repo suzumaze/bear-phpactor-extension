@@ -42,6 +42,7 @@ final class TemplateDependenciesTest extends TestCase
             self::assertNotContains($ignored, array_column($graph['files'], 'path'));
         }
         self::assertFalse($graph['truncated']);
+        self::assertNotContains('unbalanced_template_syntax', array_column($graph['unresolved'], 'reason'));
     }
     public function testDepthAndFileSizeLimitsRemainVisible(): void
     {

@@ -1,4 +1,5 @@
 {% extends 'base.html.twig' %}
+{% block title 'Example' %}
 {% if entries %}
   {% include 'list.html.twig' %}
   {{ resource('page://self/fragment') }}
@@ -7,7 +8,7 @@
 {% include 'prefix' ~ suffix %}
 {% include active ? 'yes.html.twig' : 'no.html.twig' %}
 {% include 'missing.html.twig' ignore missing %}
-{% embed 'frame.html.twig' %}{% endembed %}
+{% embed 'frame.html.twig' %}{% block first '' %}{% block second '' %}{% endembed %}
 {% use 'blocks.html.twig' %}
 {% import 'macros.html.twig' as forms %}
 {% from 'macros.html.twig' import button %}

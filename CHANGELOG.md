@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- Twig dependency scanning recognizes expression-style short blocks without requiring an `endblock`,
+  including short blocks inside embeds. Valid syntax no longer produces unbalanced-structure warnings.
+
 - Successful URL-path lookups summarize unrelated unresolved declarations; failed lookups retain
   details. Chained route modifiers no longer duplicate explanations or look like conditionals.
 

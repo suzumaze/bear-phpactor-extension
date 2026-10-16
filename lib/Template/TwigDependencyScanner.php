@@ -45,6 +45,10 @@ final class TwigDependencyScanner
                 continue;
             }
             $line = substr_count(substr($text, 0, $offset), "\n") + 1;
+            $shortBlock = $open === '{%' && $kind === 'block'
+                && preg_match('/^block\s+[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(.*)$/s', $trimmed, $block) === 1
+                && trim($block[1]) !== '';
+            $referenceContexts = $shortBlock ? [...$contexts, 'block'] : $contexts;
             if ($open === '{%' && str_starts_with($kind, 'end')) {
                 $ending = substr($kind, 3);
                 if (in_array($ending, ['if', 'for', 'block', 'macro', 'embed'], true)) {
@@ -68,7 +72,7 @@ final class TwigDependencyScanner
                     && preg_match('/\G(include|resource|source)\s*\(/A', $code, $call, 0, $i) === 1
                 ) {
                     $expression = substr($code, $i + strlen($call[0]));
-                    $ref = $this->reference($call[1], $expression, $contexts, $line, true);
+                    $ref = $this->reference($call[1], $expression, $referenceContexts, $line, true);
                     // A call inside a Twig expression may be guarded by a ternary or short circuit.
                     $ref['conditional'] = $ref['conditional'] || str_contains($code, '?')
                         || preg_match('/\b(?:and|or)\b/', $code) === 1 || in_array($kind, ['if', 'elseif'], true);
@@ -76,7 +80,7 @@ final class TwigDependencyScanner
                     $i += strlen($call[0]) - 1;
                 }
             }
-            if ($open === '{%' && in_array($kind, ['if', 'for', 'block', 'macro', 'embed'], true)) {
+            if ($open === '{%' && !$shortBlock && in_array($kind, ['if', 'for', 'block', 'macro', 'embed'], true)) {
                 $contexts[] = $kind;
             }
         }
