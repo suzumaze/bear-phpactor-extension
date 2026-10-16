@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- Route lookup supports opt-in exact URL-path declaration lookup with `input: "path"` and optional
+  `httpMethod`. Patterns, conditional definitions and runtime rewrites are not guessed.
+
 - Attribute index supports opt-in `provenanceDetail: "summary"`. Full evidence remains the default;
   summary retains response-evidence counts and freshness while omitting provenance entries.
 

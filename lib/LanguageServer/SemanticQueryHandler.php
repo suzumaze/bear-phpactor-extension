@@ -452,8 +452,30 @@ final class SemanticQueryHandler implements Handler
     }
 
     /** @return Promise<array<string,mixed>> */
-    public function resolveRoute(string $route, ?string $contextPath = null): Promise
-    {
+    public function resolveRoute(
+        string $route,
+        ?string $contextPath = null,
+        string $input = 'name',
+        ?string $httpMethod = null,
+    ): Promise {
+        if ($input === 'path') {
+            return new Success($this->query(
+                static fn (WorkspaceContext $workspace): SemanticResult =>
+                    (new \Suzumaze\BearPhpactor\Semantic\Route\RoutePathQuery())->resolve(
+                        $workspace,
+                        $route,
+                        $contextPath,
+                        $httpMethod,
+                    ),
+                static fn (array $data): array => $data,
+            ));
+        }
+        if ($input !== 'name' || $httpMethod !== null) {
+            return new Success($this->query(
+                static fn (): SemanticResult => SemanticResult::invalidInput(),
+                static fn (): array => [],
+            ));
+        }
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
                 $this->routeQuery->resolveInWorkspace($workspace, $route, $contextPath),

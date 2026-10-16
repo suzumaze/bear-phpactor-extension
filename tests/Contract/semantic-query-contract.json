@@ -202,7 +202,9 @@
             "handler": "resolveRoute",
             "parameters": [
                 {"name": "route", "type": "string", "required": true},
-                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null},
+                {"name": "input", "type": "string", "required": false, "default": "name"},
+                {"name": "httpMethod", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["route", "routeUri", "canonicalUri", "resource"]
