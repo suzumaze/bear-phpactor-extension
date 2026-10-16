@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-10-16
+
 - Template dependency edges omit unverified `ignoreMissing` flags instead of reporting false
   for function options that were not interpreted.
 
