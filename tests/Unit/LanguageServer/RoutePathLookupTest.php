@@ -22,8 +22,22 @@ final class RoutePathLookupTest extends TestCase
             self::assertSame(3, $coverage['declarations']);
             self::assertSame(2, $coverage['staticPaths']);
             self::assertSame(1, $coverage['patternPaths']);
-            self::assertNotEmpty($coverage['unresolved']);
+            self::assertSame([], $coverage['unresolved']);
+            self::assertSame(1, $coverage['unresolvedCount']);
+            self::assertSame(1, $coverage['unresolvedOmitted']);
+            self::assertSame(['path_pattern_not_evaluated' => 1], $coverage['unresolvedReasons']);
         }
+    }
+
+    public function testFailedPathSearchRetainsOneExplanationPerModifiedDeclaration(): void
+    {
+        $handler = new SemanticQueryHandler(dirname(__DIR__, 2) . '/Fixture/RoutePathsConfigured');
+        $result = wait($handler->resolveRoute('/unknown', input: 'path'));
+        self::assertSame('unsupported', $result['status']);
+        $coverage = $result['coverage']['routing'];
+        self::assertCount(1, $coverage['unresolved']);
+        self::assertSame('path_pattern_not_evaluated', $coverage['unresolved'][0]['reason']);
+        self::assertSame(0, $coverage['unresolvedOmitted']);
     }
 
     public function testPathSearchUsesDefinitionsAndKeepsIdentitySeparate(): void

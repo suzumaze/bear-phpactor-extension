@@ -81,6 +81,12 @@ final class RoutePathQuery
             $coverage['complete'] = false;
             $coverage['unresolved'][] = ['reason' => 'no_readable_route_definition_file'];
         }
+        $coverage['unresolvedCount'] = count($coverage['unresolved']);
+        $coverage['unresolvedReasons'] = array_count_values(array_column($coverage['unresolved'], 'reason'));
+        $coverage['unresolvedOmitted'] = count($matches) === 1 ? $coverage['unresolvedCount'] : 0;
+        if (count($matches) === 1) {
+            $coverage['unresolved'] = [];
+        }
         $result = match (count($matches)) {
             0 => SemanticResult::failure(
                 $coverage['complete'] ? SemanticStatus::NotFound : SemanticStatus::Unsupported,
@@ -137,6 +143,9 @@ final class RoutePathQuery
             $name = strtolower(NodeUtil::nameFromTokenOrNode($node, $node->callableExpression->memberName));
             $line = substr_count(substr($source, 0, $node->getStartPosition()), "\n") + 1;
             if (!in_array($name, self::METHODS, true)) {
+                if ($this->modifiesRoute($node)) {
+                    continue; // The underlying declaration carries one combined explanation.
+                }
                 $coverage['unresolved'][] = ['line' => $line, 'reason' => 'route_configuration_not_evaluated'];
                 continue;
             }
@@ -150,9 +159,10 @@ final class RoutePathQuery
                 ++$coverage[strpbrk($pattern, '{}') === false ? 'staticPaths' : 'patternPaths'];
             }
             $reason = match (true) {
-                !$this->plainDeclaration($node) => 'conditional_nested_or_modified_declaration',
                 $route === null || $pattern === null || $handler === null => 'dynamic_arguments',
                 strpbrk($pattern, '{}') !== false => 'path_pattern_not_evaluated',
+                $node->parent instanceof MemberAccessExpression => 'modified_by_chain',
+                !$this->plainDeclaration($node) => 'conditional_or_nested_declaration',
                 !str_starts_with($route, '/') || !str_starts_with($handler, '/') => 'unsupported_resource_handler',
                 default => null,
             };
@@ -234,6 +244,26 @@ final class RoutePathQuery
         }
 
         return $args;
+    }
+
+    private function modifiesRoute(CallExpression $node): bool
+    {
+        while ($node->callableExpression instanceof MemberAccessExpression) {
+            $receiver = $node->callableExpression->dereferencableExpression;
+            if (
+                !$receiver instanceof CallExpression
+                || !$receiver->callableExpression instanceof MemberAccessExpression
+            ) {
+                return false;
+            }
+            $name = strtolower(NodeUtil::nameFromTokenOrNode($receiver, $receiver->callableExpression->memberName));
+            if (in_array($name, self::METHODS, true)) {
+                return true;
+            }
+            $node = $receiver;
+        }
+
+        return false;
     }
 
     private function plainDeclaration(CallExpression $node): bool

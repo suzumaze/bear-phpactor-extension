@@ -718,3 +718,8 @@ evaluated. A false conditional flag never proves rendering. Dynamic expressions,
 cycles and limits make `complete` false. Even true completeness refers only to supported source
 references, not runtime behavior; Resource expansion and Qiq dependency graphs are unsupported.
 Limits: 100 files, depth 20, 1,000 edges including Resource calls, 256 KiB/file, 2 MiB total.
+
+Path lookup groups uncertainty reasons in `coverage.routing.unresolvedReasons` and reports
+`unresolvedCount`. A single successful match omits individual unrelated entries, explicitly
+counted by `unresolvedOmitted`; unsuccessful or ambiguous lookups retain the details.
+A chained route modifier and its declaration share one explanation.

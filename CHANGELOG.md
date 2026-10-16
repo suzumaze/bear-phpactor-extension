@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- Successful URL-path lookups summarize unrelated unresolved declarations; failed lookups retain
+  details. Chained route modifiers no longer duplicate explanations or look like conditionals.
+
 - Resource template lookup offers `includeDependencies: true` for bounded Twig source-reference graphs.
   Edges retain local conditional contexts; Resource calls are separate. Dynamic/missing references,
   cycles, byte/file/depth/edge limits remain visible. This is not a runtime render trace.
