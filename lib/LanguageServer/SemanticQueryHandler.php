@@ -71,6 +71,7 @@ use Suzumaze\BearPhpactor\Semantic\Sql\SqlResolution;
 use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateResolution;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateQuery;
+use Suzumaze\BearPhpactor\Semantic\Template\TemplateDependenciesQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\TemplateResolution;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 use Phpactor\LanguageServer\Core\Handler\Handler;
@@ -342,8 +343,15 @@ final class SemanticQueryHandler implements Handler
         string $prefix = '',
         int $limit = ResourceInventoryQuery::DEFAULT_LIMIT,
         int $offset = 0,
+        string $provenanceDetail = 'full',
     ): Promise {
-        return new Success($this->query(
+        if (!in_array($provenanceDetail, ['full', 'summary'], true)) {
+            return new Success($this->query(
+                static fn (): SemanticResult => SemanticResult::invalidInput(),
+                static fn (): array => [],
+            ));
+        }
+        $result = $this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
                 $this->resourceAttributeIndexQuery->listInWorkspace(
                     $workspace,
@@ -366,7 +374,21 @@ final class SemanticQueryHandler implements Handler
                 'truncated' => $index->truncated,
                 'argumentPolicy' => $this->attributeArgumentPolicy(),
             ],
-        ));
+        );
+        if ($provenanceDetail === 'summary') {
+            $evidence = $result['provenance'];
+            $result['coverage']['provenance'] = [
+                'detail' => 'summary',
+                'scope' => 'response_evidence',
+                'entryCount' => count($evidence),
+                'fileCount' => count(array_unique(array_column($evidence, 'path'))),
+                'freshness' => array_values(array_unique(array_column($evidence, 'freshness'))),
+                'omittedEntries' => count($evidence),
+            ];
+            $result['provenance'] = [];
+        }
+
+        return new Success($result);
     }
 
     /** @return Promise<array<string,mixed>> */
@@ -431,8 +453,30 @@ final class SemanticQueryHandler implements Handler
     }
 
     /** @return Promise<array<string,mixed>> */
-    public function resolveRoute(string $route, ?string $contextPath = null): Promise
-    {
+    public function resolveRoute(
+        string $route,
+        ?string $contextPath = null,
+        string $input = 'name',
+        ?string $httpMethod = null,
+    ): Promise {
+        if ($input === 'path') {
+            return new Success($this->query(
+                static fn (WorkspaceContext $workspace): SemanticResult =>
+                    (new \Suzumaze\BearPhpactor\Semantic\Route\RoutePathQuery())->resolve(
+                        $workspace,
+                        $route,
+                        $contextPath,
+                        $httpMethod,
+                    ),
+                static fn (array $data): array => $data,
+            ));
+        }
+        if ($input !== 'name' || $httpMethod !== null) {
+            return new Success($this->query(
+                static fn (): SemanticResult => SemanticResult::invalidInput(),
+                static fn (): array => [],
+            ));
+        }
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
                 $this->routeQuery->resolveInWorkspace($workspace, $route, $contextPath),
@@ -480,11 +524,18 @@ final class SemanticQueryHandler implements Handler
         string $uri,
         string $engine,
         ?string $contextPath = null,
+        bool $includeDependencies = false,
     ): Promise {
         return new Success($this->query(
             fn (WorkspaceContext $workspace): SemanticResult =>
                 $this->resourceTemplateQuery->resolveInWorkspace($workspace, $uri, $engine, $contextPath),
             fn (ResourceTemplateResolution $resolution): array => [
+                ...(!$includeDependencies || $this->workspace->value === null ? [] : [
+                    'dependencies' => (new TemplateDependenciesQuery())->inspect(
+                        $this->workspace->value,
+                        $resolution,
+                    ),
+                ]),
                 'resource' => $this->resourceData($resolution->resource),
                 'engine' => $resolution->engine,
                 'path' => $resolution->templateFile === null

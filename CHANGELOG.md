@@ -6,6 +6,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-10-16
+
+- Template dependency edges omit unverified `ignoreMissing` flags instead of reporting false
+  for function options that were not interpreted.
+
+- Twig dependency scanning recognizes expression-style short blocks without requiring an `endblock`,
+  including short blocks inside embeds. Valid syntax no longer produces unbalanced-structure warnings.
+
+- Successful URL-path lookups summarize unrelated unresolved declarations; failed lookups retain
+  details. Chained route modifiers no longer duplicate explanations or look like conditionals.
+
+- Resource template lookup offers `includeDependencies: true` for bounded Twig source-reference graphs.
+  Edges retain local conditional contexts; Resource calls are separate. Dynamic/missing references,
+  cycles, byte/file/depth/edge limits remain visible. This is not a runtime render trace.
+
+- Route lookup supports opt-in exact URL-path declaration lookup with `input: "path"` and optional
+  `httpMethod`. Patterns, conditional definitions and runtime rewrites are not guessed.
+
+- Attribute index supports opt-in `provenanceDetail: "summary"`. Full evidence remains the default;
+  summary retains response-evidence counts and freshness while omitting provenance entries.
+
 ## [0.3.5] - 2026-10-15
 
 ### Fixed

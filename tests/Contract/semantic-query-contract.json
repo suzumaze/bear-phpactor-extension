@@ -159,7 +159,8 @@
                 {"name": "scheme", "type": "string|null", "required": false, "default": null},
                 {"name": "prefix", "type": "string", "required": false, "default": ""},
                 {"name": "limit", "type": "int", "required": false, "default": 50},
-                {"name": "offset", "type": "int", "required": false, "default": 0}
+                {"name": "offset", "type": "int", "required": false, "default": 0},
+                {"name": "provenanceDetail", "type": "string", "required": false, "default": "full"}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["items", "total", "offset", "truncated", "argumentPolicy"]
@@ -201,7 +202,9 @@
             "handler": "resolveRoute",
             "parameters": [
                 {"name": "route", "type": "string", "required": true},
-                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null},
+                {"name": "input", "type": "string", "required": false, "default": "name"},
+                {"name": "httpMethod", "type": "string|null", "required": false, "default": null}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["route", "routeUri", "canonicalUri", "resource"]
@@ -230,7 +233,8 @@
             "parameters": [
                 {"name": "uri", "type": "string", "required": true},
                 {"name": "engine", "type": "string", "required": true},
-                {"name": "contextPath", "type": "string|null", "required": false, "default": null}
+                {"name": "contextPath", "type": "string|null", "required": false, "default": null},
+                {"name": "includeDependencies", "type": "bool", "required": false, "default": false}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
             "successDataKeys": ["resource", "engine", "path", "searched"]

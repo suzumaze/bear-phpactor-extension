@@ -693,3 +693,36 @@ php tools/semantic-lsp-query.php /path/to/bear-project \
 
 The target project must already have Phpactor and this extension configured. Set
 `PHPACTOR_BIN` if Phpactor is not available in the target project or this repository.
+
+`bear/resource/attributeIndex` accepts `provenanceDetail: "full" | "summary"` (default full).
+Summary leaves facts and pagination unchanged, empties `provenance`, and returns counts,
+freshness and omission metadata in `coverage.provenance`. Counts describe evidence collected
+for this response, not the total Resource inventory.
+
+`bear/route/resolve` keeps route-name lookup by default. With `input: "path"`, `route` is a URL
+path without host/query, and optional `httpMethod` filters static exact declarations in the
+`aura.route.php` and `var/conf/aura.route.php`. Coverage includes searched/read files and
+declaration, static-path and pattern counts. Multiple matches stay ambiguous; unknown definitions, modifiers
+and patterns are reported in `coverage.routing`. No default URI fallback is attempted.
+`complete` describes this bounded declaration scan, never runtime route completeness.
+`canonicalUri` means class-convention identity, `routeUri` is derived from the declared name,
+and `resource.uri` is the handler identifier used for source resolution. Heuristic resolution
+and bootstrap rewriting are distinct: `resolvedVia` does not prove runtime routing.
+
+`bear/template/forResource` accepts `includeDependencies: true` (default false).
+For Twig, `data.dependencies` contains saved files, template edges and separate `resource(...)`
+calls; supported tags are include, extends, embed, use, import, and from. Static include()
+and source() references are recognized (source() reads raw text, so its contents are not traversed).
+Condition metadata is source-local: caller conditions, macro invocation and inheritance are not
+evaluated. A false conditional flag never proves rendering. Dynamic expressions, missing files,
+cycles and limits make `complete` false. Even true completeness refers only to supported source
+references, not runtime behavior; Resource expansion and Qiq dependency graphs are unsupported.
+Limits: 100 files, depth 20, 1,000 edges including Resource calls, 256 KiB/file, 2 MiB total.
+
+Path lookup groups uncertainty reasons in `coverage.routing.unresolvedReasons` and reports
+`unresolvedCount`. A single successful match omits individual unrelated entries, explicitly
+counted by `unresolvedOmitted`; unsuccessful or ambiguous lookups retain the details.
+A chained route modifier and its declaration share one explanation.
+
+Dependency edges report `ignoreMissing: true` only for an explicit supported tag option.
+The field is otherwise omitted; omission does not assert false, and function options are not evaluated.
