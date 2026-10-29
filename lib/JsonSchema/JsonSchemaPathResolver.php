@@ -350,7 +350,6 @@ final class JsonSchemaPathResolver
             if (
                 ctype_upper($current)
                 && $result !== ''
-                && $previous !== ''
                 && $previous !== '_'
                 && $previous !== '-'
                 && $previous !== ' '
