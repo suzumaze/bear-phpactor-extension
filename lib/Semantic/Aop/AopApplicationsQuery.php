@@ -100,6 +100,10 @@ final readonly class AopApplicationsQuery
             }
             $binding = $container->bindings[$resource->fqn . '-'] ?? null;
             $class = $binding === null ? $resource->fqn : $binding['target'];
+            if ($binding !== null && isset($binding['branches'])) {
+                $unresolved[] = ['uri' => $resource->uri->uri(), 'reason' => 'resource_binding_branch'];
+                continue;
+            }
             if ($binding !== null && $binding['kind'] !== 'dependency') {
                 $unresolved[] = ['uri' => $resource->uri->uri(), 'reason' => 'resource_binding_not_class'];
                 continue;

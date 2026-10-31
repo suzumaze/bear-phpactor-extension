@@ -92,7 +92,11 @@ final readonly class DiBindingLookupQuery
                 'index' => $index,
                 'type' => $boundType,
                 'name' => $boundName,
-                'selectionStatus' => $interpreter->unknowns === [] ? 'source_selected' : 'provisional',
+                'selectionStatus' => match (true) {
+                    isset($dependency['branches']) => 'branch_dependent',
+                    $interpreter->unknowns === [] => 'source_selected',
+                    default => 'provisional',
+                },
                 'selected' => $this->binding($dependency, $container->origins[$index] ?? null),
                 'decisions' => array_slice($history, 0, self::MAX_DECISIONS),
                 'decisionTotal' => count($history),
@@ -129,7 +133,12 @@ final readonly class DiBindingLookupQuery
     }
 
     /**
-     * @param array{kind: string, target: ?string} $dependency
+     * @param array{
+     *     kind: string,
+     *     target: ?string,
+     *     branches?: list<array{when: string, target: string}>,
+     *     condition?: array{path: string, line: int, environment: list<string>}|null
+     * } $dependency
      * @return array<string, mixed>
      */
     private function binding(array $dependency, ?BindingOrigin $origin): array
@@ -137,6 +146,10 @@ final readonly class DiBindingLookupQuery
         return [
             'kind' => $dependency['kind'],
             'target' => $dependency['target'],
+            // The target depends on a runtime condition: both candidates and the condition.
+            ...(isset($dependency['branches'])
+                ? ['branches' => $dependency['branches'], 'condition' => $dependency['condition'] ?? null]
+                : []),
             'origin' => $origin?->toArray(),
         ];
     }

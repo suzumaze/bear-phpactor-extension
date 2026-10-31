@@ -69,6 +69,9 @@ final readonly class DiContainerQuery
                 'name' => $name,
                 'kind' => $kind,
                 'target' => $dependency['target'],
+                ...(isset($dependency['branches'])
+                    ? ['branches' => $dependency['branches'], 'condition' => $dependency['condition'] ?? null]
+                    : []),
                 'module' => $container->sources[$index] ?? null,
             ];
         }

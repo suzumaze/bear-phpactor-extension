@@ -410,9 +410,14 @@ and local retained/discarded decisions, with declaration paths/lines and module 
 `overridesOnly` selects conflicting declarations; `resourcesOnly` selects known Resource
 subclasses in the key, selected target or discarded target. Filtering precedes pagination.
 Every item is `provisional` if composition has any unknown; `source_selected` is selection under
-supported source rules, never a runtime observation. Empty results do not prove unboundness.
+supported source rules, never a runtime observation. An item is `branch_dependent` when its
+`to()`/`toProvider()` target is a ternary whose condition is unknown and whose arms are class
+strings: `selected.target` is null, `selected.branches` lists both targets (`condition_true`,
+`condition_false`), and `selected.condition` gives the condition's path, line and the variable
+names it reads through `getenv()` (never their values). The matching unknown has reason
+`target_branch` and also carries the bound `type`, `name`, `branches` and `condition`. Empty results do not prove unboundness.
 `decisionTotal`/`decisionsTruncated` and `unknownTotal`/`unknownsTruncated` describe independent
-bounds. Raw instance values and source expressions are not returned. See [DI inspection](di-inspection.md)
+bounds. Raw instance values, environment values and source expressions are not returned. See [DI inspection](di-inspection.md)
 for coverage, context handling, archive branches and the AOP work that remains.
 
 `bear/di/container` composes the container that BEAR.Package would build for a literal

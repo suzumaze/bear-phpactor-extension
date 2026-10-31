@@ -16,7 +16,7 @@ final class EmulatedContainer
 {
     public const MULTI_BINDINGS_INDEX = 'Ray\\Di\\MultiBinding\\MultiBindings-';
 
-    /** @var array<string, array{kind: string, target: ?string, names?: string|array<string, string>, schemaDirectory?: string}> */
+    /** @var array<string, array{kind: string, target: ?string, names?: string|array<string, string>, schemaDirectory?: string, branches?: list<array{when: string, target: string}>, condition?: array{path: string, line: int, environment: list<string>}|null}> */
     public array $bindings = [];
 
     /** @var list<ComposedPointcut> */
@@ -48,7 +48,7 @@ final class EmulatedContainer
     {
     }
 
-    /** @param array{kind: string, target: ?string, names?: string|array<string, string>, schemaDirectory?: string} $dependency */
+    /** @param array{kind: string, target: ?string, names?: string|array<string, string>, schemaDirectory?: string, branches?: list<array{when: string, target: string}>, condition?: array{path: string, line: int, environment: list<string>}|null} $dependency */
     public function add(string $index, array $dependency, string $source, ?BindingOrigin $origin = null): void
     {
         $previous = $this->bindings[$index] ?? null;
