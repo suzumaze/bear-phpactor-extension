@@ -80,6 +80,14 @@ final class DiBindingLookupQueryTest extends TestCase
         self::assertSame('source_selected', $frozen['data']['items'][0]['selectionStatus']);
         self::assertSame('Acme\\Shop\\Service\\FrozenClock', $frozen['data']['items'][0]['selected']['target']);
         self::assertArrayNotHasKey('branches', $frozen['data']['items'][0]['selected']);
+
+        // The container inventory reports the same key the same way.
+        $inventory = wait($this->handler()->inspectDiContainer('branch-app', limit: 100));
+        $items = array_column($inventory['data']['items'], null, 'index');
+        self::assertSame(
+            array_column($item['selected']['branches'], 'target'),
+            array_column($items[$clock . '-']['branches'], 'target'),
+        );
     }
 
     public function testNestedProjectEvidenceUsesWorkspaceRelativePaths(): void
