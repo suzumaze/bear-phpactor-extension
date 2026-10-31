@@ -69,6 +69,17 @@ final class AopApplicationsQueryTest extends TestCase
         self::assertFalse($matcher->matches(new MatcherValue('any'), $class, $class->method('append')));
     }
 
+    public function testResourceBoundByABranchIsReportedInsteadOfMatched(): void
+    {
+        $result = wait($this->handler()->listAopApplications('branch-app', 'app://self/advice', includeUnknowns: true));
+        self::assertSame('ok', $result['status']);
+        self::assertSame(0, $result['data']['total']);
+        self::assertContains(
+            ['uri' => 'app://self/advice', 'reason' => 'resource_binding_branch'],
+            $result['data']['unknowns'],
+        );
+    }
+
     public function testResourceReplacementUsesSelectedClass(): void
     {
         $result = wait($this->handler()->listAopApplications('replacement-advice-app', 'app://self/advice'));
