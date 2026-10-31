@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- Binding lookup shows a binding whose `to()` or `toProvider()` target is chosen by a ternary with
+  an unknown condition, such as `$provider === 'auth0' ? Auth0::class : Google::class`. The item is
+  `branch_dependent`, lists both targets with the arm that selects each, and locates the condition
+  by path and line together with the environment variable names it reads (never their values).
+  Previously such a binding was left out, so an earlier binding for the same key was reported as
+  the selection even though either arm replaces it. AOP applications report a Resource bound this
+  way as `resource_binding_branch`.
+
 ## [0.3.6] - 2026-10-16
 
 - Template dependency edges omit unverified `ignoreMissing` flags instead of reporting false

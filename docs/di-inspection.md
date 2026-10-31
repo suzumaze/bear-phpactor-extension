@@ -47,6 +47,11 @@ release goal. Module relationships remain useful as supporting evidence.
   `source_selected`, which still means selection under the supported source model, not proof
   of runtime construction or successful dependency resolution. Empty results do not establish
   that the runtime injector cannot produce a dependency.
+- A binding whose target is `$condition ? A::class : B::class` with an unknown condition is
+  `branch_dependent`: both targets are listed with the arm that selects them, and the condition
+  is located by path and line together with the environment variable names read into it. It
+  replaces any earlier binding for the key, because either arm replaces it at runtime. Nested
+  ternaries, `match`, `?:` and `install($condition ? ... : ...)` stay plain unknowns.
 - Instance values, expression text and environment values are never returned. The LSP accepts
   an explicit environment profile; without one, environment-dependent branches remain unknown.
 - Response items are paginated after filtering with the existing byte budget. Each item includes

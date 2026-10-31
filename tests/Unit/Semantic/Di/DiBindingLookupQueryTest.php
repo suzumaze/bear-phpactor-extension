@@ -53,6 +53,43 @@ final class DiBindingLookupQueryTest extends TestCase
         self::assertSame('invalid_input', wait($this->handler()->lookupDiBinding(''))['status']);
     }
 
+    public function testBranchTargetReplacesTheEarlierBindingAndShowsBothCandidates(): void
+    {
+        $clock = 'Acme\\Shop\\Service\\ClockInterface';
+        $result = wait($this->handler()->lookupDiBinding('branch-app', $clock));
+        self::assertSame(1, $result['data']['total']);
+        $item = $result['data']['items'][0];
+        self::assertSame('branch_dependent', $item['selectionStatus']);
+        self::assertNull($item['selected']['target']);
+        self::assertSame(
+            ['Acme\\Shop\\Service\\FrozenClock', 'Acme\\Shop\\Service\\NetworkClock'],
+            array_column($item['selected']['branches'], 'target'),
+        );
+        self::assertSame(['ACME_CLOCK'], $item['selected']['condition']['environment']);
+        // The AppModule binding is no longer reported as the selection.
+        self::assertSame('Acme\\Shop\\Service\\SystemClock', $item['decisions'][0]['discarded']['target']);
+        self::assertTrue($result['data']['coverage']['hasUnknowns']);
+        self::assertSame($clock, $result['data']['unknowns'][0]['type']);
+        // The condition is located, not copied: its literal stays in the source.
+        self::assertSame('src/Module/BranchModule.php', $item['selected']['condition']['path']);
+        self::assertStringNotContainsString('frozen', json_encode($result, JSON_THROW_ON_ERROR));
+
+        $frozen = wait(
+            $this->handler()->lookupDiBinding('branch-app', $clock, environment: ['ACME_CLOCK' => 'frozen']),
+        );
+        self::assertSame('source_selected', $frozen['data']['items'][0]['selectionStatus']);
+        self::assertSame('Acme\\Shop\\Service\\FrozenClock', $frozen['data']['items'][0]['selected']['target']);
+        self::assertArrayNotHasKey('branches', $frozen['data']['items'][0]['selected']);
+
+        // The container inventory reports the same key the same way.
+        $inventory = wait($this->handler()->inspectDiContainer('branch-app', limit: 100));
+        $items = array_column($inventory['data']['items'], null, 'index');
+        self::assertSame(
+            array_column($item['selected']['branches'], 'target'),
+            array_column($items[$clock . '-']['branches'], 'target'),
+        );
+    }
+
     public function testNestedProjectEvidenceUsesWorkspaceRelativePaths(): void
     {
         $handler = new SemanticQueryHandler(dirname(__DIR__, 3) . '/Fixture');

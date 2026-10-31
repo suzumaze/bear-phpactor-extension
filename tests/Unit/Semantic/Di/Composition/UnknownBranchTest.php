@@ -40,6 +40,59 @@ final class UnknownBranchTest extends CompositionTestCase
         ], $this->interpreter->unknowns);
     }
 
+    public function testTernaryTargetKeepsBothArmsAndTheEnvironmentVariableItReads(): void
+    {
+        [$s, $c] = [self::SERVICE, self::CLAIM];
+        $container = $this->compose('EnvBranchTargetModule');
+
+        $branches = [
+            ['when' => 'condition_true', 'target' => "{$s}SecondThing"],
+            ['when' => 'condition_false', 'target' => "{$s}FirstThing"],
+        ];
+        $condition = [
+            'path' => 'src/Module/Claim/EnvBranchTargetModule.php',
+            'line' => 18,
+            'environment' => ['ACME_THING'],
+        ];
+        $dependency = $container->bindings["{$s}ThingInterface-"] ?? null;
+        self::assertSame(
+            ['kind' => 'dependency', 'target' => null, 'branches' => $branches, 'condition' => $condition],
+            $dependency,
+        );
+        // Still an unknown: the source cannot say which arm runs.
+        self::assertSame([[
+            'reason' => 'target_branch',
+            'path' => 'src/Module/Claim/EnvBranchTargetModule.php',
+            'line' => 17,
+            'module' => "{$c}EnvBranchTargetModule",
+            'type' => "{$s}ThingInterface",
+            'name' => '',
+            'branches' => $branches,
+            'condition' => $condition,
+        ]], $this->interpreter->unknowns);
+    }
+
+    public function testTernaryProviderKeepsBothArms(): void
+    {
+        $s = self::SERVICE;
+        $container = $this->compose('EnvBranchProviderModule');
+
+        self::assertSame([
+            'kind' => 'provider',
+            'target' => null,
+            'branches' => [
+                ['when' => 'condition_true', 'target' => "{$s}FirstThing"],
+                ['when' => 'condition_false', 'target' => "{$s}SecondThing"],
+            ],
+            'condition' => [
+                'path' => 'src/Module/Claim/EnvBranchProviderModule.php',
+                'line' => 16,
+                'environment' => ['ACME_AUDIT'],
+            ],
+        ], $container->bindings["{$s}AuditInterface-"] ?? null);
+        self::assertSame(['target_branch'], array_column($this->interpreter->unknowns, 'reason'));
+    }
+
     public function testPureThrowGuardIsNotAnUnknown(): void
     {
         [$s, $c] = [self::SERVICE, self::CLAIM];

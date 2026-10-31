@@ -92,7 +92,8 @@ construction stay outside the claim. A node's exact class name links to
 Use `bear/app/contexts` to discover declared entry-point contexts without selecting a default.
 Use `bear/di/bindingLookup` with an explicit context to inspect binding selections, declaration
 locations and discarded alternatives; filter conflicts or Resource bindings before pagination.
-Unknown composition conditions make every selection provisional. See [DI inspection](docs/di-inspection.md).
+Unknown composition conditions make every selection provisional. A binding whose target is chosen by a
+ternary with an unknown condition is `branch_dependent` and lists both targets. See [DI inspection](docs/di-inspection.md).
 
 For a source-first DI investigation, start with `bear/di/moduleGraph` without a context, then
 open a relevant Module with `bear/di/moduleDeclarations`. Each direct binding and pointcut has

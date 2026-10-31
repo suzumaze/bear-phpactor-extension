@@ -62,7 +62,11 @@ final class ModuleInterpreter
 
     private const RESOURCE_OBJECT = 'BEAR\\Resource\\ResourceObject';
 
-    /** @var list<array{reason: string, path: string, line: int, module: string}> */
+    /**
+     * `target_branch` entries also carry the bound `type`, `name`, `branches` and `condition`.
+     *
+     * @var list<array<string, mixed>&array{reason: string, path: string, line: int, module: string}>
+     */
     public array $unknowns = [];
 
     /** @var list<BindValue> */
@@ -883,7 +887,7 @@ final class ModuleInterpreter
             // Environment values exist only at runtime unless an explicit profile is given.
             $name = $arguments[0] ?? null;
             if ($this->environment === null || !is_string($name)) {
-                return new UnknownValue();
+                return new UnknownValue(environment: is_string($name) ? [$name] : []);
             }
 
             return $this->environment[$name] ?? false;
@@ -897,7 +901,9 @@ final class ModuleInterpreter
         ];
         if (in_array($function, $pure, true)) {
             // An unknown argument is a runtime value, not an unsupported construct.
-            return $known(...$arguments) ? $function(...$arguments) : new UnknownValue();
+            return $known(...$arguments)
+                ? $function(...$arguments)
+                : new UnknownValue(environment: self::environmentOf(...$arguments));
         }
         $typeChecks = ['is_string' => 'string', 'is_array' => 'array', 'is_int' => 'integer', 'is_bool' => 'boolean'];
         if (isset($typeChecks[$function])) {
@@ -1112,7 +1118,7 @@ final class ModuleInterpreter
             default => null,
         };
         if (is_object($value) || $gettype === null || $gettype === 'object') {
-            return new UnknownValue($gettype);
+            return new UnknownValue($gettype, environment: self::environmentOf($value));
         }
         settype($value, $gettype);
 
@@ -1140,16 +1146,19 @@ final class ModuleInterpreter
             if ($this->hasSideEffectCall(ParserNodes::optional($node->rightOperand))) {
                 $this->unknown('branch_condition_unknown', $node, $frame->declaring, $frame->object);
 
-                return new UnknownValue('boolean');
+                return new UnknownValue('boolean', environment: self::environmentOf($left));
             }
-            return new UnknownValue('boolean');
+            return new UnknownValue('boolean', environment: self::environmentOf($left));
         }
         $right = $this->evaluate($node->rightOperand, $frame);
         if (is_object($left) || is_object($right) || (is_array($left) && $operator === '.')) {
+            $environment = self::environmentOf($left, $right);
+
             return match ($operator) {
-                '.' => new UnknownValue('string'),
-                '===', '!==', '==', '!=', '<', '>', '<=', '>=', '&&', '||', 'instanceof' => new UnknownValue('boolean'),
-                default => new UnknownValue(),
+                '.' => new UnknownValue('string', environment: $environment),
+                '===', '!==', '==', '!=', '<', '>', '<=', '>=', '&&', '||', 'instanceof' =>
+                    new UnknownValue('boolean', environment: $environment),
+                default => new UnknownValue(environment: $environment),
             };
         }
 
@@ -1174,7 +1183,7 @@ final class ModuleInterpreter
         $operator = $node->operator->getText($frame->declaring->contents);
         $value = $this->evaluate($node->operand, $frame);
         if (is_object($value)) {
-            return new UnknownValue($operator === '!' ? 'boolean' : null);
+            return new UnknownValue($operator === '!' ? 'boolean' : null, environment: self::environmentOf($value));
         }
 
         return match ($operator) {
@@ -1189,7 +1198,7 @@ final class ModuleInterpreter
     {
         $condition = $this->evaluate($node->condition, $frame);
         if (is_object($condition)) {
-            return $this->unknownTernary($node, $frame);
+            return $this->unknownTernary($node, $frame, $condition);
         }
         if ($node->ifExpression === null) {
             return $condition ?: $this->evaluate($node->elseExpression, $frame);
@@ -1200,9 +1209,10 @@ final class ModuleInterpreter
 
     /**
      * Keeps what both arms agree on: `is_string($x) ? $x : ''` is a string whatever `$x` is.
-     * Arms that call methods are runtime branches and are recorded, not guessed.
+     * Arms that call methods are runtime branches and are recorded, not guessed. When both
+     * arms of a full ternary are known strings, both are kept so a binding can show them.
      */
-    private function unknownTernary(TernaryExpression $node, Frame $frame): mixed
+    private function unknownTernary(TernaryExpression $node, Frame $frame, object $condition): mixed
     {
         foreach ([$node->ifExpression, $node->elseExpression] as $arm) {
             if ($this->hasSideEffectCall(ParserNodes::optional($arm))) {
@@ -1214,13 +1224,27 @@ final class ModuleInterpreter
         }
         $narrowed = $this->narrowedType($node, $frame);
         $types = [];
+        $values = [];
         $arms = [ParserNodes::optional($node->ifExpression) ?? $node->condition, $node->elseExpression];
         foreach ($arms as $position => $arm) {
             $value = $arm instanceof Node ? $this->evaluate($arm, $frame) : new UnknownValue();
+            $values[] = $value;
             $types[] = $position === 0 && $narrowed !== null ? $narrowed : $this->typeOf($value);
         }
+        $type = $types[0] !== null && $types[0] === $types[1] ? $types[0] : null;
+        if ($node->ifExpression === null || !is_string($values[0]) || !is_string($values[1])) {
+            return new UnknownValue($type);
+        }
 
-        return new UnknownValue($types[0] !== null && $types[0] === $types[1] ? $types[0] : null);
+        return new UnknownValue($type, branches: [
+            ['when' => 'condition_true', 'value' => $values[0]],
+            ['when' => 'condition_false', 'value' => $values[1]],
+        ], condition: [
+            // Where to read the condition; its text may hold literals, so it is not copied.
+            'path' => $frame->declaring->path,
+            'line' => $this->lineOf($frame->declaring->contents, $node->condition->getStartPosition()),
+            'environment' => self::environmentOf($condition),
+        ]);
     }
 
     /**
@@ -1498,6 +1522,26 @@ final class ModuleInterpreter
                 $class = $method === 'toProvider'
                     ? ($arguments['provider'] ?? $arguments[0] ?? null)
                     : ($arguments['class'] ?? $arguments[0] ?? null);
+                if ($class instanceof UnknownValue && $class->branches !== null && $method !== 'toConstructor') {
+                    // Either arm may run, so this replaces any earlier binding for the key.
+                    $branches = array_map(
+                        static fn (array $branch): array => [
+                            'when' => $branch['when'],
+                            'target' => ltrim($branch['value'], '\\'),
+                        ],
+                        $class->branches,
+                    );
+                    $dependency = [
+                        'kind' => $method === 'toProvider' ? 'provider' : 'dependency',
+                        'target' => null,
+                        'branches' => $branches,
+                        'condition' => $class->condition,
+                    ];
+                    $bind->container->add($index(), $dependency, $bind->source, $bind->origin);
+                    $this->branchUnknown($node, $frame, $bind, $dependency);
+
+                    return $bind;
+                }
                 if (!is_string($class)) {
                     $this->unknown('target_unknown', $node, $frame->declaring, $frame->object);
 
@@ -1619,6 +1663,39 @@ final class ModuleInterpreter
             'line' => $this->lineOf($declaring->contents, $node->getStartPosition()),
             'module' => $owner === null ? $declaring->name : $owner->class,
         ];
+    }
+
+    /**
+     * A binding whose target depends on a runtime condition; the bound key is kept so the
+     * unknown can be read without the rest of the list.
+     *
+     * @param array{branches: list<array{when: string, target: string}>, condition: mixed} $dependency
+     */
+    private function branchUnknown(Node $node, Frame $frame, BindValue $bind, array $dependency): void
+    {
+        $before = count($this->unknowns);
+        $this->unknown('target_branch', $node, $frame->declaring, $frame->object);
+        if (count($this->unknowns) > $before) {
+            $this->unknowns[$before] += [
+                'type' => $bind->interface,
+                'name' => $bind->name,
+                'branches' => $dependency['branches'],
+                'condition' => $dependency['condition'],
+            ];
+        }
+    }
+
+    /** @return list<string> */
+    private static function environmentOf(mixed ...$values): array
+    {
+        $names = [];
+        foreach ($values as $value) {
+            if ($value instanceof UnknownValue) {
+                array_push($names, ...$value->environment);
+            }
+        }
+
+        return array_values(array_unique($names));
     }
 
     private function lineOf(string $contents, int $offset): int
