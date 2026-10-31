@@ -90,6 +90,19 @@ final class DiBindingLookupQueryTest extends TestCase
         );
     }
 
+    public function testResourcesOnlyKeepsAResourceBoundByABranch(): void
+    {
+        $advice = 'Acme\\Shop\\Resource\\App\\Advice';
+        $result = wait($this->handler()->lookupDiBinding('branch-app', $advice, resourcesOnly: true));
+        self::assertSame([$advice], array_column($result['data']['items'], 'type'));
+        $item = $result['data']['items'][0];
+        self::assertSame('branch_dependent', $item['selectionStatus']);
+        self::assertSame(
+            ['Acme\\Shop\\Resource\\App\\Replacement', 'Acme\\Shop\\Resource\\App\\Advice'],
+            array_column($item['selected']['branches'], 'target'),
+        );
+    }
+
     public function testNestedProjectEvidenceUsesWorkspaceRelativePaths(): void
     {
         $handler = new SemanticQueryHandler(dirname(__DIR__, 3) . '/Fixture');
