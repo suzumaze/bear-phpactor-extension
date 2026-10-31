@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-10-31
+
 - Binding lookup shows a binding whose `to()` or `toProvider()` target is chosen by a ternary with
   an unknown condition, such as `$provider === 'auth0' ? Auth0::class : Google::class`. The item is
   `branch_dependent`, lists both targets with the arm that selects each, and locates the condition
