@@ -213,7 +213,8 @@ make the outer result fail. Each item contains a stable snake_case `code`, the u
 semantic `status`, a concise `subject`, a workspace-relative source `path`, an optional
 byte range, and bounded structured `details`. It checks direct static Resource calls, Route,
 SQL, JsonSchema, ALPS, and Twig/Qiq references; Resource parse failures; resolved
-Link/Embed target methods; and exact-name-presence contract differences. It does not
+Link/Embed target methods; full `$this->body = ...` assignments in a method with `#[Embed]`;
+and exact-name-presence contract differences. It does not
 report absent convention templates or Schemas merely because those optional artifacts
 do not exist, and it does not treat `unsupported` or `outside_workspace` as project
 breakage by default. Contract items explicitly mean exact name presence only, not type,
@@ -226,6 +227,18 @@ when their corresponding `var/json_validate` or `var/json_schema` directory exis
 ALPS descriptors are checked only when `apidoc.xml` exists. `skippedChecks` identifies
 the omitted checks (`sql_references`, `request_schema_references`,
 `response_schema_references`, or `alps_descriptors`), not a clean result.
+
+`#[Embed]` puts each `rel` into the body before the method runs (`_self` copies the target's
+body in). A later full `$this->body = ...` drops those keys.
+`embed_body_replaced_on_early_exit` reports such an assignment inside a block that ends by
+leaving the method with `return` or `throw` (an `if`, `elseif` or `else` block, braced or in
+alternative syntax), which usually replaces the body on purpose, for example with an error
+message. `embed_body_replaced` reports every other one, including assignments in loops and in
+conditional blocks that fall through. Both use `status: ok` and give `details.line` (1-based)
+and `details.rels`, and both are reported whether or not the body names could be proven.
+Compound operators and right-hand sides that read `$this->body` (`[...$this->body, ...]`) keep
+the keys and are not reported. Closures, arrow functions and anonymous classes are not
+entered, and assignments made inside helper methods are not seen.
 `limit` defaults to 100 and accepts 1–200, preserving the v0.1.7 input range.
 `offset` advances through the stable diagnostic ordering. Resource discovery is
 complete; a page may contain fewer than `limit` items because an approximate 56 KiB
@@ -634,15 +647,25 @@ overridden explicitly with `descriptorId`.
 For `schemaKind: "response"`, the Schema surface is an explicit response Schema or
 the Resource convention Schema. If the ALPS operation has a local `rt`, its target
 representation's contained descriptor IDs form the ALPS surface. The Resource surface
-is `ok` only when saved source proves an exact top-level body shape: a straight-line
-method must assign a literal-key array to `$this->body`, may then add literal keys, and
-may return `$this`. Conditional control flow, dynamic keys or assignments, unsupported
-body uses, and direct `$this` helper calls stay `unsupported`; application PHP is never
-loaded or executed.
+is `ok` only when saved source proves an exact top-level body shape: the method must
+assign a literal-key array to `$this->body`, may then add literal keys, and may return
+`$this`. Early-exit guards are allowed: an `if` without `else` or `elseif` whose block ends
+in `return $this;` or `return;`, may assign one literal-key array to the body, and has no
+`$this` method call or `$this->body` use in its condition. The names describe the path that reaches the end of
+the method, and contract comparison uses that path. A `$this` helper call is allowed inside
+the right-hand side of the full assignment, because it runs before the body is written; as a
+statement or in a key addition it stays `unsupported`, like other conditional control flow,
+dynamic keys or assignments, and unsupported body uses. Application PHP is never loaded or
+executed.
 
 Each `bear/resource/describe` method reports the same evidence as
 `responseBody: {status, names, reason}`. A complete shape has status `ok`, sorted names,
-and a null reason. Unsupported shapes have no names and a stable reason such as
+and a null reason. When guards return early, `earlyExits` lists each one with its 1-based
+`line`, whether it assigns the body (`bodyAssigned`), and the names the body has there, or
+`null` when the body at that point is not known (for example before the full assignment,
+when only `#[Embed]` or the caller decided it). In a method with `#[Embed]`,
+`embedReplacements` lists full body assignments with `line`, `earlyExit` and the `rels` they
+drop, matching the diagnostics above. Unsupported shapes have no names and a stable reason such as
 `no_complete_body_assignment`, `complex_control_flow`, `dynamic_body_assignment`, or
 `dynamic_body_key`. These are exact observations of explicit method-body construction,
 not a claim about runtime interceptors or semantic/type compatibility.

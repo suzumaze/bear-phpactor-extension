@@ -1,0 +1,8 @@
+{
+    "name": "fixture/body-guards",
+    "autoload": {
+        "psr-4": {
+            "BodyGuards\\": "src/"
+        }
+    }
+}

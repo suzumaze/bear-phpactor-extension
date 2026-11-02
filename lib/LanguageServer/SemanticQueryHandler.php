@@ -1120,6 +1120,10 @@ final class SemanticQueryHandler implements Handler
                         'status' => $method->responseShape->complete ? 'ok' : 'unsupported',
                         'names' => $method->responseShape->names,
                         'reason' => $method->responseShape->reason,
+                        ...($method->responseShape->earlyExits === []
+                            ? [] : ['earlyExits' => $method->responseShape->earlyExits]),
+                        ...($method->embedReplacements === []
+                            ? [] : ['embedReplacements' => $method->embedReplacements]),
                     ],
                 ],
                 $facts->methods,
