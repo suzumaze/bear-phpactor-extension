@@ -121,11 +121,8 @@ final class ResourceIncomingRelationsQuery
         foreach ($selected as $relation) {
             $path = $workspace->accessPolicy()->inspectExisting($relation->sourceFile);
             if ($path->value !== null) {
-                $provenance[] = Provenance::savedFile(
-                    $path->value->relative,
-                    $relation->byteOffset,
-                    $relation->byteOffset,
-                );
+                // One entry per file; each item carries its own position.
+                $provenance[] = Provenance::savedFile($path->value->relative);
             }
         }
 

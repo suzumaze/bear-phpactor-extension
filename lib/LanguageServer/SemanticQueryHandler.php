@@ -1144,6 +1144,7 @@ final class SemanticQueryHandler implements Handler
                         'start' => $reference->contentStart,
                         'end' => $reference->contentEnd,
                     ],
+                    'line' => $reference->line,
                     'confidence' => 'high',
                 ],
                 $facts->outgoingReferences,
@@ -1233,6 +1234,7 @@ final class SemanticQueryHandler implements Handler
             'targetMethod' => $relation->targetMethod,
             'sourcePath' => $this->relativePath($relation->sourceFile),
             'byteOffset' => $relation->byteOffset,
+            'line' => $relation->line,
         ];
     }
 
@@ -1314,6 +1316,7 @@ final class SemanticQueryHandler implements Handler
                 'start' => $reference->contentStart,
                 'end' => $reference->contentEnd,
             ],
+            'line' => $reference->line,
         ];
     }
 

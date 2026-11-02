@@ -193,6 +193,7 @@ final class ResourceReferencesQuery
                     $source->file,
                     $node->getStartPosition() + 1,
                     $node->getEndPosition() - 1,
+                    substr_count($source->contents, "\n", 0, $node->getStartPosition()) + 1,
                 );
                 $references[$this->referenceKey($reference)] = $reference;
             }
@@ -231,11 +232,8 @@ final class ResourceReferencesQuery
         foreach ($selected as $reference) {
             $path = $workspace->accessPolicy()->inspectExisting($reference->file);
             if ($path->value !== null) {
-                $provenance[] = Provenance::savedFile(
-                    $path->value->relative,
-                    $reference->contentStart,
-                    $reference->contentEnd,
-                );
+                // One entry per file; each reference carries its own range.
+                $provenance[] = Provenance::savedFile($path->value->relative);
             }
         }
 
@@ -302,6 +300,7 @@ final class ResourceReferencesQuery
                 $routePath->value->absolute,
                 $start,
                 $end,
+                substr_count($source, "\n", 0, $start) + 1,
             );
         }
 
