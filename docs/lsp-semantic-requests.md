@@ -229,13 +229,16 @@ the omitted checks (`sql_references`, `request_schema_references`,
 `response_schema_references`, or `alps_descriptors`), not a clean result.
 
 `#[Embed]` puts each `rel` into the body before the method runs (`_self` copies the target's
-body in). A later full `$this->body = ...` drops those keys. `embed_body_replaced` reports
-such an assignment on the path that reaches the end of the method. `embed_body_replaced_on_early_exit`
-reports one inside an `if` block that ends in `return`, which usually replaces the body on
-purpose, for example with an error message. Both use `status: ok` and give `details.line`
-(1-based) and `details.rels`. Compound operators and right-hand sides that read
-`$this->body` (`[...$this->body, ...]`) keep the keys and are not reported. Assignments made
-inside helper methods are not seen.
+body in). A later full `$this->body = ...` drops those keys.
+`embed_body_replaced_on_early_exit` reports such an assignment inside a block that ends by
+leaving the method with `return` or `throw` (an `if`, `elseif` or `else` block, braced or in
+alternative syntax), which usually replaces the body on purpose, for example with an error
+message. `embed_body_replaced` reports every other one, including assignments in loops and in
+conditional blocks that fall through. Both use `status: ok` and give `details.line` (1-based)
+and `details.rels`, and both are reported whether or not the body names could be proven.
+Compound operators and right-hand sides that read `$this->body` (`[...$this->body, ...]`) keep
+the keys and are not reported. Closures, arrow functions and anonymous classes are not
+entered, and assignments made inside helper methods are not seen.
 `limit` defaults to 100 and accepts 1–200, preserving the v0.1.7 input range.
 `offset` advances through the stable diagnostic ordering. Resource discovery is
 complete; a page may contain fewer than `limit` items because an approximate 56 KiB
@@ -648,7 +651,7 @@ is `ok` only when saved source proves an exact top-level body shape: the method 
 assign a literal-key array to `$this->body`, may then add literal keys, and may return
 `$this`. Early-exit guards are allowed: an `if` without `else` or `elseif` whose block ends
 in `return $this;` or `return;`, may assign one literal-key array to the body, and has no
-`$this` method call in its condition. The names describe the path that reaches the end of
+`$this` method call or `$this->body` use in its condition. The names describe the path that reaches the end of
 the method, and contract comparison uses that path. A `$this` helper call is allowed inside
 the right-hand side of the full assignment, because it runs before the body is written; as a
 statement or in a key addition it stays `unsupported`, like other conditional control flow,

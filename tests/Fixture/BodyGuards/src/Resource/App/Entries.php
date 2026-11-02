@@ -50,6 +50,17 @@ final class Entries extends ResourceObject
         return $this;
     }
 
+    public function onPatch(): static
+    {
+        $this->body = ['a' => 1];
+        // The condition runs on the main path and removes the key it just checked.
+        if (array_pop($this->body) === null) {
+            return $this;
+        }
+
+        return $this;
+    }
+
     /** @return list<array{id: int}> */
     private function getArticles(int $page): array
     {

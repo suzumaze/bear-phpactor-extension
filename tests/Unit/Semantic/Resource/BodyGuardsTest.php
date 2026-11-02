@@ -32,6 +32,26 @@ final class BodyGuardsTest extends TestCase
         ], $methods['onPost']['earlyExits']);
         // An `if` that does not return is still a branch the source cannot settle.
         self::assertSame('complex_control_flow', $methods['onPut']['reason']);
+        // A guard condition runs on the main path; one that changes the body cannot be a guard.
+        self::assertSame('complex_control_flow', $methods['onPatch']['reason']);
+    }
+
+    public function testReplacementsIgnoreOtherObjectsAndDeferredCodeAndKnowEveryWayOut(): void
+    {
+        $methods = $this->methods('page://self/variants');
+        $replacements = static fn (string $name): array => array_map(
+            static fn (array $replacement): array => [$replacement['line'], $replacement['earlyExit']],
+            $methods[$name]['embedReplacements'] ?? [],
+        );
+
+        // Anonymous class, closure and arrow function bodies are not this Resource's body on the main path.
+        self::assertSame([], $replacements('onGet'));
+        // else block ending in return, block ending in throw, alternative syntax: all leave the method.
+        self::assertSame([[41, true]], $replacements('onPost'));
+        self::assertSame([[53, true]], $replacements('onPut'));
+        self::assertSame([[64, true]], $replacements('onPatch'));
+        // A loop falls through to the end of the method.
+        self::assertSame([[76, false]], $replacements('onDelete'));
     }
 
     public function testFullAssignmentAfterEmbedIsReportedApartFromAnErrorBranch(): void
@@ -53,9 +73,17 @@ final class BodyGuardsTest extends TestCase
             static fn (array $item): bool => str_starts_with($item['code'], 'embed_body_'),
         ));
         self::assertSame([
-            ['embed_body_replaced_on_early_exit', 'page://self/article#onGet', ['line' => 18, 'rels' => ['_self']]],
-            ['embed_body_replaced', 'page://self/index#onGet', ['line' => 16, 'rels' => ['entries']]],
-        ], array_map(static fn (array $item): array => [$item['code'], $item['subject'], $item['details']], $embed));
+            ['embed_body_replaced_on_early_exit', 'page://self/article#onGet', 18],
+            ['embed_body_replaced', 'page://self/index#onGet', 16],
+            ['embed_body_replaced', 'page://self/variants#onDelete', 76],
+            ['embed_body_replaced_on_early_exit', 'page://self/variants#onPatch', 64],
+            ['embed_body_replaced_on_early_exit', 'page://self/variants#onPost', 41],
+            ['embed_body_replaced_on_early_exit', 'page://self/variants#onPut', 53],
+        ], array_map(
+            static fn (array $item): array => [$item['code'], $item['subject'], $item['details']['line']],
+            $embed,
+        ));
+        self::assertSame(['line' => 18, 'rels' => ['_self']], $embed[0]['details']);
     }
 
     /** @return array<string, array<string, mixed>> */

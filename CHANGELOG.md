@@ -14,8 +14,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   written. Contract comparison and its diagnostics now cover these methods.
 
 - Diagnostics report a full `$this->body = ...` assignment in a method with `#[Embed]`, which drops
-  the embedded keys: `embed_body_replaced` on the main path, `embed_body_replaced_on_early_exit`
-  inside a guard that returns (usually an intentional error body). `bear/resource/describe` shows
+  the embedded keys: `embed_body_replaced_on_early_exit` inside a block that leaves the method with
+  `return` or `throw` (usually an intentional error body), `embed_body_replaced` everywhere else.
+  Closures, arrow functions and anonymous classes are not counted. `bear/resource/describe` shows
   the same as `responseBody.embedReplacements`.
 
 - Resource references, incoming relations, and the relations and Resource calls in a Resource

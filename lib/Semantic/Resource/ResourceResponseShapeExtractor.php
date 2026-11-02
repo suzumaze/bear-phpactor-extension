@@ -6,11 +6,17 @@ namespace Suzumaze\BearPhpactor\Semantic\Resource;
 
 use Microsoft\PhpParser\Node;
 use Microsoft\PhpParser\Node\ArrayElement;
+use Microsoft\PhpParser\Node\ElseClauseNode;
+use Microsoft\PhpParser\Node\ElseIfClauseNode;
+use Microsoft\PhpParser\Node\Expression\AnonymousFunctionCreationExpression;
+use Microsoft\PhpParser\Node\Expression\ArrowFunctionCreationExpression;
 use Microsoft\PhpParser\Node\Expression\ArrayCreationExpression;
 use Microsoft\PhpParser\Node\Expression\AssignmentExpression;
 use Microsoft\PhpParser\Node\Expression\CallExpression;
 use Microsoft\PhpParser\Node\Expression\MemberAccessExpression;
+use Microsoft\PhpParser\Node\Expression\ObjectCreationExpression;
 use Microsoft\PhpParser\Node\Expression\SubscriptExpression;
+use Microsoft\PhpParser\Node\Expression\ThrowExpression;
 use Microsoft\PhpParser\Node\Expression\Variable;
 use Microsoft\PhpParser\Node\MethodDeclaration;
 use Microsoft\PhpParser\Node\Statement\CompoundStatementNode;
@@ -130,7 +136,8 @@ final class ResourceResponseShapeExtractor
      * Full `$this->body = ...` assignments that would replace keys an `#[Embed]` placed before the method ran.
      *
      * Compound operators and right-hand sides that read `$this->body` keep those keys and are skipped.
-     * Assignments made inside helper methods are not seen.
+     * Closures, arrow functions and anonymous classes are not entered: they may never run, or their
+     * `$this` is another object. Assignments made inside helper methods are not seen.
      *
      * @return list<array{line: int, earlyExit: bool}>
      */
@@ -141,7 +148,7 @@ final class ResourceResponseShapeExtractor
             return [];
         }
         $replacements = [];
-        foreach ($body->getDescendantNodes() as $node) {
+        foreach ($this->methodLevelNodes($body) as $node) {
             if (
                 !$node instanceof AssignmentExpression
                 || !$node->leftOperand instanceof MemberAccessExpression
@@ -169,7 +176,11 @@ final class ResourceResponseShapeExtractor
         if ($guard->elseIfClauses !== [] || $guard->elseClause !== null) {
             return null;
         }
-        if ($this->containsSelfMethodCall($guard->expression)) {
+        // The condition runs on the main path too, so it must not call helpers or touch the body.
+        if (
+            $this->containsSelfMethodCall($guard->expression)
+            || $this->containsThisBody($guard->expression, $source)
+        ) {
             return null;
         }
         $statements = $guard->statements instanceof CompoundStatementNode
@@ -214,18 +225,51 @@ final class ResourceResponseShapeExtractor
         ];
     }
 
+    /** @return iterable<Node> descendants, without entering closures, arrow functions or anonymous classes */
+    private function methodLevelNodes(Node $node): iterable
+    {
+        foreach ($node->getChildNodes() as $child) {
+            if (
+                $child instanceof AnonymousFunctionCreationExpression
+                || $child instanceof ArrowFunctionCreationExpression
+                || $child instanceof ObjectCreationExpression && $child->classMembers !== null
+            ) {
+                continue;
+            }
+            yield $child;
+            yield from $this->methodLevelNodes($child);
+        }
+    }
+
+    /**
+     * Whether the node sits in a statement block, short of the method body, that ends by leaving the method
+     * with `return` or `throw`: an `if`, `elseif` or `else` block (braced or alternative syntax), or any
+     * nested braced block. Such an assignment does not reach the end of the method.
+     */
     private function insideExitingBlock(Node $node, CompoundStatementNode $methodBody): bool
     {
+        $child = $node;
         for ($parent = $node->parent; $parent !== null && $parent !== $methodBody; $parent = $parent->parent) {
-            if ($parent instanceof CompoundStatementNode && $parent->parent instanceof IfStatementNode) {
-                $statements = $parent->statements;
-                if (end($statements) instanceof ReturnStatement) {
-                    return true;
-                }
+            $statements = match (true) {
+                $parent instanceof CompoundStatementNode => $parent->statements,
+                ($parent instanceof IfStatementNode || $parent instanceof ElseIfClauseNode
+                    || $parent instanceof ElseClauseNode) && is_array($parent->statements)
+                    && in_array($child, $parent->statements, true) => $parent->statements,
+                default => null,
+            };
+            if ($statements !== null && $this->leavesMethod(end($statements))) {
+                return true;
             }
+            $child = $parent;
         }
 
         return false;
+    }
+
+    private function leavesMethod(mixed $statement): bool
+    {
+        return $statement instanceof ReturnStatement
+            || $statement instanceof ExpressionStatement && $statement->expression instanceof ThrowExpression;
     }
 
     private function supportedReturn(ReturnStatement $return): bool
