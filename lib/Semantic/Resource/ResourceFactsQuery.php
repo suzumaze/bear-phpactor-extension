@@ -149,20 +149,28 @@ final class ResourceFactsQuery
                 continue;
             }
 
+            $methodRelations = $this->relations($member, $member->getName(), $resource, $source);
+            $embedRels = [];
+            foreach ($methodRelations as $relation) {
+                if ($relation->kind === 'embed') {
+                    $embedRels[] = $relation->rel;
+                }
+            }
             $method = new ResourceMethodFact(
                 $member->getName(),
                 $this->parameters($member),
                 $this->responseShapeExtractor->extract($member, $source),
+                $embedRels === [] ? [] : array_map(
+                    static fn (array $replacement): array => [...$replacement, 'rels' => $embedRels],
+                    $this->responseShapeExtractor->bodyReplacements($member, $source),
+                ),
             );
             $methods[] = $method;
             array_push(
                 $attributes,
                 ...$this->attributeFacts($member, 'method', $method->name, $source),
             );
-            array_push(
-                $relations,
-                ...$this->relations($member, $method->name, $resource, $source),
-            );
+            array_push($relations, ...$methodRelations);
         }
 
         usort(

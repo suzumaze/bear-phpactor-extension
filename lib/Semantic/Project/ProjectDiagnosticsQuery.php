@@ -240,6 +240,7 @@ final class ProjectDiagnosticsQuery
                 $resourcePath->value->relative,
                 $items,
             );
+            $this->diagnoseEmbedReplacements($facts->value, $resourcePath->value->relative, $items);
             $this->diagnoseContracts(
                 $workspace,
                 $facts->value,
@@ -639,6 +640,27 @@ final class ProjectDiagnosticsQuery
                     'targetMethod' => $relation->targetMethod,
                 ],
             );
+        }
+    }
+
+    /**
+     * A full `$this->body = ...` assignment drops the keys `#[Embed]` put into the body before the method ran.
+     * Inside a guard that returns, it usually replaces the body on purpose, such as an error message.
+     *
+     * @param list<ProjectDiagnostic> $items
+     */
+    private function diagnoseEmbedReplacements(ResourceFacts $facts, string $relativePath, array &$items): void
+    {
+        foreach ($facts->methods as $method) {
+            foreach ($method->embedReplacements as $replacement) {
+                $items[] = new ProjectDiagnostic(
+                    $replacement['earlyExit'] ? 'embed_body_replaced_on_early_exit' : 'embed_body_replaced',
+                    SemanticStatus::Ok,
+                    $facts->resource->uri->uri() . '#' . $method->name,
+                    $relativePath,
+                    details: ['line' => $replacement['line'], 'rels' => $replacement['rels']],
+                );
+            }
         }
     }
 

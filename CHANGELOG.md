@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- Response body names are found in methods that return early. An `if` without `else` whose
+  block ends in `return $this;` (optionally after assigning one literal-key body) no longer makes
+  the method `unsupported`; `names` describe the path that reaches the end, and `earlyExits` lists
+  each guard with its line and the body there. A `$this` helper call inside the right-hand side of
+  the full `$this->body = [...]` assignment is also accepted, since it runs before the body is
+  written. Contract comparison and its diagnostics now cover these methods.
+
+- Diagnostics report a full `$this->body = ...` assignment in a method with `#[Embed]`, which drops
+  the embedded keys: `embed_body_replaced` on the main path, `embed_body_replaced_on_early_exit`
+  inside a guard that returns (usually an intentional error body). `bear/resource/describe` shows
+  the same as `responseBody.embedReplacements`.
+
 - Resource references, incoming relations, and the relations and Resource calls in a Resource
   description carry the 1-based `line` of their position next to the byte offset or range, so the
   place can be passed on to a person. Other byte positions (attribute ranges, schema titles, ALPS

@@ -46,7 +46,8 @@ and resolves its targets from saved workspace files; it does not rescan the proj
 each edit. Files that have not yet been saved once are not analyzed.
 
 The full saved-project query `bear/project/diagnostics` additionally checks Resource
-parse failures, Link/Embed target methods, and contract-name differences. The editor
+parse failures, Link/Embed target methods, full body assignments that drop `#[Embed]` keys,
+and contract-name differences. The editor
 provider intentionally omits those project-wide checks. It is named `bear` and follows
 Phpactor's standard `language_server.diagnostics_*` settings; include or exclude it
 through `language_server.diagnostic_providers` when selecting providers explicitly.
