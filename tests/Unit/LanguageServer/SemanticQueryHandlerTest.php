@@ -377,6 +377,18 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertCount(2, $response['data']['items']);
         self::assertSame('app://self/dashboard', $response['data']['items'][0]['sourceUri']);
         self::assertSame('src/Resource/App/Dashboard.php', $response['data']['items'][0]['sourcePath']);
+        // Lines of the two #[Embed] attributes, so a person can be told where to look.
+        self::assertSame([12, 13], array_column($response['data']['items'], 'line'));
+        // Both relations come from Dashboard.php: one evidence entry for the file, no repeated positions.
+        self::assertSame([
+            ['source' => 'derived', 'freshness' => 'saved'],
+            ['source' => 'file', 'path' => 'src/Resource/App/Dashboard.php', 'freshness' => 'saved'],
+            ['source' => 'file', 'path' => 'src/Resource/App/User.php', 'freshness' => 'saved'],
+        ], $response['provenance']);
+
+        $description = wait($handler->describeResource('app://self/dashboard'));
+        self::assertSame([18, 14, 17, 13, 12], array_column($description['data']['relationsOut'], 'line'));
+        self::assertSame([21], array_column($description['data']['referencesOut'], 'line'));
     }
 
     public function testFindsBoundedResourceReferencesWithoutADocumentPosition(): void
@@ -400,9 +412,33 @@ final class SemanticQueryHandlerTest extends TestCase
             ['resource_uri', 'resource_uri'],
             array_column($response['data']['references'], 'kind'),
         );
+        self::assertSame([9, 13], array_column($response['data']['references'], 'line'));
+        self::assertSame([
+            'src/Resource/App/Article.php',
+            'src/Resource/App/Articles.php',
+            'src/Resource/Page/Admin/Article.php',
+        ], array_column(array_slice($response['provenance'], 1), 'path'));
+        self::assertNotContains(true, array_map(
+            static fn (array $evidence): bool => isset($evidence['byteRange']),
+            $response['provenance'],
+        ));
         self::assertStringNotContainsString(
             $this->fixture('References'),
             json_encode($response, JSON_THROW_ON_ERROR),
+        );
+
+        // Route names are located in the route file the same way.
+        $page = wait($handler->findResourceReferences('page://self/article'));
+        self::assertSame(
+            [
+                ['route', 'aura.route.php', 5],
+                ['route', 'aura.route.php', 6],
+                ['resource_uri', 'src/Resource/App/PageCaller.php', 13],
+            ],
+            array_map(
+                static fn (array $reference): array => [$reference['kind'], $reference['path'], $reference['line']],
+                $page['data']['references'],
+            ),
         );
 
         $invalid = wait($handler->findResourceReferences('app://self/article', limit: 0));

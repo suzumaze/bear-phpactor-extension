@@ -17,6 +17,8 @@ final readonly class ResourceRelationFact
         public ?string $targetMethod,
         public string $sourceFile,
         public int $byteOffset,
+        /** 1-based line of $byteOffset */
+        public int $line,
     ) {
     }
 }

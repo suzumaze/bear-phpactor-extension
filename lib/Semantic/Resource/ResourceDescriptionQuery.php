@@ -133,13 +133,7 @@ final class ResourceDescriptionQuery
         $provenance = [Provenance::derived()];
         $this->addFileProvenance($workspace, $provenance, $facts->resource->file);
         foreach ($incoming->relations as $relation) {
-            $this->addFileProvenance(
-                $workspace,
-                $provenance,
-                $relation->sourceFile,
-                $relation->byteOffset,
-                $relation->byteOffset,
-            );
+            $this->addFileProvenance($workspace, $provenance, $relation->sourceFile);
         }
         foreach ($templates as $template) {
             if ($template->templateFile !== null) {
@@ -163,12 +157,10 @@ final class ResourceDescriptionQuery
         WorkspaceContext $workspace,
         array &$provenance,
         string $file,
-        ?int $byteStart = null,
-        ?int $byteEnd = null,
     ): void {
         $path = $workspace->accessPolicy()->inspectExisting($file);
         if ($path->value !== null) {
-            $provenance[] = Provenance::savedFile($path->value->relative, $byteStart, $byteEnd);
+            $provenance[] = Provenance::savedFile($path->value->relative);
         }
     }
 }

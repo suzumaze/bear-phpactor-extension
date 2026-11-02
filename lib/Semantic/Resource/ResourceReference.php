@@ -18,6 +18,8 @@ final readonly class ResourceReference
         public string $file,
         public int $contentStart,
         public int $contentEnd,
+        /** 1-based line of $contentStart */
+        public int $line,
     ) {
     }
 }

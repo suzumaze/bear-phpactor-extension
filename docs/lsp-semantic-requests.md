@@ -170,7 +170,10 @@ contain an `error` object with a stable snake_case `code` and a safe human-reada
 Disk-backed facts use `freshness: saved`; `buffer` is reserved for a future query that
 actually reads an LSP document buffer. `source: derived` carries no path and marks a
 result composed from other evidence. Token-specific evidence can additionally contain
-`byteRange: {start, end}`. Provenance is deduplicated and sorted deterministically, and
+`byteRange: {start, end}`. When each returned item already carries its own position, as in
+`bear/resource/references`, `bear/resource/incomingRelations` and `bear/resource/describe`,
+provenance lists each file once without a range. Provenance is deduplicated and sorted
+deterministically, and
 its DTO rejects absolute paths, parent traversal, and Windows absolute paths.
 
 `bear/project/info` is the connection, API-version, and capability check for headless clients. It
@@ -526,7 +529,9 @@ basename suggestion search; directory symlinks are not traversed.
 For `bear/resource/describe`, `relationsOut` contains only declarative `#[Link]` and
 `#[Embed]` relations. `referencesOut` contains direct static Resource client calls
 such as `$this->resource->get('app://self/user')`, including their call, source method,
-target method, source range, and confidence. Dynamic URIs and differently named client
+target method, source range, and confidence. Relations carry the attribute's start as
+`byteOffset`, Resource calls a `byteRange`; both also carry the 1-based `line` of that start.
+The same applies to `bear/resource/incomingRelations` items. Dynamic URIs and differently named client
 properties are not inferred. `relationsOutCoverage` and `referencesOutCoverage` state
 these boundaries explicitly, so an empty list does not claim that the Resource has no
 runtime dependencies.
@@ -652,7 +657,8 @@ name is not evidence that types, constraints, or meanings match.
 a Resource URI but no open text document or LSP position. When a position is available,
 clients should continue to use standard `textDocument/references`. Each returned static
 reference contains `kind` (`resource_uri` or `route`), the original `identifier`, a
-workspace-relative `path`, and a content-only byte range. Equal URI text is included only
+workspace-relative `path`, a content-only byte range, and the 1-based `line` where the range
+starts. Equal URI text is included only
 after resolving from that source file's project context to the same canonical Resource;
 mini applications are not conflated. Results default to 50 items, accept at most 200,
 and expose the complete `total` plus `truncated`. The standard positional request remains

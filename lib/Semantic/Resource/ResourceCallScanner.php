@@ -68,6 +68,7 @@ final class ResourceCallScanner
                 $file,
                 $literal->getStartPosition() + 1,
                 $literal->getEndPosition() - 1,
+                substr_count($source, "\n", 0, $literal->getStartPosition()) + 1,
             );
         }
 

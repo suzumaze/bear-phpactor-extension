@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- Resource references, incoming relations, and the relations and Resource calls in a Resource
+  description carry the 1-based `line` of their position next to the byte offset or range, so the
+  place can be passed on to a person. Other byte positions (attribute ranges, schema titles, ALPS
+  descriptors, DI declarations) are unchanged.
+
+- Provenance for those three requests lists each file once without a byte range, since every item
+  already carries its own position. Previously each item's position was repeated in provenance; for
+  an incoming relation it appeared as a zero-length range at the attribute's start. On BEAR.Kata,
+  `app://self/article` references with limit 5 shrink from 118 to 98 lines of JSON.
+
 ## [0.3.7] - 2026-10-31
 
 - Binding lookup shows a binding whose `to()` or `toProvider()` target is chosen by a ternary with

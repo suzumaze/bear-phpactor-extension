@@ -332,6 +332,7 @@ final class ResourceFactsQuery
                 $targetMethod,
                 $resource->file,
                 $attribute->getStartPosition(),
+                substr_count($source, "\n", 0, $attribute->getStartPosition()) + 1,
             );
         }
 
