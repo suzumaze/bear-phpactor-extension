@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.8] - 2026-11-03
+
 - Response body names are found in methods that return early. An `if` without `else` whose
   block ends in `return $this;` (optionally after assigning one literal-key body) no longer makes
   the method `unsupported`; `names` describe the path that reaches the end, and `earlyExits` lists
