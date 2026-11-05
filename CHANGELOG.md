@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.9] - 2026-11-05
+
 - `bear/resource/describe` reads the body a Resource class declares in its own docblock
   (`@property array{...} $body`, also `-read` and the `@phpstan-` / `@psalm-` forms) and returns
   it as `declaredBody`, each union member a variant with its top-level keys, their types as written
