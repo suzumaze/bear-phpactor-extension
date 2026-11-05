@@ -1104,6 +1104,8 @@ final class SemanticQueryHandler implements Handler
     /** @return array<string,mixed> */
     private function resourceFactsData(ResourceFacts $facts): array
     {
+        $declared = $facts->declaredBody?->hasKeyedVariant() === true ? $facts->declaredBody : null;
+
         return [
             'resource' => $this->resourceData($facts->resource),
             'methods' => array_map(
@@ -1120,14 +1122,32 @@ final class SemanticQueryHandler implements Handler
                         'status' => $method->responseShape->complete ? 'ok' : 'unsupported',
                         'names' => $method->responseShape->names,
                         'reason' => $method->responseShape->reason,
-                        ...($method->responseShape->earlyExits === []
-                            ? [] : ['earlyExits' => $method->responseShape->earlyExits]),
+                        // `none` rather than null: the LSP transport drops null members, and "no variant fits"
+                        // must stay apart from "not compared".
+                        ...($declared === null || !$method->responseShape->complete ? [] : [
+                            'declaredVariant' => $declared->matchingVariant($method->responseShape->names) ?? 'none',
+                        ]),
+                        ...($method->responseShape->earlyExits === [] ? [] : ['earlyExits' => array_map(
+                            static fn (array $exit): array => $declared === null || $exit['names'] === null
+                                ? $exit
+                                : [...$exit, 'declaredVariant' => $declared->matchingVariant($exit['names']) ?? 'none'],
+                            $method->responseShape->earlyExits,
+                        )]),
                         ...($method->embedReplacements === []
                             ? [] : ['embedReplacements' => $method->embedReplacements]),
                     ],
                 ],
                 $facts->methods,
             ),
+            ...($facts->declaredBody === null ? [] : ['declaredBody' => [
+                'source' => 'docblock',
+                'tag' => $facts->declaredBody->tag,
+                'line' => $facts->declaredBody->line,
+                'status' => $facts->declaredBody->readable ? 'ok' : 'unsupported',
+                'reason' => $facts->declaredBody->reason,
+                'variants' => $facts->declaredBody->variants,
+                'typesResolved' => false,
+            ]]),
             'relationsOut' => array_map(
                 $this->relationData(...),
                 $facts->outgoingRelations,

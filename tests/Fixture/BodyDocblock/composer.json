@@ -1,0 +1,8 @@
+{
+    "name": "fixture/body-docblock",
+    "autoload": {
+        "psr-4": {
+            "BodyDocblock\\": "src/"
+        }
+    }
+}
