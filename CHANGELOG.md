@@ -10,7 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (`@property array{...} $body`, also `-read` and the `@phpstan-` / `@psalm-` forms) and returns
   it as `declaredBody`, each union member a variant with its top-level keys, their types as written
   and whether they are optional. Where the code proves the names on a path, `declaredVariant`
-  points at the variant they fit, or is `null` when none fits (a docblock that is out of date).
+  points at the variant they fit, or is `"none"` when none fits (a docblock that is out of date).
   The declaration is reported apart from the proven `names` and never changes them. Types are not
   resolved and parents and traits are not read; values built by helper methods without such a
   docblock are not covered. The docblock is parsed with `phpstan/phpdoc-parser`, now a dependency.

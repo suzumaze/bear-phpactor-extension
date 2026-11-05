@@ -1122,12 +1122,15 @@ final class SemanticQueryHandler implements Handler
                         'status' => $method->responseShape->complete ? 'ok' : 'unsupported',
                         'names' => $method->responseShape->names,
                         'reason' => $method->responseShape->reason,
+                        // `none` rather than null: the LSP transport drops null members, and "no variant fits"
+                        // must stay apart from "not compared".
                         ...($declared === null || !$method->responseShape->complete ? [] : [
-                            'declaredVariant' => $declared->matchingVariant($method->responseShape->names),
+                            'declaredVariant' => $declared->matchingVariant($method->responseShape->names) ?? 'none',
                         ]),
                         ...($method->responseShape->earlyExits === [] ? [] : ['earlyExits' => array_map(
                             static fn (array $exit): array => $declared === null || $exit['names'] === null
-                                ? $exit : [...$exit, 'declaredVariant' => $declared->matchingVariant($exit['names'])],
+                                ? $exit
+                                : [...$exit, 'declaredVariant' => $declared->matchingVariant($exit['names']) ?? 'none'],
                             $method->responseShape->earlyExits,
                         )]),
                         ...($method->embedReplacements === []

@@ -680,8 +680,9 @@ cannot read has status `unsupported` and reason `unreadable_docblock`. The decla
 changes `names` or `status`: it is what the author wrote, not what the code was shown to produce.
 Where both are known, `responseBody.declaredVariant` (for the end of the method) and each
 `earlyExits[].declaredVariant` give the index of the first array-shape variant whose keys fit the
-proven names (every required key present, no extra name unless the shape is open), or `null` when
-none does, which usually means the docblock is out of date.
+proven names (every required key present, no extra name unless the shape is open), or `"none"`
+when none does, which usually means the docblock is out of date. The member is absent when there is
+nothing to compare.
 
 Every surface independently reports `status`, `subject`, and sorted `names`. The
 `comparison` member is `null` until at least two surfaces are `ok`; otherwise it

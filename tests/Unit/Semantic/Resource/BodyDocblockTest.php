@@ -49,7 +49,7 @@ final class BodyDocblockTest extends TestCase
         // PHPStan reads its own tag before the plain `@property array<string, mixed>`.
         self::assertSame(['@phpstan-property', 11], [$data['declaredBody']['tag'], $data['declaredBody']['line']]);
         self::assertSame(
-            ['onGet' => null, 'onPost' => 0],
+            ['onGet' => 'none', 'onPost' => 0],
             $this->variants($data),
         );
     }
@@ -69,7 +69,7 @@ final class BodyDocblockTest extends TestCase
             $nullable['declaredBody']['variants'],
         );
         // An empty body is neither `array{count: ?int}` nor null.
-        self::assertSame(['onDelete' => null, 'onGet' => 0], $this->variants($nullable));
+        self::assertSame(['onDelete' => 'none', 'onGet' => 0], $this->variants($nullable));
 
         $listing = $this->describe('page://self/listing');
         self::assertSame([['type' => 'list<string>'], ['keys' => []]], $listing['declaredBody']['variants']);
@@ -92,7 +92,7 @@ final class BodyDocblockTest extends TestCase
 
     /**
      * @param array<string, mixed> $data
-     * @return array<string, int|null>
+     * @return array<string, int|string>
      */
     private function variants(array $data): array
     {
