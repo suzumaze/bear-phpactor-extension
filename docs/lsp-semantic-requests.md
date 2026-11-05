@@ -486,7 +486,7 @@ load module PHP, construct a DI container, or execute the application.
 | `bear/attribute/catalog` | `{applicationContext?, attribute?, contextPath?, limit?, offset?}` | `{applicationContext, items, total, offset, truncated, scannedFiles, skippedFiles, scanTruncated, unknowns, unknownTotal, coverage}` |
 | `bear/resource/resolve` | `{uri, contextPath?}` | `{uri, fqn, path}` |
 | `bear/resource/list` | `{scheme?, prefix?, limit?, offset?}` | `{resources, total, offset, truncated}` |
-| `bear/resource/describe` | `{uri, contextPath?, incomingLimit?, applicationContext?}` | `{resource, methods[{name, parameters, responseBody}], relationsOut, relationsOutCoverage, referencesOut, referencesOutCoverage, relationsIn, templates, schemas}` |
+| `bear/resource/describe` | `{uri, contextPath?, incomingLimit?, applicationContext?}` | `{resource, methods[{name, parameters, responseBody}], declaredBody?, relationsOut, relationsOutCoverage, referencesOut, referencesOutCoverage, relationsIn, templates, schemas}` |
 | `bear/resource/attributes` | `{uri, contextPath?}` | `{resource, attributes, argumentPolicy}` |
 | `bear/resource/attributeIndex` | `{scheme?, prefix?, limit?, offset?}` | `{items, total, offset, truncated, argumentPolicy}` |
 | `bear/resource/incomingRelations` | `{uri, contextPath?, limit?}` | `{resource, available, items, total, truncated}` |
@@ -669,6 +669,19 @@ drop, matching the diagnostics above. Unsupported shapes have no names and a sta
 `no_complete_body_assignment`, `complex_control_flow`, `dynamic_body_assignment`, or
 `dynamic_body_key`. These are exact observations of explicit method-body construction,
 not a claim about runtime interceptors or semantic/type compatibility.
+
+When the Resource class's own docblock declares the body (`@property`, `@property-read`, or their
+`@phpstan-` / `@psalm-` forms, prefixed tags first), the description adds `declaredBody: {source:
+"docblock", tag, line, status, reason, variants, typesResolved: false}`. Each union member is one
+variant: an array shape with string keys becomes `{keys[{name, type, optional}], open?}` (`open`
+for `array{a: int, ...}`), anything else becomes `{type}`. Types are the docblock text on one line;
+class names are not resolved, and parents and traits are not read. A tag the docblock parser
+cannot read has status `unsupported` and reason `unreadable_docblock`. The declaration never
+changes `names` or `status`: it is what the author wrote, not what the code was shown to produce.
+Where both are known, `responseBody.declaredVariant` (for the end of the method) and each
+`earlyExits[].declaredVariant` give the index of the first array-shape variant whose keys fit the
+proven names (every required key present, no extra name unless the shape is open), or `null` when
+none does, which usually means the docblock is out of date.
 
 Every surface independently reports `status`, `subject`, and sorted `names`. The
 `comparison` member is `null` until at least two surfaces are `ok`; otherwise it

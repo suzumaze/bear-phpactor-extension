@@ -62,6 +62,7 @@ final class ResourceFactsQuery
         private ResourceResponseShapeExtractor $responseShapeExtractor = new ResourceResponseShapeExtractor(),
         private int $maxCacheEntries = self::MAX_CACHE_ENTRIES,
         private ResourceCallScanner $resourceCallScanner = new ResourceCallScanner(),
+        private ResourceDeclaredBodyReader $declaredBodyReader = new ResourceDeclaredBodyReader(),
     ) {
     }
 
@@ -212,7 +213,14 @@ final class ResourceFactsQuery
         $outgoingReferences = $this->resourceCallScanner->scan($class, $source, $path->value->absolute);
 
         $result = SemanticResult::ok(
-            new ResourceFacts($resource, $methods, $relations, $attributes, $outgoingReferences),
+            new ResourceFacts(
+                $resource,
+                $methods,
+                $relations,
+                $attributes,
+                $outgoingReferences,
+                $this->declaredBodyReader->read($class, $source),
+            ),
             [Provenance::savedFile($path->value->relative)],
         );
         $this->cacheResult($cacheKey, $fingerprint, $result);

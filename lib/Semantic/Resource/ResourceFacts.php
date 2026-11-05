@@ -18,6 +18,8 @@ final readonly class ResourceFacts
         public array $outgoingRelations,
         public array $attributes = [],
         public array $outgoingReferences = [],
+        /** `@property ... $body` in the class's own docblock; null when it declares none */
+        public ?ResourceDeclaredBody $declaredBody = null,
     ) {
     }
 }
