@@ -38,6 +38,7 @@ use Suzumaze\BearPhpactor\Semantic\Project\ProjectInfoQuery;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectDiagnostic;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectDiagnostics;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectDiagnosticsQuery;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceBodyTypeResolver;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescription;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceDescriptionQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceAttributeFact;
@@ -122,6 +123,8 @@ final class SemanticQueryHandler implements Handler
         private DiContainerQuery $diContainerQuery = new DiContainerQuery(),
         private DiBindingLookupQuery $diBindingLookupQuery = new DiBindingLookupQuery(),
         private AppContextListQuery $appContextListQuery = new AppContextListQuery(),
+        /** inferred body value types in `bear/resource/describe`; left out when null */
+        private ?ResourceBodyTypeResolver $bodyTypeResolver = null,
     ) {
         $this->workspace = WorkspaceContext::fromRoot($workspaceRoot);
         $this->resourceFactsQuery = $resourceFactsQuery;
@@ -1109,7 +1112,7 @@ final class SemanticQueryHandler implements Handler
         return [
             'resource' => $this->resourceData($facts->resource),
             'methods' => array_map(
-                static fn ($method): array => [
+                fn ($method): array => [
                     'name' => $method->name,
                     'parameters' => array_map(
                         static fn ($parameter): array => [
@@ -1135,6 +1138,15 @@ final class SemanticQueryHandler implements Handler
                         )]),
                         ...($method->embedReplacements === []
                             ? [] : ['embedReplacements' => $method->embedReplacements]),
+                        // Computed on every describe: the types depend on files other than the Resource.
+                        ...($this->bodyTypeResolver === null || $method->responseShape->valueRanges === []
+                            ? [] : ['inferredTypes' => [
+                                'source' => 'phpactor',
+                                'items' => $this->bodyTypeResolver->resolve(
+                                    $facts->resource->file,
+                                    $method->responseShape->valueRanges,
+                                ),
+                            ]]),
                     ],
                 ],
                 $facts->methods,
