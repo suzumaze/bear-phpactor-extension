@@ -163,11 +163,12 @@ proves a narrower result without proving the requested target. In particular,
 paths when the Resource exists but no template does. Phpactor's stdio serializer omits
 every member whose value is null, at any depth of the response, so `data` and a null
 template `path` are absent on the wire even though direct in-process handler calls
-represent them as null. The same holds wherever this document calls a member absent:
-the handler holds null there, and unless the member's description names another case
-in which it is left out, absence means exactly that null. Failed results also
-contain an `error` object with a stable snake_case `code` and a safe human-readable
-`message`; no exception trace is exposed.
+represent them as null. A member can therefore be absent on the wire for two reasons:
+the handler left it null, or never set it. Where this document calls a member absent
+without telling these apart, only one of them occurs; a member that can be absent both
+ways uses a string value for one of them, as `declaredVariant` does with `"none"`.
+Failed results also contain an `error` object with a stable snake_case `code` and a safe
+human-readable `message`; no exception trace is exposed.
 
 `provenance` records the workspace-relative evidence used by the semantic query.
 Disk-backed facts use `freshness: saved`; `buffer` is reserved for a future query that

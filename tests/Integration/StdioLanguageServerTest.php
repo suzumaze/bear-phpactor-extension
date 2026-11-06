@@ -209,8 +209,8 @@ PHP;
             $attributes = $client->request('bear/resource/attributes', ['uri' => 'app://self/entry'], 20.0);
             self::assertArrayNotHasKey('error', $attributes, $client->stderr());
             self::assertSame(
-                ['name' => 'method', 'type' => 'dynamic'],
-                $attributes['result']['data']['attributes'][0]['arguments'][2] ?? null,
+                [['name' => 'method', 'type' => 'dynamic'], ['name' => 'title', 'type' => 'null']],
+                array_slice($attributes['result']['data']['attributes'][0]['arguments'] ?? [], 2),
             );
 
             $contract = $client->request('bear/contract/compare', [

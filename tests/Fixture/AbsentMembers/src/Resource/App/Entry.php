@@ -12,7 +12,7 @@ final class Entry extends ResourceObject
     private const EDIT_METHOD = 'put';
 
     // Each member the handler leaves null here is absent from the stdio response.
-    #[Link(rel: 'edit', href: 'app://self/entry{?id}', method: self::EDIT_METHOD)]
+    #[Link(rel: 'edit', href: 'app://self/entry{?id}', method: self::EDIT_METHOD, title: null)]
     public function onGet(int $id): static
     {
         if ($id === 0) {
