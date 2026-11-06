@@ -161,8 +161,11 @@ proves a narrower result without proving the requested target. In particular,
 `bear/template/forResource` returns `not_found` with no successful `data` and a
 `partial` object containing the resolved Resource and ordered `searched` convention
 paths when the Resource exists but no template does. Phpactor's stdio serializer omits
-null object members, so `data` and a null template `path` are absent on the wire even
-though direct in-process handler calls represent them as null. Failed results also
+every member whose value is null, at any depth of the response, so `data` and a null
+template `path` are absent on the wire even though direct in-process handler calls
+represent them as null. The same holds wherever this document calls a member absent:
+the handler holds null there, and unless the member's description names another case
+in which it is left out, absence means exactly that null. Failed results also
 contain an `error` object with a stable snake_case `code` and a safe human-readable
 `message`; no exception trace is exposed.
 
@@ -293,9 +296,9 @@ and `byteRange`, and adds:
 | Field | Meaning |
 | --- | --- |
 | `kind` | `class`, `provider`, `instance`, `constructor`, `null`, or `untargeted` |
-| `qualifier` | Explicit qualifier, or null when absent/unresolved |
-| `scope` | Declared `in()` scope normalized to `singleton` or `prototype`, or null when absent/unresolved |
-| `valueType` | For instance bindings, a PHP `gettype()` name (`string`, `integer`, `double`, `boolean`, `NULL`, `array`, `object`) fixed by the expression form alone: literals, `::class`, explicit casts, or `new`; otherwise null |
+| `qualifier` | Explicit qualifier; absent when none is declared or it is unresolved |
+| `scope` | Declared `in()` scope normalized to `singleton` or `prototype`; absent when none is declared or it is unresolved |
+| `valueType` | For instance bindings, a PHP `gettype()` name (`string`, `integer`, `double`, `boolean`, `NULL`, `array`, `object`) fixed by the expression form alone: literals, `::class`, explicit casts, or `new`; otherwise absent |
 
 The `kind` values are stable protocol identifiers, not user-facing Ray.Di terminology.
 In a Japanese display, label `class` as **リンク束縛** (`to()`), `provider` as
@@ -342,7 +345,7 @@ problem in the chain wins:
 | `binding_untargeted_type_missing` | `bind()` without a type and without a target |
 | `binding_chain_retained` | The `Bind` is assigned to a variable or property; later statements may add a qualifier, target or scope that this chain reader does not follow |
 
-Null item members may be omitted by the stdio transport.
+Null item members are omitted by the stdio transport.
 
 Without `applicationContext`, the result is a project-wide declaration inventory.
 With a literal context such as `dev-html-app`, it is restricted to workspace modules
@@ -428,7 +431,7 @@ subclasses in the key, selected target or discarded target. Filtering precedes p
 Every item is `provisional` if composition has any unknown; `source_selected` is selection under
 supported source rules, never a runtime observation. An item is `branch_dependent` when its
 `to()`/`toProvider()` target is a ternary whose condition is unknown and whose arms are class
-strings: `selected.target` is null, `selected.branches` lists both targets (`condition_true`,
+strings: `selected.target` is absent, `selected.branches` lists both targets (`condition_true`,
 `condition_false`), and `selected.condition` gives the condition's path, line and the variable
 names it reads through `getenv()` (never their values). The matching unknown has reason
 `target_branch` and also carries the bound `type`, `name`, `branches` and `condition`. Empty results do not prove unboundness.
@@ -619,9 +622,9 @@ Resource attribute facts are deliberately allowlisted. The current set is `Alps`
 `Embed`, `JsonSchema`, and `Link`, matched by fully qualified class name. Class-level
 attributes and attributes on public Resource `on*` methods are returned with target,
 method name, FQN, saved-file byte range, and source-order arguments. Static strings,
-numbers, booleans, and `null` are typed explicitly. Expressions, constants, calls,
-and over-limit strings are returned as `{type: "dynamic", value: null}` rather than
-evaluated or guessed. Application PHP is never loaded or executed.
+numbers, booleans, and `null` are typed explicitly; a `null` literal arrives as
+`{type: "null"}` with no `value`. Expressions, constants, calls, and over-limit strings
+are returned as `{type: "dynamic"}` with no `value` rather than evaluated or guessed. Application PHP is never loaded or executed.
 
 Both attribute requests return `argumentPolicy: {source: "explicit_only",
 constructorDefaultsExpanded: false}`. An omitted argument therefore means only that it
@@ -660,9 +663,9 @@ executed.
 
 Each `bear/resource/describe` method reports the same evidence as
 `responseBody: {status, names, reason}`. A complete shape has status `ok`, sorted names,
-and a null reason. When guards return early, `earlyExits` lists each one with its 1-based
-`line`, whether it assigns the body (`bodyAssigned`), and the names the body has there, or
-`null` when the body at that point is not known (for example before the full assignment,
+and no `reason`. When guards return early, `earlyExits` lists each one with its 1-based
+`line`, whether it assigns the body (`bodyAssigned`), and the `names` the body has there;
+`names` is absent when the body at that point is not known (for example before the full assignment,
 when only `#[Embed]` or the caller decided it). In a method with `#[Embed]`,
 `embedReplacements` lists full body assignments with `line`, `earlyExit` and the `rels` they
 drop, matching the diagnostics above. Unsupported shapes have no names and a stable reason such as
@@ -685,7 +688,7 @@ when none does, which usually means the docblock is out of date. The member is a
 nothing to compare.
 
 Every surface independently reports `status`, `subject`, and sorted `names`. The
-`comparison` member is `null` until at least two surfaces are `ok`; otherwise it
+`comparison` member is absent until at least two surfaces are `ok`; otherwise it
 contains the compared sources, intersection, names exclusive to one surface, and a
 lossless per-name presence list. These are saved-file observations only. A matching
 name is not evidence that types, constraints, or meanings match.
@@ -700,7 +703,7 @@ after resolving from that source file's project context to the same canonical Re
 mini applications are not conflated. Results default to 50 items, accept at most 200,
 and expose the complete `total` plus `truncated`. The standard positional request remains
 unlimited and preserves Phpactor's reference-finder chain.
-For a Link with a dynamic explicit method, `targetMethod` is `null`; an omitted
+For a Link with a dynamic explicit method, `targetMethod` is absent; an omitted
 method uses BEAR.Resource's `get` default. Relation byte offsets refer to the saved
 PHP file. Incoming results default to 50 items and accept at most 200; the complete
 current workspace Resource inventory is considered before `total` and `truncated`
