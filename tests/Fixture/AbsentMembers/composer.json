@@ -1,0 +1,8 @@
+{
+    "name": "fixture/absent-members",
+    "autoload": {
+        "psr-4": {
+            "AbsentMembers\\": "src/"
+        }
+    }
+}

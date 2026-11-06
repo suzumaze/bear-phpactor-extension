@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- The semantic request documentation now describes what clients receive over stdio: Phpactor's
+  serializer drops every null member, so members the handler leaves null are absent on the wire.
+  This covers the body `reason` and early-exit `names` in `bear/resource/describe`, a dynamic
+  Link's `targetMethod`, the `value` of `dynamic` and `null` attribute arguments, the contract
+  `comparison`, DI `qualifier`, `scope`, `valueType` and a branch-dependent `selected.target`.
+  Responses are unchanged; a stdio test pins the absence.
+
 ## [0.3.9] - 2026-11-05
 
 - `bear/resource/describe` reads the body a Resource class declares in its own docblock

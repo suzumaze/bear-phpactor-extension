@@ -171,6 +171,68 @@ PHP;
         }
     }
 
+    /**
+     * Phpactor's serializer drops null members, so members the docs call absent must be missing on the wire
+     * while their siblings arrive.
+     */
+    public function testRealPhpactorStdioOmitsMembersTheHandlerLeavesNull(): void
+    {
+        $fixture = dirname(__DIR__) . '/Fixture/AbsentMembers';
+        $client = StdioLspClient::start(
+            $this->command($fixture),
+            $fixture,
+            $this->environment(),
+        );
+
+        try {
+            $initialize = $client->request('initialize', [
+                'processId' => getmypid(),
+                'rootUri' => $this->fileUri($fixture),
+                'capabilities' => (object) [],
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $initialize, $client->stderr());
+            $client->notify('initialized');
+
+            $description = $client->request('bear/resource/describe', ['uri' => 'app://self/entry'], 20.0);
+            self::assertArrayNotHasKey('error', $description, $client->stderr());
+            self::assertSame('ok', $description['result']['status'] ?? null);
+            $body = $description['result']['data']['methods'][0]['responseBody'] ?? [];
+            self::assertSame('ok', $body['status'] ?? null);
+            self::assertSame(['id'], $body['names'] ?? null);
+            self::assertArrayNotHasKey('reason', $body);
+            // The guard returns before the body is written, so its names are not known.
+            self::assertSame([['line' => 18, 'bodyAssigned' => false]], $body['earlyExits'] ?? null);
+            $relation = $description['result']['data']['relationsOut'][0] ?? [];
+            self::assertSame('app://self/entry', $relation['targetUri'] ?? null);
+            self::assertArrayNotHasKey('targetMethod', $relation);
+
+            $attributes = $client->request('bear/resource/attributes', ['uri' => 'app://self/entry'], 20.0);
+            self::assertArrayNotHasKey('error', $attributes, $client->stderr());
+            self::assertSame(
+                [['name' => 'method', 'type' => 'dynamic'], ['name' => 'title', 'type' => 'null']],
+                array_slice($attributes['result']['data']['attributes'][0]['arguments'] ?? [], 2),
+            );
+
+            $contract = $client->request('bear/contract/compare', [
+                'uri' => 'app://self/entry',
+                'method' => 'onGet',
+                'schemaKind' => 'response',
+            ], 20.0);
+            self::assertArrayNotHasKey('error', $contract, $client->stderr());
+            self::assertSame(
+                ['ok', 'not_found', 'not_found'],
+                array_column($contract['result']['data']['surfaces'] ?? [], 'status'),
+            );
+            self::assertArrayNotHasKey('comparison', $contract['result']['data'] ?? []);
+
+            $shutdown = $client->request('shutdown', [], 10.0);
+            self::assertArrayNotHasKey('error', $shutdown, $client->stderr());
+            $client->notify('exit');
+        } finally {
+            $client->close();
+        }
+    }
+
     public function testRealPhpactorStdioInvalidatesResourceInventoryFromWatchedFileNotification(): void
     {
         $workspace = $this->runtimeDirectory . '/inventory-workspace';
