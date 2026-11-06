@@ -624,7 +624,8 @@ attributes and attributes on public Resource `on*` methods are returned with tar
 method name, FQN, saved-file byte range, and source-order arguments. Static strings,
 numbers, booleans, and `null` are typed explicitly; a `null` literal arrives as
 `{type: "null"}` with no `value`. Expressions, constants, calls, and over-limit strings
-are returned as `{type: "dynamic"}` with no `value` rather than evaluated or guessed. Application PHP is never loaded or executed.
+are returned as `{type: "dynamic"}` with no `value` rather than evaluated or guessed.
+Application PHP is never loaded or executed.
 
 Both attribute requests return `argumentPolicy: {source: "explicit_only",
 constructorDefaultsExpanded: false}`. An omitted argument therefore means only that it
