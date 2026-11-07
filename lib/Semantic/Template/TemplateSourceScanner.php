@@ -18,21 +18,31 @@ final readonly class TemplateSourceScanner
 {
     private const MAX_TEMPLATE_BYTES = 1_048_576;
 
-    /** @return iterable<TemplateSource> */
-    public function scan(WorkspaceContext $workspace, Project $project, ?string $engine = null): iterable
-    {
+    /**
+     * @param string|null $qiqRoot the directory BEAR.QiqModule was given, when known (see QiqTemplateRoot)
+     * @return iterable<TemplateSource>
+     */
+    public function scan(
+        WorkspaceContext $workspace,
+        Project $project,
+        ?string $engine = null,
+        ?string $qiqRoot = null,
+    ): iterable {
         $engines = $engine === null
             ? [TemplateReference::ENGINE_QIQ, TemplateReference::ENGINE_TWIG]
             : [$engine];
         $files = [];
         foreach ($engines as $candidateEngine) {
             $roots = match ($candidateEngine) {
-                TemplateReference::ENGINE_TWIG => TemplatePathResolver::TWIG_ROOTS,
-                TemplateReference::ENGINE_QIQ => [TemplatePathResolver::QIQ_ROOT],
+                TemplateReference::ENGINE_TWIG => array_map(
+                    static fn (string $root): string => $project->root() . '/' . $root,
+                    TemplatePathResolver::TWIG_ROOTS,
+                ),
+                TemplateReference::ENGINE_QIQ => [$qiqRoot ?? $project->root() . '/' . TemplatePathResolver::QIQ_ROOT],
                 default => [],
             };
             foreach ($roots as $root) {
-                $rootPath = $workspace->accessPolicy()->inspectExisting($project->root() . '/' . $root);
+                $rootPath = $workspace->accessPolicy()->inspectExisting($root);
                 if ($rootPath->value === null || !is_dir($rootPath->value->absolute)) {
                     continue;
                 }

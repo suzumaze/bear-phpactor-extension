@@ -15,4 +15,5 @@
     <exclude-pattern>tests/Fixture/JsonSchema/basic/src/Resource/App/Cache/(ArticlePreview|ArticleList|ArticleTags|AuthorProfile|AuthorList|Orphan)\.php</exclude-pattern>
     <exclude-pattern>tests/Fixture/JsonSchema/basic/src/Resource/Page/Admin/UserProfile\.php</exclude-pattern>
     <exclude-pattern>tests/Fixture/Template/basic/var/qiq/template/.*\.php</exclude-pattern>
+    <exclude-pattern>tests/Fixture/QiqTemplates(Dynamic)?/(templates|var/qiq/template)/.*\.php</exclude-pattern>
 </ruleset>

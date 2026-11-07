@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- Qiq templates are found in the directory the application gives BEAR.QiqModule
+  (`new QiqModule(dirname(__DIR__, 2) . '/templates')`), read from the DI modules without running
+  them, instead of only in `var/qiq/template`. Before, an application that keeps its templates
+  elsewhere got `not_found` from `bear/template/forResource` and `bear/template/resolve`, and an
+  empty `templates` from `bear/resource/describe`, although the templates exist. A directory known
+  only at runtime is `unsupported`, and `bear/resource/describe` reports it as
+  `templatesUnresolved: ["qiq"]` instead of failing. Projects without BEAR.QiqModule are unchanged.
+
 ## [0.3.11] - 2026-11-07
 
 - `responseBody.inferredTypes` gets a new `kind`, `iterable`, for values declared `iterable`

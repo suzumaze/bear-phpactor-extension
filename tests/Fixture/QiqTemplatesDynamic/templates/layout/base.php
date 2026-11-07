@@ -1,0 +1,1 @@
+<html>{{= $this->getContent() }}</html>

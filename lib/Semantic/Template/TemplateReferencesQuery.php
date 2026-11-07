@@ -7,7 +7,9 @@ namespace Suzumaze\BearPhpactor\Semantic\Template;
 use Phpactor\TextDocument\TextDocumentBuilder;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaDirectoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
+use Suzumaze\BearPhpactor\Template\TemplateReference;
 use Suzumaze\BearPhpactor\Template\TemplateReferenceScanner;
 use Throwable;
 
@@ -30,7 +32,9 @@ final class TemplateReferencesQuery
         string $name,
         ?string $contextPath = null,
     ): SemanticResult {
-        $target = $this->templateQuery->resolveInWorkspace($workspace, $engine, $name, $contextPath);
+        // One composition of the DI contexts serves every Qiq lookup of this request.
+        $directories = new SchemaDirectoryQuery();
+        $target = $this->templateQuery->resolveInWorkspace($workspace, $engine, $name, $contextPath, $directories);
         if ($target->status !== SemanticStatus::Ok || $target->value === null) {
             return SemanticResult::failure($target->status);
         }
@@ -38,9 +42,13 @@ final class TemplateReferencesQuery
         if ($project->value === null) {
             return SemanticResult::failure($project->status);
         }
+        $qiqRoot = null;
+        if ($engine === TemplateReference::ENGINE_QIQ) {
+            $qiqRoot = QiqTemplateRoot::inWorkspace($workspace, $project->value, null, $directories)->value;
+        }
 
         $references = [];
-        foreach ($this->sourceScanner->scan($workspace, $project->value, $engine) as $source) {
+        foreach ($this->sourceScanner->scan($workspace, $project->value, $engine, $qiqRoot) as $source) {
             $document = TextDocumentBuilder::create($source->contents)
                 ->uri($source->file)
                 ->language($engine)
@@ -61,6 +69,7 @@ final class TemplateReferencesQuery
                     $found->engine,
                     $found->name,
                     $sourcePath->value->relative,
+                    $directories,
                 );
                 if (
                     $candidate->status !== SemanticStatus::Ok

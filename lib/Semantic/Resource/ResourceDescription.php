@@ -16,6 +16,7 @@ final readonly class ResourceDescription
      * @param list<ResourceTemplateResolution> $templates
      * @param list<SchemaResolution> $schemas
      * @param list<array<string, mixed>> $schemaCoverage
+     * @param list<string> $unresolvedTemplateEngines engines whose template directory is known only at runtime
      */
     public function __construct(
         public ResourceFacts $facts,
@@ -24,6 +25,7 @@ final readonly class ResourceDescription
         public ?SchemaResolution $responseSchema = null,
         public array $schemas = [],
         public array $schemaCoverage = [],
+        public array $unresolvedTemplateEngines = [],
     ) {
     }
 }

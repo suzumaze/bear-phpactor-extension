@@ -1232,6 +1232,9 @@ final class SemanticQueryHandler implements Handler
                 ],
                 $description->templates,
             ),
+            ...($description->unresolvedTemplateEngines === []
+                ? []
+                : ['templatesUnresolved' => $description->unresolvedTemplateEngines]),
             'schemas' => $schemas,
             'schemasCoverage' => [
                 'kinds' => ['request', 'response'],

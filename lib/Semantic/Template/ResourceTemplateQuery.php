@@ -8,18 +8,22 @@ use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaDirectoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
+use Suzumaze\BearPhpactor\Template\TemplatePathResolver;
 use Suzumaze\BearPhpactor\Template\TemplateReference;
 
 /**
  * Resolves a Resource to its Twig or Qiq template by BEAR's standard layout.
+ *
+ * Within a workspace, the Qiq directory is the one the DI modules give BEAR.QiqModule (see
+ * QiqTemplateRoot); without one, BEAR's convention `var/qiq/template`.
  */
 final readonly class ResourceTemplateQuery
 {
     private const TWIG_EXTENSION = '.html.twig';
-    private const QIQ_ROOT = 'var/qiq/template';
     private const QIQ_EXTENSION = '.php';
     private const TWIG_ROOT = 'var/templates';
 
@@ -39,7 +43,7 @@ final readonly class ResourceTemplateQuery
 
         $resource = $this->resourceQuery->resolveString($project, $resourceUri);
 
-        return $this->fromResourceResult($project, $engine, $resource);
+        return $this->fromResourceResult($project, $engine, $resource, $this->conventionalQiqRoot($project));
     }
 
     /**
@@ -62,7 +66,14 @@ final readonly class ResourceTemplateQuery
             return SemanticResult::failure($project->status);
         }
         $resource = $this->resourceQuery->resolveInWorkspace($workspace, $resourceUri, $contextPath);
-        $result = $this->fromResourceResult($project->value, $engine, $resource);
+        if (!in_array($resource->status, [SemanticStatus::Ok, SemanticStatus::Ambiguous], true)) {
+            return SemanticResult::failure($resource->status);
+        }
+        $qiqRoot = $this->qiqRoot($workspace, $project->value, $engine, $resource->value?->file);
+        if ($qiqRoot->value === null) {
+            return SemanticResult::failure($qiqRoot->status);
+        }
+        $result = $this->fromResourceResult($project->value, $engine, $resource, $qiqRoot->value);
 
         return $this->enforceWorkspace($workspace, $result);
     }
@@ -78,6 +89,7 @@ final readonly class ResourceTemplateQuery
         WorkspaceContext $workspace,
         ResourceResolution $resource,
         string $engine,
+        ?SchemaDirectoryQuery $directories = null,
     ): SemanticResult {
         if (!$this->supports($engine)) {
             return SemanticResult::unsupported();
@@ -91,6 +103,10 @@ final readonly class ResourceTemplateQuery
         if ($project->value === null) {
             return SemanticResult::failure($project->status);
         }
+        $qiqRoot = $this->qiqRoot($workspace, $project->value, $engine, $path->value->absolute, $directories);
+        if ($qiqRoot->value === null) {
+            return SemanticResult::failure($qiqRoot->status);
+        }
 
         return $this->enforceWorkspace(
             $workspace,
@@ -98,6 +114,7 @@ final readonly class ResourceTemplateQuery
                 $project->value,
                 new ResourceResolution($resource->uri, $path->value->absolute, $resource->fqn),
                 $engine,
+                $qiqRoot->value,
             ),
         );
     }
@@ -106,10 +123,14 @@ final readonly class ResourceTemplateQuery
      * @param SemanticResult<ResourceResolution|null> $resource
      * @return SemanticResult<ResourceTemplateResolution|null>
      */
-    private function fromResourceResult(Project $project, string $engine, SemanticResult $resource): SemanticResult
-    {
+    private function fromResourceResult(
+        Project $project,
+        string $engine,
+        SemanticResult $resource,
+        string $qiqRoot,
+    ): SemanticResult {
         if ($resource->status === SemanticStatus::Ok && $resource->value !== null) {
-            $resolution = $this->templateFor($project, $resource->value, $engine);
+            $resolution = $this->templateFor($project, $resource->value, $engine, $qiqRoot);
             if ($resolution->value === null && $resolution->partial === null) {
                 return SemanticResult::failure($resolution->status);
             }
@@ -122,7 +143,7 @@ final readonly class ResourceTemplateQuery
 
         $candidates = [];
         foreach ($resource->candidates as $candidate) {
-            $template = $this->templateFor($project, $candidate, $engine);
+            $template = $this->templateFor($project, $candidate, $engine, $qiqRoot);
             if ($template->status === SemanticStatus::OutsideWorkspace) {
                 return SemanticResult::outsideWorkspace();
             }
@@ -145,8 +166,9 @@ final readonly class ResourceTemplateQuery
         Project $project,
         ResourceResolution $resource,
         string $engine,
+        string $qiqRoot,
     ): SemanticResult {
-        $paths = $this->templatePaths($project, $resource, $engine);
+        $paths = $this->templatePaths($project, $resource, $engine, $qiqRoot);
         if ($paths->value === null) {
             return SemanticResult::failure($paths->status);
         }
@@ -183,6 +205,7 @@ final readonly class ResourceTemplateQuery
         Project $project,
         ResourceResolution $resource,
         string $engine,
+        string $qiqRoot,
     ): SemanticResult {
         $relative = $this->relativeResourcePath($resource->file);
         if ($relative === null) {
@@ -196,11 +219,28 @@ final readonly class ResourceTemplateQuery
                     . substr($relative, 0, -4) . self::TWIG_EXTENSION,
             ]
             : [
-                $project->root() . '/' . self::QIQ_ROOT . '/'
-                    . substr($relative, 0, -4) . self::QIQ_EXTENSION,
+                $qiqRoot . '/' . substr($relative, 0, -4) . self::QIQ_EXTENSION,
             ];
 
         return SemanticResult::ok(array_values(array_unique($paths)));
+    }
+
+    /** @return SemanticResult<string|null> */
+    private function qiqRoot(
+        WorkspaceContext $workspace,
+        Project $project,
+        string $engine,
+        ?string $file,
+        ?SchemaDirectoryQuery $directories = null,
+    ): SemanticResult {
+        return $engine === TemplateReference::ENGINE_QIQ
+            ? QiqTemplateRoot::inWorkspace($workspace, $project, $file, $directories)
+            : SemanticResult::ok($this->conventionalQiqRoot($project));
+    }
+
+    private function conventionalQiqRoot(Project $project): string
+    {
+        return $project->root() . '/' . TemplatePathResolver::QIQ_ROOT;
     }
 
     private function relativeResourcePath(string $resourceFile): ?string

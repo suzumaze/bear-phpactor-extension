@@ -1563,9 +1563,10 @@ final class ModuleInterpreter
                 $bind->untarget = false;
                 $value = $arguments['instance'] ?? $first;
                 $dependency = $this->instanceDependency($value);
+                // The directories Resource files are found in: JSON Schema, and Qiq templates (QiqTemplateRoot).
                 if (
                     $this->captureSchemaDirectories && $bind->interface === '' && is_string($value)
-                    && in_array($bind->name, ['json_schema_dir', 'json_validate_dir'], true)
+                    && in_array($bind->name, ['json_schema_dir', 'json_validate_dir', 'qiq_template_dir'], true)
                 ) {
                     $dependency['schemaDirectory'] = $value;
                 }

@@ -12,14 +12,20 @@ use Suzumaze\BearPhpactor\Semantic\Di\DiContainerQuery;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 use Suzumaze\BearPhpactor\Util\PathGuard;
 
-/** Reads only the two schema directory bindings; application code is never executed. */
+/**
+ * Reads only the directory bindings a Resource's files are found by: the two schema directories and
+ * Qiq's template directory. Application code is never executed.
+ *
+ * Qiq is installed only by the contexts that render HTML, so for `qiq` a context that never binds the
+ * directory is left out instead of counting as a disagreement.
+ */
 final class SchemaDirectoryQuery
 {
     /** @var array<string, array<string, mixed>> Request-local compositions, shared across methods and kinds. */
     private array $cache = [];
 
     /** @return array<string, mixed> */
-    public function inspect(WorkspaceContext $workspace, string $resourceFile, string $kind, ?string $context): array
+    public function inspect(WorkspaceContext $workspace, ?string $resourceFile, string $kind, ?string $context): array
     {
         $project = $workspace->project($resourceFile)->value;
         if ($project === null) {
@@ -31,6 +37,9 @@ final class SchemaDirectoryQuery
         $candidates = [];
         foreach ($all['contexts'] as $name => $bindings) {
             $binding = $bindings[$kind];
+            if ($kind === 'qiq' && $binding['status'] === 'not_declared') {
+                continue;
+            }
             $candidates[] = ['applicationContext' => $name, ...$binding];
         }
         $states = array_unique(array_column($candidates, 'status'));
@@ -84,7 +93,7 @@ final class SchemaDirectoryQuery
     private function compose(
         WorkspaceContext $workspace,
         string $root,
-        string $resourceFile,
+        ?string $resourceFile,
         array $psr4,
         ?string $context,
     ): array {
@@ -135,7 +144,12 @@ final class SchemaDirectoryQuery
                     $result['compositionComplete'] = false;
                 }
             }
-            foreach (['response' => 'json_schema_dir', 'request' => 'json_validate_dir'] as $kind => $qualifier) {
+            $qualifiers = [
+                'response' => 'json_schema_dir',
+                'request' => 'json_validate_dir',
+                'qiq' => 'qiq_template_dir',
+            ];
+            foreach ($qualifiers as $kind => $qualifier) {
                 $index = '-' . $qualifier;
                 $dependency = $container->bindings[$index] ?? null;
                 $directory = $dependency['schemaDirectory'] ?? null;

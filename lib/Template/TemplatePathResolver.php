@@ -25,14 +25,19 @@ final class TemplatePathResolver
     /** BEAR.QiqModuleのマニュアル・標準構成 */
     public const QIQ_ROOT = 'var/qiq/template';
 
-    public function resolve(TemplateReference $reference, string $projectRoot, string $documentPath): ?string
-    {
+    /** @param string|null $qiqRoot the directory BEAR.QiqModule was given, when known (see QiqTemplateRoot) */
+    public function resolve(
+        TemplateReference $reference,
+        string $projectRoot,
+        string $documentPath,
+        ?string $qiqRoot = null,
+    ): ?string {
         if ($reference->engine === TemplateReference::ENGINE_TWIG) {
             return $this->resolveTwig($projectRoot, $reference->name);
         }
 
         if ($reference->engine === TemplateReference::ENGINE_QIQ) {
-            return $this->resolveQiq($projectRoot, $documentPath, $reference->name);
+            return $this->resolveQiq($qiqRoot ?? $projectRoot . '/' . self::QIQ_ROOT, $documentPath, $reference->name);
         }
 
         return null;
@@ -61,14 +66,13 @@ final class TemplatePathResolver
         return null;
     }
 
-    private function resolveQiq(string $projectRoot, string $documentPath, string $name): ?string
+    private function resolveQiq(string $qiqRoot, string $documentPath, string $name): ?string
     {
         // collection:name はqiq_pathsの追加束縛が無いと対応先を決められない。
         if (str_contains($name, ':') || str_contains($name, "\0") || str_contains($name, '\\')) {
             return null;
         }
 
-        $qiqRoot = $projectRoot . '/' . self::QIQ_ROOT;
         if (str_starts_with($name, '.')) {
             $path = $this->resolveQiqRelative($qiqRoot, $documentPath, $name);
         } else {
