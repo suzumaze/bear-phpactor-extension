@@ -27,8 +27,15 @@ final class BodyInferredTypesTest extends TestCase
         self::assertSame('phpactor', $body['inferredTypes']['source']);
         self::assertSame([
             'article' => ['?BodyTypes\Entity\Article', 'object', ['BodyTypes\Entity\Article']],
+            // A plain assignment in the value position puts its right operand into the body.
+            'assigned' => ['BodyTypes\Entity\Pager', 'object', ['BodyTypes\Entity\Pager']],
             'items' => ['array<int,BodyTypes\Entity\Article>', 'array', ['BodyTypes\Entity\Article']],
+            // A union is sorted by its members, not by the elements inside an array or iterable member.
+            'maybe' => ['iterable<array-key,mixed>|array{}', 'union', []],
             'pager' => ['BodyTypes\Entity\Pager', 'object', ['BodyTypes\Entity\Pager']],
+            // `iterable` may be an array or a Traversable, so it is not called an array.
+            'rows' => ['iterable<array-key,mixed>', 'iterable', []],
+            'stream' => ['iterable<array-key,BodyTypes\Entity\Article>', 'iterable', ['BodyTypes\Entity\Article']],
             'title' => ['"Articles"', 'scalar', []],
             // The later `$this->body['total'] = ...` replaces the value from the full assignment.
             'total' => ['int', 'scalar', []],

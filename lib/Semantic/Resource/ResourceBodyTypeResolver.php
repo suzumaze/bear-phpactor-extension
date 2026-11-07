@@ -13,6 +13,7 @@ namespace Suzumaze\BearPhpactor\Semantic\Resource;
 interface ResourceBodyTypeResolver
 {
     public const KIND_ARRAY = 'array';
+    public const KIND_ITERABLE = 'iterable';
     public const KIND_NULL = 'null';
     public const KIND_OBJECT = 'object';
     public const KIND_SCALAR = 'scalar';

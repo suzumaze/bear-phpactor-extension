@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- `responseBody.inferredTypes` gets a new `kind`, `iterable`, for values declared `iterable`
+  (for example a query interface returning `iterable<mixed>`): they may be an array or a
+  Traversable, and were reported as `unknown` before. A plain assignment in the value position
+  (`'id' => $id = $this->save($x)`) is now inferred from its right-hand side instead of
+  `<missing>`.
+- A union's `kind` is now taken from its members. Before, an array or iterable member was
+  replaced by its element type, so `iterable<mixed>|array{}` was `unknown` instead of `union`.
+
 ## [0.3.10] - 2026-11-07
 
 - `bear/resource/describe` adds `responseBody.inferredTypes` to methods whose body names are
