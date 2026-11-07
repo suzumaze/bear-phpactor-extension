@@ -13,16 +13,25 @@ use Microsoft\PhpParser\Node\Expression\ArrowFunctionCreationExpression;
 use Microsoft\PhpParser\Node\Expression\ArrayCreationExpression;
 use Microsoft\PhpParser\Node\Expression\AssignmentExpression;
 use Microsoft\PhpParser\Node\Expression\CallExpression;
+use Microsoft\PhpParser\Node\Expression\ExitIntrinsicExpression;
 use Microsoft\PhpParser\Node\Expression\MemberAccessExpression;
 use Microsoft\PhpParser\Node\Expression\ObjectCreationExpression;
 use Microsoft\PhpParser\Node\Expression\SubscriptExpression;
 use Microsoft\PhpParser\Node\Expression\ThrowExpression;
 use Microsoft\PhpParser\Node\Expression\Variable;
+use Microsoft\PhpParser\Node\Expression\YieldExpression;
 use Microsoft\PhpParser\Node\MethodDeclaration;
 use Microsoft\PhpParser\Node\Statement\CompoundStatementNode;
+use Microsoft\PhpParser\Node\Statement\DoStatement;
 use Microsoft\PhpParser\Node\Statement\ExpressionStatement;
+use Microsoft\PhpParser\Node\Statement\ForeachStatement;
+use Microsoft\PhpParser\Node\Statement\ForStatement;
+use Microsoft\PhpParser\Node\Statement\GotoStatement;
 use Microsoft\PhpParser\Node\Statement\IfStatementNode;
 use Microsoft\PhpParser\Node\Statement\ReturnStatement;
+use Microsoft\PhpParser\Node\Statement\SwitchStatementNode;
+use Microsoft\PhpParser\Node\Statement\TryStatement;
+use Microsoft\PhpParser\Node\Statement\WhileStatement;
 use Microsoft\PhpParser\Node\StringLiteral;
 use Microsoft\PhpParser\Token;
 use Microsoft\PhpParser\TokenKind;
@@ -34,8 +43,12 @@ use Microsoft\PhpParser\TokenKind;
  * by literal-key additions are accepted, optionally interrupted by early-exit
  * guards (`if (...) { return $this; }` without else). The names describe the
  * path that reaches the end of the method; each guard is reported separately.
- * Anything else that requires control-flow, alias, helper-call, or expression
- * evaluation stays explicitly unsupported.
+ * Other `if`, loop, `switch` and `try` statements are stepped over when they
+ * cannot change the body or leave the method: no `$this->body`, no `$this`
+ * method call, and no `return`, `throw`, `exit`, `yield` or `goto` outside a
+ * closure. Building a local list in a `foreach` before the assignment is the
+ * common case. Anything else that requires control-flow, alias, helper-call,
+ * or expression evaluation stays explicitly unsupported.
  */
 final class ResourceResponseShapeExtractor
 {
@@ -57,10 +70,12 @@ final class ResourceResponseShapeExtractor
             }
             if ($statement instanceof IfStatementNode) {
                 $exit = $this->earlyExit($statement, $source, $complete ? $names : null);
-                if ($exit === null) {
-                    return ResourceResponseShape::unsupported(ResourceResponseShape::REASON_COMPLEX_CONTROL_FLOW);
+                if ($exit !== null) {
+                    $earlyExits[] = $exit;
+                    continue;
                 }
-                $earlyExits[] = $exit;
+            }
+            if ($this->stepsOver($statement, $source)) {
                 continue;
             }
             if ($statement instanceof ReturnStatement) {
@@ -226,6 +241,38 @@ final class ResourceResponseShapeExtractor
             'bodyAssigned' => $assigned !== null,
             'names' => $names === null ? null : array_values(array_unique($names)),
         ];
+    }
+
+    /**
+     * Whether a control-flow statement can be stepped over: whichever way it runs, the body is untouched
+     * and the method goes on to the next statement. A `$this` method call might write the body, and a
+     * `return`, `throw`, `exit`, `yield` or `goto` would leave or suspend the method part way. Closures,
+     * arrow functions and anonymous classes may hold a `return` of their own, which does not count;
+     * the body and helper checks still look inside them, which only errs on the unsupported side.
+     */
+    private function stepsOver(Node $statement, string $source): bool
+    {
+        if (
+            !($statement instanceof IfStatementNode || $statement instanceof ForeachStatement
+                || $statement instanceof ForStatement || $statement instanceof WhileStatement
+                || $statement instanceof DoStatement || $statement instanceof SwitchStatementNode
+                || $statement instanceof TryStatement)
+            || $this->containsThisBody($statement, $source)
+            || $this->containsSelfMethodCall($statement)
+        ) {
+            return false;
+        }
+        foreach ($this->methodLevelNodes($statement) as $node) {
+            if (
+                $node instanceof ReturnStatement || $node instanceof ThrowExpression
+                || $node instanceof ExitIntrinsicExpression || $node instanceof YieldExpression
+                || $node instanceof GotoStatement
+            ) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** @return iterable<Node> descendants, without entering closures, arrow functions or anonymous classes */

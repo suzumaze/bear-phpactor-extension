@@ -5,7 +5,25 @@ declare(strict_types=1);
 namespace Suzumaze\BearPhpactor\Resource\WorseReflection;
 
 use Microsoft\PhpParser\Node;
+use Microsoft\PhpParser\Node\ArrayElement;
+use Microsoft\PhpParser\Node\DelimitedList\ArrayElementList;
+use Microsoft\PhpParser\Node\DelimitedList\ListExpressionList;
+use Microsoft\PhpParser\Node\Expression\ArgumentExpression;
+use Microsoft\PhpParser\Node\Expression\ArrayCreationExpression;
 use Microsoft\PhpParser\Node\Expression\AssignmentExpression;
+use Microsoft\PhpParser\Node\Expression\ListIntrinsicExpression;
+use Microsoft\PhpParser\Node\Expression\PostfixUpdateExpression;
+use Microsoft\PhpParser\Node\Expression\PrefixUpdateExpression;
+use Microsoft\PhpParser\Node\Expression\SubscriptExpression;
+use Microsoft\PhpParser\Node\Expression\Variable;
+use Microsoft\PhpParser\Node\ForeachKey;
+use Microsoft\PhpParser\Node\ForeachValue;
+use Microsoft\PhpParser\Node\MethodDeclaration;
+use Microsoft\PhpParser\Node\Statement\DoStatement;
+use Microsoft\PhpParser\Node\Statement\ForeachStatement;
+use Microsoft\PhpParser\Node\Statement\ForStatement;
+use Microsoft\PhpParser\Node\Statement\WhileStatement;
+use Microsoft\PhpParser\Node\UseVariableName;
 use Microsoft\PhpParser\Parser;
 use Microsoft\PhpParser\TokenKind;
 use Phpactor\WorseReflection\Core\Type;
@@ -32,6 +50,11 @@ use Throwable;
  * 値の位置にある代入 (`'id' => $id = $this->post($x)`) は、Phpactor が代入式そのものに型を
  * 付けないため、右辺を推論する (body に入るのは右辺の値)。複合代入 (`+=` など) は右辺が
  * 入る値ではないので、そのまま渡す。
+ *
+ * それより前のループの中で書き換わる変数を読む値は、推論せず `unknown` にする。Phpactor は
+ * ループの中の書き込みを「ちょうど1回回った」ものとして型を付ける (`$a = []; foreach (...)
+ * { $a[] = $x; }` の `$a` が要素1個の `array{...}` になる)。0回や何回も回ることがあるので、
+ * その型は言い過ぎになる。関数の引数に渡すのも、参照渡しで書き換わりうるので書き込みとみなす。
  */
 final class WorseReflectionBodyTypeResolver implements ResourceBodyTypeResolver
 {
@@ -48,7 +71,7 @@ final class WorseReflectionBodyTypeResolver implements ResourceBodyTypeResolver
         $items = [];
         foreach ($valueRanges as $name => $range) {
             $type = null;
-            if (isset($nodes[$name])) {
+            if (isset($nodes[$name]) && !$this->readsLoopWrite($this->assignedValue($nodes[$name]))) {
                 try {
                     $type = $this->reflector->reflectNodeContext($this->assignedValue($nodes[$name]))->type();
                 } catch (Throwable) {
@@ -87,6 +110,65 @@ final class WorseReflectionBodyTypeResolver implements ResourceBodyTypeResolver
         }
 
         return $nodes;
+    }
+
+    /** Whether the value reads a variable that a loop earlier in the method writes. */
+    private function readsLoopWrite(Node $value): bool
+    {
+        $method = $value->getFirstAncestor(MethodDeclaration::class);
+        if (!$method instanceof MethodDeclaration) {
+            return false;
+        }
+        $names = [];
+        foreach ([$value, ...$value->getDescendantNodes()] as $node) {
+            if ($node instanceof Variable && is_string($name = $node->getName()) && $name !== 'this') {
+                $names[$name] = true;
+            }
+        }
+        if ($names === []) {
+            return false;
+        }
+        foreach ($method->getDescendantNodes() as $loop) {
+            if (
+                !($loop instanceof ForeachStatement || $loop instanceof ForStatement
+                    || $loop instanceof WhileStatement || $loop instanceof DoStatement)
+                || $loop->getStartPosition() >= $value->getStartPosition()
+            ) {
+                continue;
+            }
+            foreach ($loop->getDescendantNodes() as $node) {
+                if ($node instanceof Variable && isset($names[$node->getName()]) && $this->isWritten($node)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether the variable is written where it stands: assigned (also as the base of `$a[...] =` or inside a
+     * destructuring list), incremented, bound by `foreach`, captured by reference, or passed to a call,
+     * whose parameter may be by reference.
+     */
+    private function isWritten(Variable $variable): bool
+    {
+        $child = $variable;
+        $parent = $child->parent;
+        while (
+            $parent instanceof SubscriptExpression && $parent->postfixExpression === $child
+            || $parent instanceof ArrayElement || $parent instanceof ArrayElementList
+            || $parent instanceof ListExpressionList
+            || $parent instanceof ArrayCreationExpression || $parent instanceof ListIntrinsicExpression
+        ) {
+            $child = $parent;
+            $parent = $child->parent;
+        }
+
+        return $parent instanceof AssignmentExpression && $parent->leftOperand === $child
+            || $parent instanceof PostfixUpdateExpression || $parent instanceof PrefixUpdateExpression
+            || $parent instanceof ForeachKey || $parent instanceof ForeachValue
+            || $parent instanceof UseVariableName || $parent instanceof ArgumentExpression;
     }
 
     /** The value a plain assignment (`$a = $b = expr`) yields is its innermost right operand. */

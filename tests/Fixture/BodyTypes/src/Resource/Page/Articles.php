@@ -40,6 +40,21 @@ final class Articles extends ResourceObject
         return $this;
     }
 
+    public function onPut(int $id): static
+    {
+        $titles = [];
+        foreach ($this->repository->list() as $article) {
+            $titles[] = ['article' => $article, 'id' => $id];
+        }
+        $label = 'none';
+        if ($id > 0) {
+            $label = 'some';
+        }
+        $this->body = ['count' => count($titles), 'id' => $id, 'label' => $label, 'titles' => $titles];
+
+        return $this;
+    }
+
     public function onPost(): static
     {
         foreach ([1, 2] as $id) {
