@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- `bear/resource/describe` adds `responseBody.inferredTypes` to methods whose body names are
+  proven: for each name, Phpactor's inferred type of the value written last on the path that
+  reaches the end, a coarse `kind` (`scalar`, `array`, `object`, `null`, `union` or `unknown`) and
+  `classes`, every class the type mentions, nested ones included, so entities and pagers inside an
+  array are visible. It is labelled `source: "phpactor"` and kept apart from the proven `names` and
+  the docblock declaration, since inference can be narrower or wider than what runs. Computed on
+  every describe; `#[Embed]`-only keys and early-exit bodies are not inferred.
+
 - The semantic request documentation now describes what clients receive over stdio: Phpactor's
   serializer drops every null member, so members the handler leaves null are absent on the wire.
   This covers the body `reason` and early-exit `names` in `bear/resource/describe`, a dynamic

@@ -20,6 +20,7 @@ final readonly class ResourceResponseShape
     /**
      * @param list<string> $names
      * @param list<array{line: int, bodyAssigned: bool, names: list<string>|null}> $earlyExits
+     * @param array<string, array{int, int}> $valueRanges
      */
     private function __construct(
         public bool $complete,
@@ -27,18 +28,22 @@ final readonly class ResourceResponseShape
         public ?string $reason,
         /** guards that return before the end; `names` is null when the body there is not known */
         public array $earlyExits = [],
+        /** byte start and end of the expression each name was last assigned on the path that reaches the end */
+        public array $valueRanges = [],
     ) {
     }
 
     /**
      * @param list<string> $names
      * @param list<array{line: int, bodyAssigned: bool, names: list<string>|null}> $earlyExits
+     * @param array<string, array{int, int}> $valueRanges
      */
-    public static function complete(array $names, array $earlyExits = []): self
+    public static function complete(array $names, array $earlyExits = [], array $valueRanges = []): self
     {
         sort($names);
+        ksort($valueRanges);
 
-        return new self(true, array_values(array_unique($names)), null, $earlyExits);
+        return new self(true, array_values(array_unique($names)), null, $earlyExits, $valueRanges);
     }
 
     public static function unsupported(string $reason): self

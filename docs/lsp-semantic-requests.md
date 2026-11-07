@@ -689,6 +689,21 @@ proven names (every required key present, no extra name unless the shape is open
 when none does, which usually means the docblock is out of date. The member is absent when there is
 nothing to compare.
 
+Inside the language server, a method whose shape is `ok` also gets `responseBody.inferredTypes:
+{source: "phpactor", items}`, with one item per name for the value last written to it on the path
+that reaches the end: `{name, type, kind, classes}`. `type` is what Phpactor's type inference gives
+for that expression in the saved file (`<missing>` when it gives nothing). `kind` sorts the outer
+type, ignoring null, into `scalar`, `array`, `object`, `null`, `union` (more than one of these),
+or `unknown` (when any part is unknown). `classes` lists every class the type mentions, including
+array element types, nullable and union members and generic arguments, so a list of entities or a
+pager shows up even where `kind` is `array`. This is an inference, not a proof: it can be narrower
+or wider than what runs (`$deleted === 1` is inferred as `true`), and it is reported apart from the
+proven `names` and from `declaredBody`. Keys that only `#[Embed]` places and the bodies of early
+exits have no value expression here and are not inferred. The types depend on other files, so they
+are computed on every describe rather than cached with the Resource. The first value that calls a
+PHP built-in function after the server starts loads Phpactor's function stubs once, which took
+about 5 seconds on BEAR.Kata. Direct in-process handler calls without Phpactor leave the member out.
+
 Every surface independently reports `status`, `subject`, and sorted `names`. The
 `comparison` member is absent until at least two surfaces are `ok`; otherwise it
 contains the compared sources, intersection, names exclusive to one surface, and a

@@ -1,0 +1,8 @@
+{
+    "name": "fixture/body-types",
+    "autoload": {
+        "psr-4": {
+            "BodyTypes\\": "src/"
+        }
+    }
+}

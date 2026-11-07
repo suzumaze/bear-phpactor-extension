@@ -47,6 +47,7 @@ final class ResourceResponseShapeExtractor
         }
 
         $names = [];
+        $valueRanges = [];
         $complete = false;
         $returned = false;
         $earlyExits = [];
@@ -80,13 +81,14 @@ final class ResourceResponseShapeExtractor
                     if (!$this->isSimpleAssignment($expression)) {
                         return ResourceResponseShape::unsupported(ResourceResponseShape::REASON_DYNAMIC_ASSIGNMENT);
                     }
-                    $literalNames = $this->literalArrayNames($expression->rightOperand);
-                    if ($literalNames === null) {
+                    $literalValues = $this->literalArrayValues($expression->rightOperand);
+                    if ($literalValues === null) {
                         return ResourceResponseShape::unsupported(ResourceResponseShape::REASON_DYNAMIC_ASSIGNMENT);
                     }
                     // A `$this` helper call in the right-hand side runs before the property is written,
                     // so whatever it does to the body is replaced by these literal keys.
-                    $names = $literalNames;
+                    $names = array_map('strval', array_keys($literalValues));
+                    $valueRanges = array_map($this->range(...), $literalValues);
                     $complete = true;
                     continue;
                 }
@@ -113,6 +115,7 @@ final class ResourceResponseShapeExtractor
                         );
                     }
                     $names[] = $keyName;
+                    $valueRanges[$keyName] = $this->range($expression->rightOperand);
                     continue;
                 }
             }
@@ -129,7 +132,7 @@ final class ResourceResponseShapeExtractor
             return ResourceResponseShape::unsupported(ResourceResponseShape::REASON_NO_COMPLETE_ASSIGNMENT);
         }
 
-        return ResourceResponseShape::complete($names, $earlyExits);
+        return ResourceResponseShape::complete($names, $earlyExits, $valueRanges);
     }
 
     /**
@@ -201,12 +204,12 @@ final class ResourceResponseShapeExtractor
                 && $expression->leftOperand instanceof MemberAccessExpression
                 && $this->isThisBody($expression->leftOperand, $source)
             ) {
-                $literalNames = $this->isSimpleAssignment($expression)
-                    ? $this->literalArrayNames($expression->rightOperand) : null;
-                if ($assigned !== null || $literalNames === null) {
+                $literalValues = $this->isSimpleAssignment($expression)
+                    ? $this->literalArrayValues($expression->rightOperand) : null;
+                if ($assigned !== null || $literalValues === null) {
                     return null;
                 }
-                $assigned = $literalNames;
+                $assigned = array_map('strval', array_keys($literalValues));
                 continue;
             }
             if ($this->containsThisBody($expression, $source) || $this->containsSelfMethodCall($expression)) {
@@ -286,8 +289,8 @@ final class ResourceResponseShapeExtractor
         return $assignment->operator->kind === TokenKind::EqualsToken;
     }
 
-    /** @return list<string>|null */
-    private function literalArrayNames(Node $node): ?array
+    /** @return array<string, Node>|null */
+    private function literalArrayValues(Node $node): ?array
     {
         if (!$node instanceof ArrayCreationExpression) {
             return null;
@@ -297,7 +300,7 @@ final class ResourceResponseShapeExtractor
             return [];
         }
 
-        $names = [];
+        $values = [];
         foreach ($node->arrayElements->getElements() as $element) {
             if (
                 !$element instanceof ArrayElement
@@ -310,10 +313,17 @@ final class ResourceResponseShapeExtractor
             if ($this->isIntegerArrayKey($key)) {
                 return null;
             }
-            $names[] = $key;
+            // A repeated key keeps its last value, as PHP does.
+            $values[$key] = $element->elementValue;
         }
 
-        return $names;
+        return $values;
+    }
+
+    /** @return array{int, int} */
+    private function range(Node $node): array
+    {
+        return [$node->getStartPosition(), $node->getEndPosition()];
     }
 
     private function isIntegerArrayKey(string $key): bool

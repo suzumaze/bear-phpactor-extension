@@ -23,6 +23,7 @@ use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceDefinitionLocator;
 use Suzumaze\BearPhpactor\Resource\ReferenceFinder\ResourceReferenceFinder;
 use Suzumaze\BearPhpactor\Resource\Util\StringLiteralAtOffset;
 use Suzumaze\BearPhpactor\Resource\WorseReflection\ResourceClientTypeResolver;
+use Suzumaze\BearPhpactor\Resource\WorseReflection\WorseReflectionBodyTypeResolver;
 use Suzumaze\BearPhpactor\Router\RouterDefinitionLocator;
 use Suzumaze\BearPhpactor\Router\RouteReferenceAtOffset;
 use Suzumaze\BearPhpactor\Semantic\Aop\AopPointcutQuery;
@@ -342,6 +343,9 @@ final class BearSundayExtension implements Extension
                     $container->get('bear_sunday.semantic.contract_coverage_query'),
                     $container->get('bear_sunday.semantic.di_binding_query'),
                     $container->get('bear_sunday.semantic.aop_pointcut_query'),
+                    bodyTypeResolver: new WorseReflectionBodyTypeResolver(
+                        $container->get(WorseReflectionExtension::SERVICE_REFLECTOR),
+                    ),
                 );
             },
             [LanguageServerExtension::TAG_METHOD_HANDLER => []],
