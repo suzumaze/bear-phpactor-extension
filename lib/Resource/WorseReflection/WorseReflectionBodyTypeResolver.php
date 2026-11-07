@@ -124,7 +124,8 @@ final class WorseReflectionBodyTypeResolver implements ResourceBodyTypeResolver
         }
         if ($type instanceof AggregateType) {
             $kinds = [];
-            foreach ($type->expandTypes() as $member) {
+            // The members themselves: expandTypes() would replace an array or iterable member by its element type.
+            foreach ($type->types as $member) {
                 $kinds = [...$kinds, ...$this->kinds($member)];
             }
 

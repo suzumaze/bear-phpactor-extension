@@ -30,6 +30,8 @@ final class BodyInferredTypesTest extends TestCase
             // A plain assignment in the value position puts its right operand into the body.
             'assigned' => ['BodyTypes\Entity\Pager', 'object', ['BodyTypes\Entity\Pager']],
             'items' => ['array<int,BodyTypes\Entity\Article>', 'array', ['BodyTypes\Entity\Article']],
+            // A union is sorted by its members, not by the elements inside an array or iterable member.
+            'maybe' => ['iterable<array-key,mixed>|array{}', 'union', []],
             'pager' => ['BodyTypes\Entity\Pager', 'object', ['BodyTypes\Entity\Pager']],
             // `iterable` may be an array or a Traversable, so it is not called an array.
             'rows' => ['iterable<array-key,mixed>', 'iterable', []],

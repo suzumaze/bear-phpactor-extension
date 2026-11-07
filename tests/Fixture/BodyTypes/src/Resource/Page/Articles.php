@@ -21,10 +21,12 @@ final class Articles extends ResourceObject
 
             return $this;
         }
+        $maybe = $id > 5 ? $this->repository->rows() : [];
         $this->body = [
             'article' => $this->repository->find($id),
             'assigned' => $saved = $this->repository->page(),
             'items' => $this->repository->list(),
+            'maybe' => $maybe,
             'pager' => $this->repository->page(),
             'rows' => $this->repository->rows(),
             'stream' => $this->repository->stream(),
