@@ -23,8 +23,11 @@ final class Articles extends ResourceObject
         }
         $this->body = [
             'article' => $this->repository->find($id),
+            'assigned' => $saved = $this->repository->page(),
             'items' => $this->repository->list(),
             'pager' => $this->repository->page(),
+            'rows' => $this->repository->rows(),
+            'stream' => $this->repository->stream(),
             'wrapped' => ['first' => new Article()],
             'title' => 'Articles',
             'unknown' => $this->undefined,

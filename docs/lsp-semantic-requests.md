@@ -692,10 +692,12 @@ nothing to compare.
 Inside the language server, a method whose shape is `ok` also gets `responseBody.inferredTypes:
 {source: "phpactor", items}`, with one item per name for the value last written to it on the path
 that reaches the end: `{name, type, kind, classes}`. `type` is what Phpactor's type inference gives
-for that expression in the saved file (`<missing>` when it gives nothing). `kind` sorts the outer
-type, ignoring null, into `scalar`, `array`, `object`, `null`, `union` (more than one of these),
-or `unknown` (when any part is unknown). `classes` lists every class the type mentions, including
-array element types, nullable and union members and generic arguments, so a list of entities or a
+for that expression in the saved file (`<missing>` when it gives nothing); for a plain assignment
+in the value position (`'id' => $id = $this->save($x)`) it is the type of the right-hand side.
+`kind` sorts the outer type, ignoring null, into `scalar`, `array`, `iterable` (declared `iterable`,
+which may be an array or a Traversable, such as a query that returns `iterable<mixed>`), `object`,
+`null`, `union` (more than one of these), or `unknown` (when any part is unknown). `classes` lists
+every class the type mentions, including array element types, nullable and union members and generic arguments, so a list of entities or a
 pager shows up even where `kind` is `array`. This is an inference, not a proof: it can be narrower
 or wider than what runs (`$deleted === 1` is inferred as `true`), and it is reported apart from the
 proven `names` and from `declaredBody`. Keys that only `#[Embed]` places and the bodies of early

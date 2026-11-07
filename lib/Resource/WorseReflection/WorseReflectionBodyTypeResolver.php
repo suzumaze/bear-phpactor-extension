@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace Suzumaze\BearPhpactor\Resource\WorseReflection;
 
 use Microsoft\PhpParser\Node;
+use Microsoft\PhpParser\Node\Expression\AssignmentExpression;
 use Microsoft\PhpParser\Parser;
+use Microsoft\PhpParser\TokenKind;
 use Phpactor\WorseReflection\Core\Type;
 use Phpactor\WorseReflection\Core\Type\AggregateType;
 use Phpactor\WorseReflection\Core\Type\ArrayType;
 use Phpactor\WorseReflection\Core\Type\ClassType;
+use Phpactor\WorseReflection\Core\Type\IterableType;
 use Phpactor\WorseReflection\Core\Type\NullableType;
 use Phpactor\WorseReflection\Core\Type\NullType;
 use Phpactor\WorseReflection\Core\Type\ScalarType;
@@ -25,6 +28,10 @@ use Throwable;
  * 分類、`classes` は配列の要素型・null 許容・union・ジェネリクスの中まで降りて集めた
  * クラス名で、「body のどこかにオブジェクトが入るか」に答える。推論できない値や例外は
  * `unknown` にして、describe 全体を失敗させない。
+ *
+ * 値の位置にある代入 (`'id' => $id = $this->post($x)`) は、Phpactor が代入式そのものに型を
+ * 付けないため、右辺を推論する (body に入るのは右辺の値)。複合代入 (`+=` など) は右辺が
+ * 入る値ではないので、そのまま渡す。
  */
 final class WorseReflectionBodyTypeResolver implements ResourceBodyTypeResolver
 {
@@ -43,7 +50,7 @@ final class WorseReflectionBodyTypeResolver implements ResourceBodyTypeResolver
             $type = null;
             if (isset($nodes[$name])) {
                 try {
-                    $type = $this->reflector->reflectNodeContext($nodes[$name])->type();
+                    $type = $this->reflector->reflectNodeContext($this->assignedValue($nodes[$name]))->type();
                 } catch (Throwable) {
                     $type = null;
                 }
@@ -82,6 +89,19 @@ final class WorseReflectionBodyTypeResolver implements ResourceBodyTypeResolver
         return $nodes;
     }
 
+    /** The value a plain assignment (`$a = $b = expr`) yields is its innermost right operand. */
+    private function assignedValue(Node $node): Node
+    {
+        while (
+            $node instanceof AssignmentExpression
+            && $node->operator->kind === TokenKind::EqualsToken
+        ) {
+            $node = $node->rightOperand;
+        }
+
+        return $node;
+    }
+
     private function kind(Type $type): string
     {
         $kinds = array_values(array_unique($this->kinds($type)));
@@ -115,6 +135,8 @@ final class WorseReflectionBodyTypeResolver implements ResourceBodyTypeResolver
             $type instanceof NullType => [],
             $type instanceof ClassType => [self::KIND_OBJECT],
             $type instanceof ArrayType => [self::KIND_ARRAY],
+            // `iterable` and other non-array iterables: a collection that may be an array or a Traversable.
+            $type instanceof IterableType => [self::KIND_ITERABLE],
             $type instanceof ScalarType => [self::KIND_SCALAR],
             default => [self::KIND_UNKNOWN],
         };

@@ -29,4 +29,16 @@ final class ArticleRepository
     {
         return 0;
     }
+
+    /** @return iterable<mixed> */
+    public function rows(): iterable
+    {
+        return [];
+    }
+
+    /** @return iterable<Article> */
+    public function stream(): iterable
+    {
+        return [];
+    }
 }
