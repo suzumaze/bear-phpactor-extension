@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.11] - 2026-11-07
+
 - `responseBody.inferredTypes` gets a new `kind`, `iterable`, for values declared `iterable`
   (for example a query interface returning `iterable<mixed>`): they may be an array or a
   Traversable, and were reported as `unknown` before. A plain assignment in the value position
