@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.10] - 2026-11-07
+
 - `bear/resource/describe` adds `responseBody.inferredTypes` to methods whose body names are
   proven: for each name, Phpactor's inferred type of the value written last on the path that
   reaches the end, a coarse `kind` (`scalar`, `array`, `object`, `null`, `union` or `unknown`) and
