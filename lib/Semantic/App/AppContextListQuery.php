@@ -15,21 +15,28 @@ use Suzumaze\BearPhpactor\Semantic\Di\Composition\PhpStringLiteral;
 use Suzumaze\BearPhpactor\Semantic\Project\ProjectReportPage;
 use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
+use Suzumaze\BearPhpactor\Semantic\Workspace\SourceSnapshot;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
 
 /** Discovers contexts named in saved entry points; never chooses a deployment for the caller. */
 final readonly class AppContextListQuery
 {
-    public function __construct(private int $maxFiles = 2000)
+    public const MAX_FILES = 2000;
+
+    public function __construct(private int $maxFiles = self::MAX_FILES)
     {
     }
 
-    /** @return SemanticResult<array<string, mixed>|null> */
+    /**
+     * @param ContextDiscoveryTrace|null $trace records what was read, for a caller that caches the answer
+     * @return SemanticResult<array<string, mixed>|null>
+     */
     public function listInWorkspace(
         WorkspaceContext $workspace,
         ?string $contextPath = null,
         int $limit = 50,
         int $offset = 0,
+        ?ContextDiscoveryTrace $trace = null,
     ): SemanticResult {
         if ($limit < 1 || $limit > 100 || $offset < 0) {
             return SemanticResult::invalidInput();
@@ -49,46 +56,32 @@ final readonly class AppContextListQuery
             }
         }
         sort($pending);
-        $seen = [];
+        $policy = $workspace->accessPolicy();
+        $walk = $trace?->walk($policy, $pending) ?? new ContextSourceWalk($policy, $pending);
         $contexts = [];
         $unresolved = [];
         $files = 0;
         $skipped = 0;
-        $visits = 0;
         $parser = new Parser();
         $scannedFiles = [];
-        $forwarders = new ContextForwarderIndex($workspace->accessPolicy());
-        while ($pending !== [] && $files < $this->maxFiles && $visits < 20000) {
-            ++$visits;
-            $candidate = array_shift($pending);
-            $path = $workspace->accessPolicy()->inspectExisting($candidate);
-            if ($path->value === null || isset($seen[$path->value->absolute])) {
-                continue;
-            }
-            $file = $path->value->absolute;
-            $seen[$file] = true;
-            if (is_dir($file)) {
-                foreach (scandir($file) ?: [] as $child) {
-                    if (!in_array($child, ['.', '..', 'vendor', '.git', 'node_modules'], true)) {
-                        $pending[] = $file . '/' . $child;
-                    }
-                }
-                continue;
-            }
-            if (!is_file($file) || !in_array(pathinfo($file, PATHINFO_EXTENSION), ['php', ''], true)) {
-                continue;
-            }
+        $forwarders = new ContextForwarderIndex($policy);
+        while ($files < $this->maxFiles && ($entry = $walk->next()) !== null) {
+            [$file, $relative] = $entry;
             ++$files;
-            $scannedFiles[] = [$file, $path->value->relative];
+            $scannedFiles[] = [$file, $relative];
+            $signature = $trace === null ? null : SourceSnapshot::stat($file);
             $contents = @file_get_contents($file, false, null, 0, 1_048_577);
             if ($contents === false || strlen($contents) > 1_048_576) {
+                $trace?->read($file, $signature, null, null, $policy);
                 ++$skipped;
                 continue;
             }
             $parsed = $parser->parseSourceFile($contents, $file);
+            $trace?->read($file, $signature, $contents, $parsed, $policy);
             // A file named by `(require <path>)(...)` is scanned even when it sits outside the usual roots.
             foreach ($forwarders->collectFile($parsed, $file) as $required) {
-                $pending[] = $required;
+                $trace?->required($required);
+                $walk->enqueue($required);
             }
             foreach ($parsed->getDescendantNodes() as $node) {
                 if (!$node instanceof CallExpression || !ContextCalls::isContextCall($node, $contents)) {
@@ -96,7 +89,7 @@ final readonly class AppContextListQuery
                 }
                 $argument = ContextCalls::contextArgument($node, $contents);
                 $site = [
-                    'path' => $path->value->relative,
+                    'path' => $relative,
                     'line' => substr_count($contents, "\n", 0, $node->getStartPosition()) + 1,
                 ];
                 if ($argument === null) {
@@ -111,6 +104,7 @@ final readonly class AppContextListQuery
             $this->collectForwarderCalls($scannedFiles, $forwarders, $workspace, $parser, $contexts, $unresolved);
         }
         $unresolved = $this->withoutAnsweredSites($unresolved, $forwarders);
+        $trace?->finish($forwarders, !$walk->hasPending() && $skipped === 0);
         ksort($contexts);
         $items = [];
         foreach ($contexts as $context => $sources) {
@@ -131,7 +125,7 @@ final readonly class AppContextListQuery
             'selectedContext' => null,
             'scannedFiles' => $files,
             'skippedFiles' => $skipped,
-            'scanTruncated' => $pending !== [],
+            'scanTruncated' => $walk->hasPending(),
             'unresolved' => array_slice($unresolved, 0, 100),
             'unresolvedTotal' => count($unresolved),
             'unresolvedTruncated' => count($unresolved) > 100,

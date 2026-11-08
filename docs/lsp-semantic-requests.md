@@ -569,10 +569,20 @@ read from the `qiq_template_dir` binding of every application context that insta
 without running any module. When every such context binds the same directory inside the
 workspace, that directory is searched. When no context binds it, or BEAR.QiqModule is not
 installed, BEAR's convention `var/qiq/template` is searched as before. When the directory is
-computed at runtime (for example from `getenv()`), the contexts disagree, or a context cannot be
-composed, both requests return `unsupported` instead of searching the convention and reporting
-`not_found`. Reading the directory composes the application's DI contexts, so in a project that
-installs BEAR.QiqModule a Qiq lookup takes longer than a Twig one; one request composes them once.
+computed at runtime (for example from `getenv()`), the contexts disagree, or a context's module
+cannot be found, both requests return `unsupported` instead of searching the convention and
+reporting `not_found`. As with the schema directories, an incomplete context discovery still uses
+a directory every evaluated context agrees on.
+
+Reading these directories, for Qiq and for the schemas alike, discovers and composes the
+application's DI contexts, which takes seconds on a large application. The answer is therefore
+kept for the life of the language server and reused while what it was read from is unchanged.
+No file watcher is needed: before each reuse, the files that were read are checked with `stat()`
+(by content hash when written within the same second) and the directories that were listed are
+listed again. A changed file that cannot affect the context list (one that names no context,
+requires no file from a call and calls no context forwarder, such as a saved Resource) is read on
+its own and the list is kept; the composition reads no Resource file. Any other change discovers
+or composes again.
 The Resource-to-template mapping is BEAR.QiqModule's (`src/Resource/Page/Index.php` →
 `Page/Index.php`); a custom `RenderInterface` that names templates differently is not detected.
 

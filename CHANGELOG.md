@@ -13,6 +13,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   empty `templates` from `bear/resource/describe`, although the templates exist. A directory known
   only at runtime is `unsupported`, and `bear/resource/describe` reports it as
   `templatesUnresolved: ["qiq"]` instead of failing. Projects without BEAR.QiqModule are unchanged.
+- The Qiq and JSON Schema directories are read once per language server and reused while the files
+  they were read from are unchanged, checked by `stat()` before each reuse; no file watcher is
+  needed. Saving a Resource keeps them. On BEAR.Kata, `bear/resource/describe` goes from about
+  0.9 s to 0.2 s, because it no longer discovers and composes the contexts on every call.
 
 ## [0.3.11] - 2026-11-07
 

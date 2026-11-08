@@ -82,6 +82,10 @@ final class ModuleInterpreter
      * @param array<string, string>|null $environment an explicit environment profile: listed
      *        variables have these values and every other variable is unset; null leaves every
      *        environment value unknown. Real environment files are never read.
+     * @param bool $captureSchemaDirectories record the string bound to the directory qualifiers
+     *        Resource files are found by (JSON Schema, Qiq templates). This mode answers only those
+     *        directories, so it lists no classes: the Resource list from AppMeta and Ray.MediaQuery's
+     *        `ClassesInDirectories::list()` are empty, and the composition reads no Resource file.
      */
     public function __construct(
         private readonly ClassSourceIndex $classes,
@@ -828,6 +832,10 @@ final class ModuleInterpreter
             $directories = array_values(array_filter($arguments, 'is_string'));
             if (count($directories) !== count($arguments)) {
                 return [new UnknownValue('array')];
+            }
+
+            if ($this->captureSchemaDirectories) {
+                return [[]];
             }
 
             return [(new DirectoryClassList($this->classes))(...$directories)];
@@ -1614,6 +1622,9 @@ final class ModuleInterpreter
             return new UnknownValue('array');
         }
 
+        if ($this->captureSchemaDirectories) {
+            return [];
+        }
         $list = new ResourceClassList($this->classes, $this);
 
         return $list($name . '\\Resource', $appDir . '/src/Resource', self::RESOURCE_OBJECT);

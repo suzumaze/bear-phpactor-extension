@@ -132,6 +132,16 @@ final class ContextForwarderIndex
         return $this->forwarders !== [];
     }
 
+    /**
+     * The callee keys that forward a context, after {@see resolve()}.
+     *
+     * @return list<string>
+     */
+    public function forwarderKeys(): array
+    {
+        return array_keys($this->forwarders);
+    }
+
     /** Position of the context argument when the callee is a forwarder. */
     public function contextPosition(string $key): ?int
     {
