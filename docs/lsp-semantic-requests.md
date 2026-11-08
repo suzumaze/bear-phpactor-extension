@@ -103,7 +103,9 @@ behavior remains unchanged.
 Standard `textDocument/references` on those static template names resolves every
 candidate in its own document context and returns only sites targeting the same
 canonical template. Twig scanning is limited to `src/Resource` and `var/templates`;
-Qiq scanning is limited to `var/qiq/template`. Each source is capped at 1 MiB, Qiq
+Qiq scanning is limited to the Qiq directory: the directory BEAR.QiqModule is given, or
+`var/qiq/template` (see `bear/template/forResource`). Definition still resolves Qiq names
+in `var/qiq/template` only. Each source is capped at 1 MiB, Qiq
 relative names are resolved from each source file, and ordinary PHP `render()` calls,
 dynamic expressions, comments, unresolved targets, and unsafe paths are excluded.
 
@@ -561,6 +563,29 @@ searched path list, and saved-file provenance for the Resource. Null members are
 omitted on the stdio wire. Missing paths are descriptive candidates and are not
 reported as file provenance.
 
+The Qiq directory, for `bear/template/forResource` and `bear/template/resolve` alike, is the
+one BEAR.QiqModule is constructed with (`new QiqModule(dirname(__DIR__, 2) . '/templates')`),
+read from the `qiq_template_dir` binding of every application context that installs Qiq,
+without running any module. When every such context binds the same directory inside the
+workspace, that directory is searched. When no context binds it, or BEAR.QiqModule is not
+installed, BEAR's convention `var/qiq/template` is searched as before. When the directory is
+computed at runtime (for example from `getenv()`), the contexts disagree, or a context's module
+cannot be found, both requests return `unsupported` instead of searching the convention and
+reporting `not_found`. As with the schema directories, an incomplete context discovery still uses
+a directory every evaluated context agrees on.
+
+Reading these directories, for Qiq and for the schemas alike, discovers and composes the
+application's DI contexts, which takes seconds on a large application. The answer is therefore
+kept for the life of the language server and reused while what it was read from is unchanged.
+No file watcher is needed: before each reuse, the files that were read are checked with `stat()`
+(by content hash when written within the same second) and the directories that were listed are
+listed again. A changed file that cannot affect the context list (one that names no context,
+requires no file from a call and calls no context forwarder, such as a saved Resource) is read on
+its own and the list is kept; the composition reads no Resource file. Any other change discovers
+or composes again.
+The Resource-to-template mapping is BEAR.QiqModule's (`src/Resource/Page/Index.php` →
+`Page/Index.php`); a custom `RenderInterface` that names templates differently is not detected.
+
 ALPS description follows nested descriptors recursively and reports only explicit
 relationships in the workspace-local profile: `contains`, a descriptor's local-fragment
 `href`, and a transition's local-fragment `rt`. Each relation contains `sourceId`,
@@ -736,7 +761,9 @@ PHP file. Incoming results default to 50 items and accept at most 200; the compl
 current workspace Resource inventory is considered before `total` and `truncated`
 are reported, whether it was rebuilt or safely reused from the watched index.
 `templates` lists existing Qiq and Twig convention paths in deterministic engine
-order. `schemas` lists the convention response Schema when present and is empty when
+order. When the Qiq directory is known only at runtime (see `bear/template/forResource`),
+the Qiq template is left out of `templates` and `templatesUnresolved: ["qiq"]` is added, so the
+rest of the description still answers; the member is absent otherwise. `schemas` lists the convention response Schema when present and is empty when
 the Resource has no matching Schema. Request Schema inference is not guessed because
 it requires an explicit `#[JsonSchema(params: ...)]` declaration.
 

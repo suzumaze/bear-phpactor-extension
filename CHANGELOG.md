@@ -13,6 +13,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   names are now proven.
 - `responseBody.inferredTypes` reports a value as `unknown` when it reads a variable that an
   earlier loop writes, because Phpactor types the loop as if it ran exactly once.
+- Qiq templates are found in the directory the application gives BEAR.QiqModule
+  (`new QiqModule(dirname(__DIR__, 2) . '/templates')`), read from the DI modules without running
+  them, instead of only in `var/qiq/template`. Before, an application that keeps its templates
+  elsewhere got `not_found` from `bear/template/forResource` and `bear/template/resolve`, and an
+  empty `templates` from `bear/resource/describe`, although the templates exist. A directory known
+  only at runtime is `unsupported`, and `bear/resource/describe` reports it as
+  `templatesUnresolved: ["qiq"]` instead of failing. Projects without BEAR.QiqModule are unchanged.
+- The Qiq and JSON Schema directories are read once per language server and reused while the files
+  they were read from are unchanged, checked by `stat()` before each reuse; no file watcher is
+  needed. Saving a Resource keeps them. On BEAR.Kata, `bear/resource/describe` goes from about
+  0.9 s to 0.2 s, because it no longer discovers and composes the contexts on every call.
 
 ## [0.3.11] - 2026-11-07
 

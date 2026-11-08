@@ -10,6 +10,7 @@ use Microsoft\PhpParser\Node\Statement\EnumDeclaration;
 use Microsoft\PhpParser\Node\Statement\InterfaceDeclaration;
 use Microsoft\PhpParser\Node\Statement\TraitDeclaration;
 use Microsoft\PhpParser\Parser;
+use Suzumaze\BearPhpactor\Semantic\Workspace\SourceSnapshot;
 use Throwable;
 
 /**
@@ -17,6 +18,8 @@ use Throwable;
  *
  * The root `composer.json` and `vendor/composer/installed.json` are parsed as JSON;
  * `vendor/autoload.php` is never included, so autoload `files` never run.
+ *
+ * Every file it reads, and every autoload path it looks for, is recorded in {@see inputs()}.
  */
 final class ClassSourceIndex
 {
@@ -42,12 +45,21 @@ final class ClassSourceIndex
 
     private Parser $parser;
 
+    private SourceSnapshot $inputs;
+
     public function __construct(private readonly string $root, private readonly ?string $evidenceRoot = null)
     {
         $this->parser = new Parser();
+        $this->inputs = new SourceSnapshot();
         $installed = $this->readJson($this->root . '/vendor/composer/installed.json');
         $this->readRootAutoload(($installed['dev'] ?? false) === true);
         $this->readInstalledAutoload($installed);
+    }
+
+    /** What this index has read or looked for so far. */
+    public function inputs(): SourceSnapshot
+    {
+        return $this->inputs;
     }
 
     public function root(): string
@@ -118,7 +130,9 @@ final class ClassSourceIndex
                     continue;
                 }
                 $readLimit = min($maxFileBytes, $remainingBytes);
+                $signature = SourceSnapshot::stat($real);
                 $contents = @file_get_contents($real, false, null, 0, $readLimit + 1);
+                $this->inputs->file($real, $signature, $contents === false ? null : $contents);
                 if ($contents === false) {
                     ++$skippedFiles;
                     $truncated = true;
@@ -307,6 +321,7 @@ final class ClassSourceIndex
             }
             $relative = str_replace('\\', '/', substr($fqcn, strlen($prefix))) . '.php';
             foreach ($dirs as $dir) {
+                $this->inputs->probe($dir . '/' . $relative);
                 if (is_file($dir . '/' . $relative)) {
                     yield $dir . '/' . $relative;
                 }
@@ -318,6 +333,7 @@ final class ClassSourceIndex
             }
             $relative = str_replace(['\\', '_'], '/', $fqcn) . '.php';
             foreach ($dirs as $dir) {
+                $this->inputs->probe($dir . '/' . $relative);
                 if (is_file($dir . '/' . $relative)) {
                     yield $dir . '/' . $relative;
                 }
@@ -340,6 +356,7 @@ final class ClassSourceIndex
             $relative = str_replace('\\', '/', substr($fqcn, strlen($prefix))) . '.php';
             foreach ($dirs as $dir) {
                 $file = $dir . '/' . $relative;
+                $this->inputs->probe($file);
                 if (is_file($file) && !isset($seen[$file])) {
                     $seen[$file] = true;
                     yield $file;
@@ -353,6 +370,7 @@ final class ClassSourceIndex
             $relative = str_replace(['\\', '_'], '/', $fqcn) . '.php';
             foreach ($dirs as $dir) {
                 $file = $dir . '/' . $relative;
+                $this->inputs->probe($file);
                 if (is_file($file) && !isset($seen[$file])) {
                     $seen[$file] = true;
                     yield $file;
@@ -373,7 +391,9 @@ final class ClassSourceIndex
         if ($real === false || !$this->isInsideRoot($real) || isset($this->parsedFiles[$real])) {
             return;
         }
+        $signature = SourceSnapshot::stat($real);
         $contents = @file_get_contents($real);
+        $this->inputs->file($real, $signature, $contents === false ? null : $contents);
         if ($contents === false) {
             return;
         }
@@ -520,16 +540,20 @@ final class ClassSourceIndex
         }
         $this->classmap = [];
         foreach ($this->classmapPaths as $path) {
+            $this->inputs->probe($path);
             $real = realpath($path);
             if ($real === false || !$this->isInsideRoot($real)) {
                 continue;
             }
+            $this->inputs->isDirectory($path);
             foreach (is_dir($path) ? $this->phpFiles($path) : [$path] as $file) {
                 $real = realpath($file);
                 if ($real === false || !$this->isInsideRoot($real)) {
                     continue;
                 }
+                $signature = SourceSnapshot::stat($real);
                 $contents = @file_get_contents($real);
+                $this->inputs->file($real, $signature, $contents === false ? null : $contents);
                 if ($contents === false) {
                     continue;
                 }
@@ -551,11 +575,16 @@ final class ClassSourceIndex
         try {
             $iterator = new \RecursiveIteratorIterator(
                 new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::SELF_FIRST,
             );
         } catch (Throwable) {
             return;
         }
+        $this->inputs->directory($dir);
         foreach ($iterator as $file) {
+            if ($file instanceof \SplFileInfo && $file->isDir()) {
+                $this->inputs->directory($file->getPathname());
+            }
             if ($file instanceof \SplFileInfo && $file->isFile() && $file->getExtension() === 'php') {
                 yield $file->getPathname();
             }
@@ -565,7 +594,9 @@ final class ClassSourceIndex
     /** @return array<mixed> */
     private function readJson(string $file): array
     {
+        $signature = SourceSnapshot::stat($file);
         $contents = @file_get_contents($file);
+        $this->inputs->file($file, $signature, $contents === false ? null : $contents);
         $data = $contents === false ? null : json_decode($contents, true);
 
         return is_array($data) ? $data : [];

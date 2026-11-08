@@ -6,6 +6,7 @@ namespace Suzumaze\BearPhpactor\Semantic\Template;
 
 use Suzumaze\BearPhpactor\Resource\Model\Project;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaDirectoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Workspace\WorkspaceContext;
@@ -30,6 +31,7 @@ final readonly class TemplateQuery
         string $engine,
         string $name,
         ?string $documentPath = null,
+        ?string $qiqRoot = null,
     ): SemanticResult {
         $validation = $this->validate($engine, $name, $documentPath);
         if ($validation !== null) {
@@ -52,6 +54,7 @@ final readonly class TemplateQuery
             $reference,
             $project->root(),
             $canonicalDocument ?? $project->root(),
+            $qiqRoot,
         );
         if ($file === null) {
             return SemanticResult::notFound();
@@ -82,6 +85,7 @@ final readonly class TemplateQuery
         string $engine,
         string $name,
         ?string $contextPath = null,
+        ?SchemaDirectoryQuery $directories = null,
     ): SemanticResult {
         $project = $workspace->project($contextPath);
         if ($project->value === null) {
@@ -97,7 +101,15 @@ final readonly class TemplateQuery
             $documentPath = $path->value->absolute;
         }
 
-        $result = $this->resolve($project->value, $engine, $name, $documentPath);
+        $qiqRoot = null;
+        if ($engine === TemplateReference::ENGINE_QIQ) {
+            $root = QiqTemplateRoot::inWorkspace($workspace, $project->value, $documentPath, $directories);
+            if ($root->value === null) {
+                return SemanticResult::failure($root->status);
+            }
+            $qiqRoot = $root->value;
+        }
+        $result = $this->resolve($project->value, $engine, $name, $documentPath, $qiqRoot);
         if ($result->status !== SemanticStatus::Ok || $result->value === null) {
             return $result;
         }

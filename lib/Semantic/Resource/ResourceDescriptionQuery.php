@@ -7,6 +7,7 @@ namespace Suzumaze\BearPhpactor\Semantic\Resource;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
 use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
+use Suzumaze\BearPhpactor\Semantic\Schema\SchemaDirectoryQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\SchemaQuery;
 use Suzumaze\BearPhpactor\Semantic\Schema\ResourceSchemaQuery;
 use Suzumaze\BearPhpactor\Semantic\Template\ResourceTemplateQuery;
@@ -80,15 +81,24 @@ final class ResourceDescriptionQuery
         ResourceIncomingRelations $incoming,
         ?string $applicationContext,
     ): SemanticResult {
+        // One composition of the DI contexts serves both the Qiq template directory and the schema directories.
+        $directories = new SchemaDirectoryQuery();
         $templates = [];
+        $unresolvedTemplateEngines = [];
         foreach ([TemplateReference::ENGINE_QIQ, TemplateReference::ENGINE_TWIG] as $engine) {
             $template = $this->resourceTemplateQuery->resolveForResolutionInWorkspace(
                 $workspace,
                 $facts->resource,
                 $engine,
+                $directories,
             );
             if ($template->status === SemanticStatus::Ok && $template->value !== null) {
                 $templates[] = $template->value;
+                continue;
+            }
+            // The rest of the description stands without the template, so say which one is unknown.
+            if ($template->status === SemanticStatus::Unsupported) {
+                $unresolvedTemplateEngines[] = $engine;
                 continue;
             }
             if ($template->status !== SemanticStatus::NotFound) {
@@ -99,7 +109,7 @@ final class ResourceDescriptionQuery
         $schemas = [];
         $schemaCoverage = [];
         $responseSchema = null;
-        $discovery = new ResourceSchemaQuery($this->schemaQuery);
+        $discovery = new ResourceSchemaQuery($this->schemaQuery, directories: $directories);
         foreach ($facts->methods as $method) {
             foreach ([SchemaQuery::KIND_REQUEST, SchemaQuery::KIND_RESPONSE] as $kind) {
                 $selection = $discovery->select($workspace, $facts, $method->name, $kind, $applicationContext);
@@ -147,7 +157,15 @@ final class ResourceDescriptionQuery
         }
 
         return SemanticResult::ok(
-            new ResourceDescription($facts, $incoming, $templates, $responseSchema, $schemas, $schemaCoverage),
+            new ResourceDescription(
+                $facts,
+                $incoming,
+                $templates,
+                $responseSchema,
+                $schemas,
+                $schemaCoverage,
+                $unresolvedTemplateEngines,
+            ),
             $provenance,
         );
     }

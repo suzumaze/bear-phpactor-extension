@@ -112,6 +112,7 @@ final class ProjectDiagnosticsQuery
                 $engine,
                 $path->value->relative,
                 $items,
+                new SchemaDirectoryQuery(),
             );
         } elseif (str_ends_with(strtolower($normalized), '.php')) {
             $conventions = $this->referenceConventions($workspace, $project->value->root());
@@ -196,6 +197,7 @@ final class ProjectDiagnosticsQuery
 
         $this->diagnoseRoutes($workspace, $project->value->root(), $items, $scannedFiles);
 
+        $directories = new SchemaDirectoryQuery();
         foreach ($this->templateSourceScanner->scan($workspace, $project->value) as $source) {
             $path = $workspace->accessPolicy()->inspectExisting($source->file);
             if ($path->value === null) {
@@ -209,6 +211,7 @@ final class ProjectDiagnosticsQuery
                 $source->engine,
                 $path->value->relative,
                 $items,
+                $directories,
             );
             if ($dynamic && !in_array('dynamic_template_references', $conventions['skipped'], true)) {
                 $conventions['skipped'][] = 'dynamic_template_references';
@@ -462,6 +465,7 @@ final class ProjectDiagnosticsQuery
         string $engine,
         string $relativePath,
         array &$items,
+        SchemaDirectoryQuery $directories,
     ): bool {
         $document = TextDocumentBuilder::create($contents)
             ->uri($file)
@@ -483,6 +487,7 @@ final class ProjectDiagnosticsQuery
                 $reference->engine,
                 $reference->name,
                 $relativePath,
+                $directories,
             );
             if (!$this->reportableReferenceFailure($result->status)) {
                 continue;
