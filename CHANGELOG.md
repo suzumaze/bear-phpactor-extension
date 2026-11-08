@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.12] - 2026-11-08
+
 - The response body shape steps over `if`, loop, `switch` and `try` statements that can neither
   change the body nor leave the method part way (no `$this->body`, no `$this` method call, and no
   `return`, `throw`, `exit`, `yield` or `goto` outside closures). A method that builds a local list
