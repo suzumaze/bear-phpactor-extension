@@ -36,6 +36,20 @@ final class BodyGuardsTest extends TestCase
         self::assertSame('complex_control_flow', $methods['onPatch']['reason']);
     }
 
+    public function testControlFlowThatCannotChangeOrLeaveTheBodyIsSteppedOver(): void
+    {
+        $methods = $this->methods('app://self/steps');
+
+        // A loop, a `try` and a `switch` that only build local values, before and after the assignment.
+        self::assertSame(['status' => 'ok', 'names' => ['list', 'note'], 'reason' => null], $methods['onGet']);
+        // A `return` inside a closure in the loop stays inside the closure.
+        self::assertSame(['doubled'], $methods['onPost']['names']);
+        // A `return` or `throw` in the block, or a `$this` method call, keeps the method unsupported.
+        self::assertSame('complex_control_flow', $methods['onPut']['reason']);
+        self::assertSame('complex_control_flow', $methods['onPatch']['reason']);
+        self::assertSame('complex_control_flow', $methods['onDelete']['reason']);
+    }
+
     public function testReplacementsIgnoreOtherObjectsAndDeferredCodeAndKnowEveryWayOut(): void
     {
         $methods = $this->methods('page://self/variants');
