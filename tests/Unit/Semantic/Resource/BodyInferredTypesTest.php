@@ -49,6 +49,20 @@ final class BodyInferredTypesTest extends TestCase
         self::assertArrayNotHasKey('inferredTypes', $body['earlyExits'][0]);
     }
 
+    public function testAValueThatReadsWhatALoopWritesIsNotInferred(): void
+    {
+        $body = $this->method($this->describe(self::FIXTURE), 'onPut')['responseBody'];
+
+        self::assertSame([
+            // Phpactor types `$titles` as if the loop ran exactly once, so it is not reported.
+            'count' => ['<missing>', 'unknown', []],
+            'id' => ['int', 'scalar', []],
+            // An `if` may or may not run, and Phpactor keeps both outcomes.
+            'label' => ['"none"|"some"', 'scalar', []],
+            'titles' => ['<missing>', 'unknown', []],
+        ], $this->types($body));
+    }
+
     public function testNothingIsInferredWhereTheNamesAreNotProvenOrWithoutPhpactor(): void
     {
         $post = $this->method($this->describe(self::FIXTURE), 'onPost')['responseBody'];

@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- The response body shape steps over `if`, loop, `switch` and `try` statements that can neither
+  change the body nor leave the method part way (no `$this->body`, no `$this` method call, and no
+  `return`, `throw`, `exit`, `yield` or `goto` outside closures). A method that builds a local list
+  in a `foreach` and then assigns `$this->body = ['list' => $list]` was `complex_control_flow`; its
+  names are now proven.
+- `responseBody.inferredTypes` reports a value as `unknown` when it reads a variable that an
+  earlier loop writes, because Phpactor types the loop as if it ran exactly once.
+
 ## [0.3.11] - 2026-11-07
 
 - `responseBody.inferredTypes` gets a new `kind`, `iterable`, for values declared `iterable`

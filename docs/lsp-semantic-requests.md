@@ -656,8 +656,12 @@ is `ok` only when saved source proves an exact top-level body shape: the method 
 assign a literal-key array to `$this->body`, may then add literal keys, and may return
 `$this`. Early-exit guards are allowed: an `if` without `else` or `elseif` whose block ends
 in `return $this;` or `return;`, may assign one literal-key array to the body, and has no
-`$this` method call or `$this->body` use in its condition. The names describe the path that reaches the end of
-the method, and contract comparison uses that path. A `$this` helper call is allowed inside
+`$this` method call or `$this->body` use in its condition. Other `if`, `foreach`, `for`, `while`,
+`do`, `switch` and `try` statements are stepped over when they can neither change the body nor
+leave the method part way: they contain no `$this->body`, no `$this` method call, and, outside
+closures, arrow functions and anonymous classes, no `return`, `throw`, `exit`, `yield` or `goto`.
+Building a local list in a loop before the assignment is the common case. The names describe the
+path that reaches the end of the method, and contract comparison uses that path. A `$this` helper call is allowed inside
 the right-hand side of the full assignment, because it runs before the body is written; as a
 statement or in a key addition it stays `unsupported`, like other conditional control flow,
 dynamic keys or assignments, and unsupported body uses. Application PHP is never loaded or
@@ -694,6 +698,10 @@ Inside the language server, a method whose shape is `ok` also gets `responseBody
 that reaches the end: `{name, type, kind, classes}`. `type` is what Phpactor's type inference gives
 for that expression in the saved file (`<missing>` when it gives nothing); for a plain assignment
 in the value position (`'id' => $id = $this->save($x)`) it is the type of the right-hand side.
+A value that reads a variable an earlier loop writes (assigns, appends to, increments, binds in
+`foreach`, captures by reference, or passes to a call) is `<missing>` and `unknown`: Phpactor types
+a loop's writes as if the loop ran exactly once, so `$list = []; foreach (…) { $list[] = …; }`
+would claim a one-element array.
 `kind` sorts the outer type, ignoring null, into `scalar`, `array`, `iterable` (declared `iterable`,
 which may be an array or a Traversable, such as a query that returns `iterable<mixed>`), `object`,
 `null`, `union` (more than one of these), or `unknown` (when any part is unknown). `classes` lists
