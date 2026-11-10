@@ -315,6 +315,55 @@ PHP,
         );
     }
 
+    public function testKeepsRelationsWhoseTargetCannotBeReadAsUnresolved(): void
+    {
+        $file = $this->workspace . '/src/Resource/App/Dashboard.php';
+        $source = (string) file_get_contents($file);
+        $source = str_replace(
+            "#[Refresh(uri: 'app://self/dashboard')]",
+            <<<'PHP'
+#[Embed(rel: 'constantEmbed', src: self::BASE
+        . '/widget{?id}')]
+    #[Embed(rel: 'missingEmbed')]
+    #[Link(rel: 'badLink', href: 'not a uri')]
+    #[Refresh(uri: 'app://self/dashboard')]
+PHP,
+            $source,
+        );
+        self::assertNotFalse(file_put_contents($file, $source));
+
+        $result = (new ResourceFactsQuery())->describeInWorkspace($this->workspace(), 'app://self/dashboard');
+
+        self::assertSame(SemanticStatus::Ok, $result->status);
+        self::assertInstanceOf(ResourceFacts::class, $result->value);
+        self::assertSame(
+            [
+                ['embed', 'constantEmbed', 'src', 'not_literal', "self::BASE . '/widget{?id}'"],
+                ['embed', 'missingEmbed', 'src', 'missing', null],
+                ['link', 'badLink', 'href', 'invalid_uri', "'not a uri'"],
+            ],
+            array_map(
+                static fn ($relation): array => [
+                    $relation->kind,
+                    $relation->rel,
+                    $relation->argument,
+                    $relation->reason,
+                    $relation->expression,
+                ],
+                $result->value->unresolvedRelations,
+            ),
+        );
+        $lines = array_map(static fn ($relation): int => $relation->line, $result->value->unresolvedRelations);
+        self::assertSame(
+            substr_count($source, "\n", 0, (int) strpos($source, "#[Embed(rel: 'constantEmbed'")) + 1,
+            $lines[0],
+        );
+        self::assertSame([], array_filter(
+            $result->value->outgoingRelations,
+            static fn ($relation): bool => in_array($relation->rel, ['constantEmbed', 'missingEmbed', 'badLink'], true),
+        ));
+    }
+
     public function testReturnsStructuredFailureForMissingAndOversizedSource(): void
     {
         $query = new ResourceFactsQuery();

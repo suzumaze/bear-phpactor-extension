@@ -20,6 +20,12 @@ final readonly class ResourceFacts
         public array $outgoingReferences = [],
         /** `@property ... $body` in the class's own docblock; null when it declares none */
         public ?ResourceDeclaredBody $declaredBody = null,
+        /**
+         * Link/Embed attributes left out of $outgoingRelations because their target could not be read
+         *
+         * @var list<ResourceUnresolvedRelationFact>
+         */
+        public array $unresolvedRelations = [],
     ) {
     }
 }

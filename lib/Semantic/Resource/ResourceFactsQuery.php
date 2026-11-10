@@ -31,6 +31,8 @@ final class ResourceFactsQuery
 {
     private const MAX_PHP_BYTES = 2097152;
     private const MAX_ARGUMENT_LENGTH = 2048;
+    /** Characters of an unresolved relation target kept in the reply */
+    private const MAX_EXPRESSION_LENGTH = 200;
     private const MAX_CACHE_ENTRIES = 128;
     /** @var array<string,string> */
     private const SUPPORTED_ATTRIBUTES = [
@@ -144,15 +146,19 @@ final class ResourceFactsQuery
 
         $methods = [];
         $relations = [];
+        $unresolvedRelations = [];
         $attributes = $this->attributeFacts($class, 'class', null, $source);
         foreach ($class->classMembers->getChildNodes() as $member) {
             if (!$member instanceof MethodDeclaration || !$this->isResourceMethod($member)) {
                 continue;
             }
 
-            $methodRelations = $this->relations($member, $member->getName(), $resource, $source);
+            $methodUnresolved = [];
+            $methodRelations = $this->relations($member, $member->getName(), $resource, $source, $methodUnresolved);
+            array_push($unresolvedRelations, ...$methodUnresolved);
             $embedRels = [];
-            foreach ($methodRelations as $relation) {
+            // An embed whose src cannot be read still sets its rel key before the method runs.
+            foreach ([...$methodRelations, ...$methodUnresolved] as $relation) {
                 if ($relation->kind === 'embed') {
                     $embedRels[] = $relation->rel;
                 }
@@ -220,6 +226,7 @@ final class ResourceFactsQuery
                 $attributes,
                 $outgoingReferences,
                 $this->declaredBodyReader->read($class, $source),
+                $unresolvedRelations,
             ),
             [Provenance::savedFile($path->value->relative)],
         );
@@ -305,12 +312,16 @@ final class ResourceFactsQuery
         return $parameters;
     }
 
-    /** @return list<ResourceRelationFact> */
+    /**
+     * @param list<ResourceUnresolvedRelationFact> $unresolved receives the attributes whose target cannot be read
+     * @return list<ResourceRelationFact>
+     */
     private function relations(
         MethodDeclaration $method,
         string $methodName,
         ResourceResolution $resource,
         string $source,
+        array &$unresolved,
     ): array {
         $relations = [];
         foreach ($this->attributes($method) as $attribute) {
@@ -321,11 +332,25 @@ final class ResourceFactsQuery
 
             $targetArgument = $kind === 'embed' ? 'src' : 'href';
             $target = $this->stringArgument($attribute, $targetArgument, 2, $source);
-            if ($target === null) {
-                continue;
-            }
-            $targetUri = $this->targetUri($target, $resource->uri);
+            $targetUri = $target === null ? null : $this->targetUri($target, $resource->uri);
             if ($targetUri === null) {
+                $expression = $this->argumentNode($attribute, $targetArgument, 2, $source)?->expression;
+                $unresolved[] = new ResourceUnresolvedRelationFact(
+                    $kind,
+                    $this->stringArgument($attribute, 'rel', 1, $source) ?? '',
+                    $resource->uri,
+                    $methodName,
+                    $targetArgument,
+                    match (true) {
+                        !$expression instanceof Node => 'missing',
+                        $target === null => 'not_literal',
+                        default => 'invalid_uri',
+                    },
+                    $expression instanceof Node ? $this->expressionText($expression) : null,
+                    $resource->file,
+                    $attribute->getStartPosition(),
+                    substr_count($source, "\n", 0, $attribute->getStartPosition()) + 1,
+                );
                 continue;
             }
 
@@ -486,6 +511,44 @@ final class ResourceFactsQuery
         return $argument->expression instanceof StringLiteral
             ? $argument->expression->getStringContentsText()
             : null;
+    }
+
+    /** The argument passed by $name, else the unnamed one at $position */
+    private function argumentNode(
+        Attribute $attribute,
+        string $name,
+        int $position,
+        string $source,
+    ): ?ArgumentExpression {
+        if (!$attribute->argumentExpressionList instanceof DelimitedList) {
+            return null;
+        }
+        $arguments = iterator_to_array($attribute->argumentExpressionList->getElements(), false);
+        foreach ($arguments as $argument) {
+            if (
+                $argument instanceof ArgumentExpression
+                && $argument->name instanceof Token
+                && $argument->name->getText($source) === $name
+            ) {
+                return $argument;
+            }
+        }
+        $argument = $arguments[$position] ?? null;
+
+        return $argument instanceof ArgumentExpression && !$argument->name instanceof Token ? $argument : null;
+    }
+
+    /** Source text on one line, cut on a character boundary so that it stays valid UTF-8 */
+    private function expressionText(Node $expression): string
+    {
+        $text = (string) preg_replace('/\s+/', ' ', trim($expression->getText()));
+        if (strlen($text) <= self::MAX_EXPRESSION_LENGTH) {
+            return $text;
+        }
+
+        return preg_match('/^.{0,' . self::MAX_EXPRESSION_LENGTH . '}/su', $text, $match) === 1
+            ? rtrim($match[0]) . '…'
+            : '';
     }
 
     private function hasArgument(Attribute $attribute, string $name, int $position, string $source): bool

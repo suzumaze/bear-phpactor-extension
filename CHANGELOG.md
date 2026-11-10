@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- `#[Link]` and `#[Embed]` whose target is not a literal URI, such as `src: self::BASE . '/item'`,
+  are no longer dropped without a word. `bear/resource/describe` lists them in
+  `relationsOutCoverage.unresolved` with the expression, the reason and the line, and counts them
+  in `unresolvedTotal`. `bear/resource/incomingRelations` and `relationsIn` return the same items
+  from the whole project, since any of them may point at the target, so `total` is a lower bound
+  when `unresolvedTotal` is not 0. The `rel` of such an embed now counts in `embedReplacements`.
+
 ## [0.3.12] - 2026-11-08
 
 - The response body shape steps over `if`, loop, `switch` and `try` statements that can neither

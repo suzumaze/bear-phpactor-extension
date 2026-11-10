@@ -9,7 +9,7 @@ use BEAR\Resource\ResourceObject;
 
 final class Index extends ResourceObject
 {
-    #[Embed(rel: 'entries', src: 'app://self/entries{?page}')]
+    #[Embed(rel: 'entries', src: 'app://self/entries{?page}'), Embed(rel: 'ranking', src: self::RANKING)]
     public function onGet(int $page): static
     {
         // Drops the embedded `entries` key on every request.
@@ -26,4 +26,7 @@ final class Index extends ResourceObject
 
         return $this;
     }
+
+    // The src is not a literal, so the embed is unresolved, yet its `ranking` key is still dropped.
+    private const RANKING = 'app://self/ranking';
 }

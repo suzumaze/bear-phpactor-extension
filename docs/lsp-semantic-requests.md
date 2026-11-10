@@ -495,7 +495,7 @@ load module PHP, construct a DI container, or execute the application.
 | `bear/resource/describe` | `{uri, contextPath?, incomingLimit?, applicationContext?}` | `{resource, methods[{name, parameters, responseBody}], declaredBody?, relationsOut, relationsOutCoverage, referencesOut, referencesOutCoverage, relationsIn, templates, schemas}` |
 | `bear/resource/attributes` | `{uri, contextPath?}` | `{resource, attributes, argumentPolicy}` |
 | `bear/resource/attributeIndex` | `{scheme?, prefix?, limit?, offset?}` | `{items, total, offset, truncated, argumentPolicy}` |
-| `bear/resource/incomingRelations` | `{uri, contextPath?, limit?}` | `{resource, available, items, total, truncated}` |
+| `bear/resource/incomingRelations` | `{uri, contextPath?, limit?}` | `{resource, available, items, total, truncated, unresolved, unresolvedTotal, unresolvedTruncated}` |
 | `bear/resource/references` | `{uri, contextPath?, limit?}` | `{resource, references, total, truncated}` |
 | `bear/contract/compare` | `{uri, method?, schemaKind?, descriptorId?, contextPath?, applicationContext?}` | `{resource, method, schemaKind, surfaces, comparison}` |
 | `bear/route/resolve` | `{route, contextPath?}` | `{route, resource}` |
@@ -554,6 +554,17 @@ The same applies to `bear/resource/incomingRelations` items. Dynamic URIs and di
 properties are not inferred. `relationsOutCoverage` and `referencesOutCoverage` state
 these boundaries explicitly, so an empty list does not claim that the Resource has no
 runtime dependencies.
+
+A `#[Link]` or `#[Embed]` whose target is not a literal URI is not left out silently.
+`relationsOutCoverage.unresolved` lists it with `kind`, `rel`, `sourceMethod`, the
+`argument` (`src` or `href`), a `reason`, the source `expression` cut to 200 characters,
+`sourcePath`, `byteOffset` and `line`; `unresolvedTotal` counts them. The reason is
+`not_literal` for an expression such as `self::BASE . '/item{?id}'`, `missing` when there is
+no target argument (no `expression` then), and `invalid_uri` for a string that is not a
+Resource URI or climbs out with `..`. An unresolved embed's `rel` still counts in
+`embedReplacements`. `bear/resource/incomingRelations` and `relationsIn` return the same items
+from every scanned Resource, because any of them may point at the target: `total` is then a
+lower bound. They return at most `limit` items, with `unresolvedTotal` and `unresolvedTruncated`.
 
 For `bear/template/forResource`, `searched` contains workspace-relative convention
 paths in the order actually checked. A missing Resource has no successful `data`; an

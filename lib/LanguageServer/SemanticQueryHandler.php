@@ -56,6 +56,7 @@ use Suzumaze\BearPhpactor\Semantic\Resource\ResourceReferences;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceReferencesQuery;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceRelationFact;
 use Suzumaze\BearPhpactor\Semantic\Resource\ResourceResolution;
+use Suzumaze\BearPhpactor\Semantic\Resource\ResourceUnresolvedRelationFact;
 use Suzumaze\BearPhpactor\Semantic\Result\Provenance;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticResult;
 use Suzumaze\BearPhpactor\Semantic\Result\SemanticStatus;
@@ -1167,6 +1168,9 @@ final class SemanticQueryHandler implements Handler
             'relationsOutCoverage' => [
                 'source' => 'link_embed_attributes',
                 'includesStaticResourceCalls' => false,
+                // Link/Embed attributes left out of relationsOut because their target cannot be read as a URI.
+                'unresolvedTotal' => count($facts->unresolvedRelations),
+                'unresolved' => array_map($this->unresolvedRelationData(...), $facts->unresolvedRelations),
             ],
             'referencesOut' => array_map(
                 fn ($reference): array => [
@@ -1250,7 +1254,7 @@ final class SemanticQueryHandler implements Handler
         ];
     }
 
-    /** @return array{available:bool,items:list<array<string,mixed>>,total:int,truncated:bool} */
+    /** @return array<string,mixed> */
     private function incomingRelationsData(ResourceIncomingRelations $incoming): array
     {
         return [
@@ -1258,6 +1262,27 @@ final class SemanticQueryHandler implements Handler
             'items' => array_map($this->relationData(...), $incoming->relations),
             'total' => $incoming->total,
             'truncated' => $incoming->truncated,
+            // Relations anywhere in the project whose target cannot be read; any may point here.
+            'unresolved' => array_map($this->unresolvedRelationData(...), $incoming->unresolved),
+            'unresolvedTotal' => $incoming->unresolvedTotal,
+            'unresolvedTruncated' => $incoming->unresolvedTotal > count($incoming->unresolved),
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function unresolvedRelationData(ResourceUnresolvedRelationFact $relation): array
+    {
+        return [
+            'kind' => $relation->kind,
+            'rel' => $relation->rel,
+            'sourceUri' => $relation->sourceUri->uri(),
+            'sourceMethod' => $relation->sourceMethod,
+            'argument' => $relation->argument,
+            'reason' => $relation->reason,
+            ...($relation->expression === null ? [] : ['expression' => $relation->expression]),
+            'sourcePath' => $this->relativePath($relation->sourceFile),
+            'byteOffset' => $relation->byteOffset,
+            'line' => $relation->line,
         ];
     }
 

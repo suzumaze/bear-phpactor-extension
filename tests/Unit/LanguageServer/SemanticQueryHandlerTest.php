@@ -184,10 +184,27 @@ final class SemanticQueryHandlerTest extends TestCase
         self::assertSame('embed', $response['data']['relationsOut'][0]['kind']);
         self::assertSame('app://self/missing', $response['data']['relationsOut'][0]['targetUri']);
         self::assertSame('src/Resource/App/Dashboard.php', $response['data']['relationsOut'][0]['sourcePath']);
-        self::assertSame([
-            'source' => 'link_embed_attributes',
-            'includesStaticResourceCalls' => false,
-        ], $response['data']['relationsOutCoverage']);
+        $coverage = $response['data']['relationsOutCoverage'];
+        self::assertSame('link_embed_attributes', $coverage['source']);
+        self::assertFalse($coverage['includesStaticResourceCalls']);
+        // URIs that climb out with `..` are not followed, and are reported instead of being dropped.
+        self::assertSame(2, $coverage['unresolvedTotal']);
+        self::assertSame(
+            [
+                ['embed', 'src', 'invalid_uri', "'app://self/../../outside'", 15],
+                ['embed', 'src', 'invalid_uri', "'/../../outside'", 16],
+            ],
+            array_map(
+                static fn (array $item): array => [
+                    $item['kind'],
+                    $item['argument'],
+                    $item['reason'],
+                    $item['expression'],
+                    $item['line'],
+                ],
+                $coverage['unresolved'],
+            ),
+        );
         self::assertCount(1, $response['data']['referencesOut']);
         self::assertSame('resource_call', $response['data']['referencesOut'][0]['kind']);
         self::assertSame('get', $response['data']['referencesOut'][0]['call']);
