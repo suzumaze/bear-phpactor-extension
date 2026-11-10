@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.13] - 2026-11-10
+
 - `#[Link]` and `#[Embed]` whose target is not a literal URI, such as `src: self::BASE . '/item'`,
   are no longer dropped without a word. `bear/resource/describe` lists them in
   `relationsOutCoverage.unresolved` with the expression, the reason and the line, and counts them
