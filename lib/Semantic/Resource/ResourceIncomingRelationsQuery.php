@@ -75,6 +75,7 @@ final class ResourceIncomingRelationsQuery
         }
 
         $relations = [];
+        $unresolved = [];
         $candidates = $this->inventoryIndex === null
             ? $project->value->resourceClassCandidates()
             : $this->inventoryIndex->candidates($project->value, $contextPath);
@@ -95,6 +96,7 @@ final class ResourceIncomingRelationsQuery
             if ($facts->value === null) {
                 return SemanticResult::failure($facts->status);
             }
+            array_push($unresolved, ...$facts->value->unresolvedRelations);
             foreach ($facts->value->outgoingRelations as $relation) {
                 $resolved = $this->resourceQuery->resolveInWorkspace(
                     $workspace,
@@ -115,6 +117,7 @@ final class ResourceIncomingRelationsQuery
 
         usort($relations, self::compareRelations(...));
         $total = count($relations);
+        usort($unresolved, self::compareUnresolved(...));
 
         $selected = array_slice($relations, 0, $limit);
         $provenance = [Provenance::savedFile($targetPath->value->relative), Provenance::derived()];
@@ -133,6 +136,8 @@ final class ResourceIncomingRelationsQuery
                 $selected,
                 $total,
                 $total > $limit,
+                array_slice($unresolved, 0, $limit),
+                count($unresolved),
             ),
             $provenance,
         );
@@ -159,6 +164,14 @@ final class ResourceIncomingRelationsQuery
             $right->targetUri->uri(),
             $right->targetMethod ?? '',
         ];
+    }
+
+    private static function compareUnresolved(
+        ResourceUnresolvedRelationFact $left,
+        ResourceUnresolvedRelationFact $right,
+    ): int {
+        return [$left->sourceUri->uri(), $left->sourceFile, $left->byteOffset]
+            <=> [$right->sourceUri->uri(), $right->sourceFile, $right->byteOffset];
     }
 
     private function validLimit(int $limit): bool

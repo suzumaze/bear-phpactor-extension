@@ -173,7 +173,7 @@
                 {"name": "limit", "type": "int", "required": false, "default": 50}
             ],
             "successEnvelopeKeys": ["status", "data", "candidates", "provenance"],
-            "successDataKeys": ["resource", "available", "items", "total", "truncated"]
+            "successDataKeys": ["resource", "available", "items", "total", "truncated", "unresolved", "unresolvedTotal", "unresolvedTruncated"]
         },
         "bear/resource/references": {
             "handler": "findResourceReferences",

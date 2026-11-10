@@ -71,7 +71,7 @@ final class BodyGuardsTest extends TestCase
     public function testFullAssignmentAfterEmbedIsReportedApartFromAnErrorBranch(): void
     {
         self::assertSame(
-            [['line' => 16, 'earlyExit' => false, 'rels' => ['entries']]],
+            [['line' => 16, 'earlyExit' => false, 'rels' => ['entries', 'ranking']]],
             $this->methods('page://self/index')['onGet']['embedReplacements'],
         );
         // Reading `$this->body` on the right keeps the embedded key.

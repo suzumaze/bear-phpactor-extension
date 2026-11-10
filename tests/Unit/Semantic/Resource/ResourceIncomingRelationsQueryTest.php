@@ -85,6 +85,21 @@ PHP);
                 $first->value->relations,
             ),
         );
+        // A link whose href is a constant may point here too, so it is reported rather than dropped.
+        self::assertSame(1, $first->value->unresolvedTotal);
+        self::assertSame(
+            [['link', 'dynamic', 'app://self/dashboard', 'not_literal', 'SOME_URI']],
+            array_map(
+                static fn ($relation): array => [
+                    $relation->kind,
+                    $relation->rel,
+                    $relation->sourceUri->uri(),
+                    $relation->reason,
+                    $relation->expression,
+                ],
+                $first->value->unresolved,
+            ),
+        );
         self::assertEquals($first, $second);
     }
 
